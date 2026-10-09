@@ -5,6 +5,7 @@ import {
   CircleHelp, Clock3, KeyRound, LogOut, RotateCcw, ShoppingBag, Users, X,
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
+import VisitCorrections from "./components/VisitCorrections";
 
 type Branch = { id: string; slug: string; name: string };
 type Outcome = "purchased" | "not_purchased" | "undecided";
@@ -387,7 +388,9 @@ export default function App() {
         </section>
       </div>
 
-      <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 2 database integration</span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
+      <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} />
+
+      <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
 
       {showPasswordSettings && (
         <div className="modal-backdrop" role="presentation">
