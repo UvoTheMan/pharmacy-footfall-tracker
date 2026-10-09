@@ -56,7 +56,7 @@ export default function App() {
   const [batchCount, setBatchCount] = useState("5");
   const [batchOutcome, setBatchOutcome] = useState<Outcome>("purchased");
   const [reason, setReason] = useState<Reason | "">("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingVisits, setLoadingVisits] = useState(false);
@@ -155,8 +155,13 @@ export default function App() {
     if (!supabase) return;
     setBusy(true);
     setError("");
-    const result = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (result.error) setError(result.error.message);
+    if (username.trim().toLowerCase() !== "springcare") {
+      setError("Incorrect username or password.");
+      setBusy(false);
+      return;
+    }
+    const result = await supabase.auth.signInWithPassword({ email: "victorokolieau@gmail.com", password });
+    if (result.error) setError("Incorrect username or password.");
     setBusy(false);
   }
 
@@ -244,8 +249,8 @@ export default function App() {
         <p className="eyebrow">PHARMACY FOOTFALL TRACKER</p>
         <h1>Welcome back.</h1>
         <p>Sign in with the account provided by your administrator.</p>
-        <label className="field-label" htmlFor="email">Email address</label>
-        <input className="number-input" id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} />
+        <label className="field-label" htmlFor="username">Username</label>
+        <input className="number-input" id="username" type="text" autoComplete="username" autoCapitalize="none" required value={username} onChange={(event) => setUsername(event.target.value)} />
         <label className="field-label" htmlFor="password">Password</label>
         <input className="number-input" id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
         {error && <p className="error-message" role="alert">{error}</p>}
