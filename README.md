@@ -37,3 +37,19 @@ A mobile-friendly multi-branch visit counter for Gbagada, Akoka, and Sangotedo.
 - Row-level security limits branch data to assigned staff; active admins can access all branches.
 - Keep staff account creation controlled by the administrator. Use strong passwords and enable MFA for admin accounts.
 - Browser local storage is not a central database and can be cleared by the user. Do not use it as the production source of truth.
+
+## Admin-token password change flow
+
+The dashboard's **Change password** form now calls the `authorize-password-change` Supabase Edge Function and asks for an admin-issued token. The token is validated on the server and must never be added to Vite variables, source code, or a client-side file.
+
+Before using this feature:
+
+1. Deploy `supabase/functions/authorize-password-change/index.ts` as an Edge Function named `authorize-password-change` in the connected Supabase project. Keep JWT verification enabled.
+2. In Supabase Dashboard, open **Edge Functions → Secrets** and set `ADMIN_PASSWORD_CHANGE_TOKEN` to a randomly generated secret of at least 32 characters. Share it only with the administrator and authorized staff who need it.
+3. Test a password change with the correct token, then test again with an incorrect token. Confirm the password is unchanged after the failed attempt.
+4. To rotate a lost or exposed token, replace the secret in Supabase Edge Function secrets and redeploy/restart the function if the dashboard requires it. The old token should stop working.
+
+The email-based password recovery flow remains separate and continues to use Supabase's recovery link.
+
+**Security limitation:** this token protects the app's Change password flow. Supabase's hosted Auth API still permits an authenticated user to update their own password directly, outside this UI. Supabase does not provide a general before-password-update hook for enforcing this custom token on every Auth API request. So this implementation alone cannot guarantee that no user can change a password without a token. Do not treat it as strict server-wide enforcement. If that guarantee is mandatory, the authentication design must change rather than relying on a front-end gate.
+
