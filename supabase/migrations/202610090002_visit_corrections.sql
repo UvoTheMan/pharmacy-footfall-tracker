@@ -12,6 +12,7 @@ create table if not exists public.visit_corrections (
 );
 create index if not exists visit_corrections_visit_id_idx on public.visit_corrections(visit_id, corrected_at desc);
 alter table public.visit_corrections enable row level security;
+drop policy if exists "Branch members can view visit correction history" on public.visit_corrections;
 create policy "Branch members can view visit correction history"
 on public.visit_corrections for select to authenticated
 using (public.can_access_branch(branch_id));
