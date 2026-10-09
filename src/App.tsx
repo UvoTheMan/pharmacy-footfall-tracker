@@ -64,6 +64,7 @@ export default function App() {
   const [showPasswordSettings, setShowPasswordSettings] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [adminToken, setAdminToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingVisits, setLoadingVisits] = useState(false);
   const [notice, setNotice] = useState("");
@@ -201,15 +202,27 @@ export default function App() {
     }
     setBusy(true);
     setError("");
-    const result = await supabase.auth.updateUser({ password: newPassword });
-    if (result.error) {
-      setError(`Could not update password: ${result.error.message}`);
-      setBusy(false);
-      return;
+    if (showPasswordSettings) {
+      const result = await supabase.functions.invoke("authorize-password-change", {
+        body: { password: newPassword, adminToken },
+      });
+      if (result.error) {
+        setError("Password change was not authorized or could not be completed. Check the admin token and try again.");
+        setBusy(false);
+        return;
+      }
+    } else {
+      const result = await supabase.auth.updateUser({ password: newPassword });
+      if (result.error) {
+        setError(`Could not update password: ${result.error.message}`);
+        setBusy(false);
+        return;
+      }
     }
     setPassword("");
     setNewPassword("");
     setConfirmNewPassword("");
+    setAdminToken("");
     setRecoveryMode(false);
     setShowPasswordSettings(false);
     setBusy(false);
@@ -340,7 +353,7 @@ export default function App() {
         </a>
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
-          <button className="signout-button" onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
+          <button className="signout-button" onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
           <button className="signout-button" onClick={() => void signOut()} aria-label="Sign out"><LogOut size={15} /> Sign out</button>
         </div>
       </header>
@@ -395,7 +408,7 @@ export default function App() {
       {showPasswordSettings && (
         <div className="modal-backdrop" role="presentation">
           <form className="modal" role="dialog" aria-modal="true" aria-labelledby="password-settings-title" onSubmit={updatePassword}>
-            <button className="modal-close" type="button" aria-label="Close change password" onClick={() => setShowPasswordSettings(false)}><X size={19} /></button>
+            <button className="modal-close" type="button" aria-label="Close change password" onClick={() => { setShowPasswordSettings(false); setAdminToken(""); }}><X size={19} /></button>
             <p className="eyebrow">ACCOUNT SECURITY</p>
             <h2 id="password-settings-title">Change password</h2>
             <p className="modal-description">Choose a new password for the Springcare account. No recovery email is needed while you are signed in.</p>
@@ -403,6 +416,9 @@ export default function App() {
             <input className="number-input" id="dashboard-new-password" type="password" autoComplete="new-password" minLength={10} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
             <label className="field-label" htmlFor="dashboard-confirm-password">Confirm new password</label>
             <input className="number-input" id="dashboard-confirm-password" type="password" autoComplete="new-password" minLength={10} required value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} />
+            <label className="field-label" htmlFor="dashboard-admin-token">Admin authorization token</label>
+            <input className="number-input" id="dashboard-admin-token" type="password" autoComplete="off" required value={adminToken} onChange={(event) => setAdminToken(event.target.value)} />
+            <p className="modal-footnote">Ask the administrator for the current authorization token. The token is checked by Supabase, not by the browser.</p>
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="submit" disabled={busy}>{busy ? "Updating password…" : "Save new password"} <span>→</span></button>
             <p className="modal-footnote">Use at least 10 characters. Keep your new password private.</p>
