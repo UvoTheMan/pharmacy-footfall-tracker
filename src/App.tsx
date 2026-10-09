@@ -169,6 +169,22 @@ export default function App() {
     setBusy(false);
   }
 
+  async function requestPasswordReset() {
+    if (!supabase) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    const result = await supabase.auth.resetPasswordForEmail("victorokolieau@gmail.com", {
+      redirectTo: "https://springfootfall.vercel.app/",
+    });
+    if (result.error) {
+      setError(`Could not request password reset: ${result.error.message}`);
+    } else {
+      setNotice("Password reset email requested. Check the inbox and spam folder for victorokolieau@gmail.com.");
+    }
+    setBusy(false);
+  }
+
   async function updatePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
@@ -304,6 +320,8 @@ export default function App() {
         <input className="number-input" id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
         {error && <p className="error-message" role="alert">{error}</p>}
         <button className="primary-button" type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"} <span>→</span></button>
+        {notice && <p className="notice" role="status">{notice}</p>}
+        <button className="text-button" type="button" disabled={busy} onClick={() => void requestPasswordReset()}>Forgot password? Send recovery email</button>
         <p className="setup-footnote">Staff accounts must be created by the administrator.</p>
       </form>
     </main>
