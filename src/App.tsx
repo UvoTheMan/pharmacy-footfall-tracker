@@ -64,6 +64,7 @@ export default function App() {
   const [showPasswordSettings, setShowPasswordSettings] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [adminPasswordToken, setAdminPasswordToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingVisits, setLoadingVisits] = useState(false);
   const [notice, setNotice] = useState("");
@@ -191,6 +192,17 @@ export default function App() {
   async function updatePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
+    if (!recoveryMode) {
+      const requiredToken = import.meta.env.VITE_PASSWORD_CHANGE_TOKEN?.trim() ?? "";
+      if (!requiredToken) {
+        setError("Admin password-change token is not configured. Please contact the administrator.");
+        return;
+      }
+      if (adminPasswordToken.trim() !== requiredToken) {
+        setError("Invalid admin authorization token. Password was not changed.");
+        return;
+      }
+    }
     if (newPassword.length < 10) {
       setError("Choose a password with at least 10 characters.");
       return;
@@ -210,6 +222,7 @@ export default function App() {
     setPassword("");
     setNewPassword("");
     setConfirmNewPassword("");
+    setAdminPasswordToken("");
     setRecoveryMode(false);
     setShowPasswordSettings(false);
     setBusy(false);
@@ -398,7 +411,10 @@ export default function App() {
             <button className="modal-close" type="button" aria-label="Close change password" onClick={() => setShowPasswordSettings(false)}><X size={19} /></button>
             <p className="eyebrow">ACCOUNT SECURITY</p>
             <h2 id="password-settings-title">Change password</h2>
-            <p className="modal-description">Choose a new password for the Springcare account. No recovery email is needed while you are signed in.</p>
+            <p className="modal-description">Choose a new password for the Springcare account. Admin authorization is required for this form. Password-recovery links remain a separate flow.</p>
+            <label className="field-label" htmlFor="admin-password-token">Admin authorization token</label>
+            <input className="number-input" id="admin-password-token" type="password" autoComplete="off" required value={adminPasswordToken} onChange={(event) => setAdminPasswordToken(event.target.value)} />
+            <p className="modal-footnote">Ask the administrator for the token before changing the shared password.</p>
             <label className="field-label" htmlFor="dashboard-new-password">New password</label>
             <input className="number-input" id="dashboard-new-password" type="password" autoComplete="new-password" minLength={10} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
             <label className="field-label" htmlFor="dashboard-confirm-password">Confirm new password</label>
