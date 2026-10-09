@@ -45,36 +45,24 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "Method not allowed." }, 405, origin);
   }
 
-  const authorization = request.headers.get("authorization") ?? "";
-  const accessToken = authorization.startsWith("Bearer ")
-    ? authorization.slice("Bearer ".length)
-    : "";
-  if (!accessToken) {
-    return jsonResponse({ error: "Sign in before changing your password." }, 401, origin);
-  }
-
   const expectedToken = Deno.env.get("ADMIN_PASSWORD_CHANGE_TOKEN");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!expectedToken || expectedToken.length < 32 || !supabaseUrl || !anonKey || !serviceRoleKey) {
-    console.error("Password-change function is missing required server configuration.");
-    return jsonResponse({ error: "Password-change service is not configured." }, 503, origin);
+    console.error("Password authorization function is missing required server configuration.");
+    return jsonResponse({ error: "Password authorization service is not configured." }, 503, origin);
   }
 
-  let body: { password?: unknown; adminToken?: unknown };
+  let body: { action?: unknown; password?: unknown; adminToken?: unknown };
   try {
     body = await request.json();
   } catch {
     return jsonResponse({ error: "Invalid request." }, 400, origin);
   }
 
-  const password = typeof body.password === "string" ? body.password : "";
   const adminToken = typeof body.adminToken === "string" ? body.adminToken : "";
-  if (password.length < 10 || password.length > 128) {
-    return jsonResponse({ error: "Password must be between 10 and 128 characters." }, 400, origin);
-  }
   if (!adminToken || !(await constantTimeEqual(adminToken, expectedToken))) {
     return jsonResponse({ error: "Admin authorization failed." }, 403, origin);
   }
@@ -82,6 +70,36 @@ Deno.serve(async (request) => {
   const userClient = createClient(supabaseUrl, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  if (body.action === "request-recovery") {
+    const { error: recoveryError } = await userClient.auth.resetPasswordForEmail(
+      "victorokolieau@gmail.com",
+      { redirectTo: "https://springfootfall.vercel.app/" },
+    );
+    if (recoveryError) {
+      console.error("Password recovery email request failed.");
+      return jsonResponse({ error: "Recovery email could not be requested." }, 400, origin);
+    }
+    return jsonResponse({ success: true }, 200, origin);
+  }
+
+  if (body.action !== "update-password") {
+    return jsonResponse({ error: "Unsupported action." }, 400, origin);
+  }
+
+  const authorization = request.headers.get("authorization") ?? "";
+  const accessToken = authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length)
+    : "";
+  if (!accessToken) {
+    return jsonResponse({ error: "Sign in or open a valid recovery link before updating your password." }, 401, origin);
+  }
+
+  const password = typeof body.password === "string" ? body.password : "";
+  if (password.length < 10 || password.length > 128) {
+    return jsonResponse({ error: "Password must be between 10 and 128 characters." }, 400, origin);
+  }
+
   const { data: userData, error: userError } = await userClient.auth.getUser(accessToken);
   if (userError || !userData.user) {
     return jsonResponse({ error: "Your session is invalid or expired. Sign in again." }, 401, origin);
