@@ -18,7 +18,7 @@ type Visit = {
   reason: string | null;
 };
 
-export default function BranchCorrectionRequests({ branches }: { branches: Branch[] }) {
+export default function BranchCorrectionRequests({ branches, onUpdated }: { branches: Branch[]; onUpdated: () => Promise<void> }) {
   const [requests, setRequests] = useState<Request[]>([]);
   const [activeRequest, setActiveRequest] = useState<Request | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -90,6 +90,7 @@ export default function BranchCorrectionRequests({ branches }: { branches: Branc
     setVisits([]);
     setSelected([]);
     setNotice(approve ? "Selected visits moved to the corrected branch." : "Branch correction request rejected.");
+    if (approve) await onUpdated();
     await loadRequests();
     setBusy(false);
   }
