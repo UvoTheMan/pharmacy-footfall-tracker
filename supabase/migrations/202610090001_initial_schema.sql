@@ -172,3 +172,24 @@ grant all on public.branch_memberships to authenticated;
 -- Promote the trusted owner manually from the Supabase SQL Editor:
 -- update public.profiles set role = 'admin' where user_id = '<auth-user-uuid>';
 -- Then assign staff branches in branch_memberships as an admin, or via SQL during setup.
+
+
+-- Server timestamps and Lagos calendar dates are authoritative.
+create or replace function public.set_visit_server_fields()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.recorded_at := now();
+  new.visit_date := (new.recorded_at at time zone 'Africa/Lagos')::date;
+  new.created_by := (select auth.uid());
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists visits_set_server_fields on public.visits;
+create trigger visits_set_server_fields
+before insert on public.visits
+for each row execute procedure public.set_visit_server_fields();
