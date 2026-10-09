@@ -38,18 +38,16 @@ A mobile-friendly multi-branch visit counter for Gbagada, Akoka, and Sangotedo.
 - Keep staff account creation controlled by the administrator. Use strong passwords and enable MFA for admin accounts.
 - Browser local storage is not a central database and can be cleared by the user. Do not use it as the production source of truth.
 
-## Admin-token password change flow
+## Admin-token password authorization
 
-Both the dashboard's **Change password** form and the **Forgot password** recovery flow require an admin-issued token before a new password can be saved. Both flows call the `authorize-password-change` Supabase Edge Function, which validates the token on the server. The token must never be added to Vite variables, source code, or a client-side file.
+Both the dashboard's **Change password** form and the **Forgot password** flow require the admin-issued token. The recovery email is not requested until the token is validated by the server, and the token is checked again before a new password is saved. The token must never be added to Vite variables, source code, or a client-side file.
 
 Before using this feature:
 
-1. Deploy `supabase/functions/authorize-password-change/index.ts` as an Edge Function named `authorize-password-change` in the connected Supabase project. Keep JWT verification enabled.
-2. In Supabase Dashboard, open **Edge Functions → Secrets** and set `ADMIN_PASSWORD_CHANGE_TOKEN` to a randomly generated secret of at least 32 characters. Share it only with the administrator and authorized staff who need it.
-3. Test a password change with the correct token, then test again with an incorrect token. Confirm the password is unchanged after the failed attempt.
-4. To rotate a lost or exposed token, replace the secret in Supabase Edge Function secrets and redeploy/restart the function if the dashboard requires it. The old token should stop working.
+1. Deploy `supabase/functions/authorize-password-change/index.ts` as an Edge Function named `authorize-password-change` in the connected Supabase project.
+2. In the Edge Function settings, turn **Verify JWT** off for this function. The function needs to accept the unauthenticated recovery-email request, and it manually validates the admin token for both actions. For password updates, it also validates the user's Supabase access token before using the server-only service-role key.
+3. In Supabase Dashboard, open **Edge Functions → Secrets** and set `ADMIN_PASSWORD_CHANGE_TOKEN` to a randomly generated secret of at least 32 characters. Keep it private and share it only with people authorized to use it.
+4. Test the Forgot password flow with an incorrect token and confirm no recovery email is requested. Then test with the correct token, open the recovery email, and confirm the new password form also rejects an incorrect token.
+5. To rotate a lost or exposed token, replace the secret in Supabase Edge Function secrets. The old token should stop working.
 
-The Forgot password flow still sends Supabase's normal recovery email first. After the user opens the recovery link, they must provide the admin token to complete the password update.
-
-**Security limitation:** this token protects both password-change routes in this app. Supabase's hosted Auth API may still permit password changes through other routes outside the app. This is a simple app-level authorization gate, not a guarantee that every possible Auth API password update requires the token.
-
+**Security note:** turning off the platform's gateway JWT check does not mean password updates are unauthenticated. This function verifies the user access token itself before changing a password. Supabase Auth may still offer routes outside this app, so this remains an app-level authorization gate rather than a guarantee that every possible Auth API route requires the admin token.
