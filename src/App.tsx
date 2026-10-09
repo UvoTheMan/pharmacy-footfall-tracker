@@ -202,22 +202,13 @@ export default function App() {
     }
     setBusy(true);
     setError("");
-    if (showPasswordSettings) {
-      const result = await supabase.functions.invoke("authorize-password-change", {
-        body: { password: newPassword, adminToken },
-      });
-      if (result.error) {
-        setError("Password change was not authorized or could not be completed. Check the admin token and try again.");
-        setBusy(false);
-        return;
-      }
-    } else {
-      const result = await supabase.auth.updateUser({ password: newPassword });
-      if (result.error) {
-        setError(`Could not update password: ${result.error.message}`);
-        setBusy(false);
-        return;
-      }
+    const result = await supabase.functions.invoke("authorize-password-change", {
+      body: { password: newPassword, adminToken },
+    });
+    if (result.error) {
+      setError("Password change was not authorized or could not be completed. Check the admin token and try again.");
+      setBusy(false);
+      return;
     }
     setPassword("");
     setNewPassword("");
@@ -317,6 +308,9 @@ export default function App() {
         <input className="number-input" id="new-password" type="password" autoComplete="new-password" minLength={10} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
         <label className="field-label" htmlFor="confirm-new-password">Confirm new password</label>
         <input className="number-input" id="confirm-new-password" type="password" autoComplete="new-password" minLength={10} required value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} />
+        <label className="field-label" htmlFor="recovery-admin-token">Admin authorization token</label>
+        <input className="number-input" id="recovery-admin-token" type="password" autoComplete="off" required value={adminToken} onChange={(event) => setAdminToken(event.target.value)} />
+        <p className="setup-footnote">Enter the authorization token provided by your administrator to finish password recovery.</p>
         {error && <p className="error-message" role="alert">{error}</p>}
         <button className="primary-button" type="submit" disabled={busy}>{busy ? "Updating password…" : "Update password"} <span>→</span></button>
         <p className="setup-footnote">Use at least 10 characters. Keep your new password private.</p>
