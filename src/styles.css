@@ -111,3 +111,28 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .batch-modal .primary-button{margin-top:24px}
 @media(max-width:850px){.app-shell{padding:0 22px 24px}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}.summary-panel{order:2}}
 @media(max-width:520px){.app-shell{padding:0 15px 20px}.topbar{height:68px}.brand-mark{width:35px;height:35px}.brand-copy strong{font-size:15px}.local-time{font-size:10px;padding:7px 9px;gap:6px}.welcome{align-items:flex-start;flex-direction:column;padding:25px 0 20px;gap:18px}h1{font-size:24px}.branch-switch{width:100%}.stats-grid{gap:10px;margin-bottom:14px}.stat-card{padding:14px}.stat-number{font-size:27px}.stat-top{font-size:10px}.stat-foot{font-size:9px}.content-grid{gap:14px}.panel{padding:17px}.panel-heading h2{font-size:18px}.outcome-button{padding:11px}.outcome-symbol{width:35px;height:35px}.footer{align-items:flex-start;flex-direction:column;padding-top:18px}.modal{padding:23px 19px;border-radius:16px}.modal h2{font-size:21px}}
+
+
+/* Stage 2 authentication and configuration screens */
+.user-actions{display:flex;align-items:center;gap:9px}
+.signout-button{display:flex;align-items:center;gap:7px;border:1px solid #e2e9e3;background:#fff;color:#627368;padding:9px 11px;border-radius:9px;font-size:11px}
+.signout-button:hover{border-color:#bdcfc1;color:#285c42}
+.setup-screen{min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f7f4}
+.setup-card{width:min(100%,510px);background:#fff;border:1px solid #e3ebe4;border-radius:18px;padding:32px;box-shadow:0 18px 60px #173b3010}
+.setup-card>.brand-mark{margin-bottom:23px}
+.setup-card .eyebrow{margin-bottom:9px}
+.setup-card h1{font:800 27px Manrope,sans-serif;letter-spacing:-.9px;color:#173b30;margin:0 0 12px}
+.setup-card>p:not(.eyebrow),.setup-card>ol{font-size:13px;line-height:1.75;color:#77867c}
+.setup-card ol{padding-left:21px;margin:18px 0}
+.setup-card li{padding-left:4px;margin-bottom:7px}
+.setup-card code{font-size:11px;overflow-wrap:anywhere;background:#f1f5f1;padding:2px 4px;border-radius:4px;color:#2f6047}
+.setup-card>a{display:inline-flex;color:#236a49;text-decoration:none;font-size:13px;font-weight:700;margin-top:5px}
+.setup-footnote{border-top:1px solid #edf1ed;padding-top:14px;margin:18px 0 0!important;font-size:10px!important;color:#98a39b!important}
+.login-card .field-label{margin-top:17px}
+.login-card .number-input{font-size:13px;padding:13px}
+.login-card .primary-button{margin-top:22px}
+.error-message{display:flex;align-items:flex-start;gap:8px;color:#a53e31;background:#fff1ee;border:1px solid #f4d4cd;border-radius:9px;padding:11px 12px;font-size:12px;line-height:1.5}
+.error-message svg{flex-shrink:0;margin-top:1px}
+.banner-error{margin-bottom:17px}
+.muted-button{cursor:default!important;color:#9aa59e!important}
+@media(max-width:520px){.user-actions{gap:6px}.user-actions .local-time{display:none}.signout-button{padding:8px}.setup-card{padding:25px 20px}.setup-card h1{font-size:24px}}
