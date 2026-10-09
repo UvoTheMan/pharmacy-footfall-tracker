@@ -58,6 +58,9 @@ export default function App() {
   const [reason, setReason] = useState<Reason | "">("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingVisits, setLoadingVisits] = useState(false);
   const [notice, setNotice] = useState("");
@@ -76,7 +79,8 @@ export default function App() {
       setSession(data.session);
       setAuthReady(true);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
       setSession(nextSession);
       setProfile(null);
       setBranches([]);
@@ -165,6 +169,33 @@ export default function App() {
     setBusy(false);
   }
 
+  async function updatePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) return;
+    if (newPassword.length < 10) {
+      setError("Choose a password with at least 10 characters.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setError("The passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    const result = await supabase.auth.updateUser({ password: newPassword });
+    if (result.error) {
+      setError(`Could not update password: ${result.error.message}`);
+      setBusy(false);
+      return;
+    }
+    setPassword("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setRecoveryMode(false);
+    setBusy(false);
+    flash("Password updated successfully. You are signed in.");
+  }
+
   async function signOut() {
     if (!supabase) return;
     const result = await supabase.auth.signOut();
@@ -241,6 +272,24 @@ export default function App() {
   );
 
   if (!authReady) return <main className="setup-screen"><section className="setup-card"><p>Checking your sign-in session…</p></section></main>;
+
+  if (recoveryMode && session) return (
+    <main className="setup-screen">
+      <form className="setup-card login-card" onSubmit={updatePassword}>
+        <span className="brand-mark"><Activity size={22} /></span>
+        <p className="eyebrow">PHARMACY FOOTFALL TRACKER</p>
+        <h1>Set a new password</h1>
+        <p>Choose a new password for the Springcare account.</p>
+        <label className="field-label" htmlFor="new-password">New password</label>
+        <input className="number-input" id="new-password" type="password" autoComplete="new-password" minLength={10} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+        <label className="field-label" htmlFor="confirm-new-password">Confirm new password</label>
+        <input className="number-input" id="confirm-new-password" type="password" autoComplete="new-password" minLength={10} required value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} />
+        {error && <p className="error-message" role="alert">{error}</p>}
+        <button className="primary-button" type="submit" disabled={busy}>{busy ? "Updating password…" : "Update password"} <span>→</span></button>
+        <p className="setup-footnote">Use at least 10 characters. Keep your new password private.</p>
+      </form>
+    </main>
+  );
 
   if (!session) return (
     <main className="setup-screen">
