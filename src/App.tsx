@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Activity, ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronDown,
-  CircleHelp, Clock3, LogOut, RotateCcw, ShoppingBag, Users, X,
+  CircleHelp, Clock3, KeyRound, LogOut, RotateCcw, ShoppingBag, Users, X,
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 
@@ -59,6 +59,7 @@ export default function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const [showPasswordSettings, setShowPasswordSettings] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -208,6 +209,7 @@ export default function App() {
     setNewPassword("");
     setConfirmNewPassword("");
     setRecoveryMode(false);
+    setShowPasswordSettings(false);
     setBusy(false);
     flash("Password updated successfully. You are signed in.");
   }
@@ -336,6 +338,7 @@ export default function App() {
         </a>
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
+          <button className="signout-button" onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
           <button className="signout-button" onClick={() => void signOut()} aria-label="Sign out"><LogOut size={15} /> Sign out</button>
         </div>
       </header>
@@ -388,6 +391,24 @@ export default function App() {
       </div>
 
       <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 2 database integration</span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
+
+      {showPasswordSettings && (
+        <div className="modal-backdrop" role="presentation">
+          <form className="modal" role="dialog" aria-modal="true" aria-labelledby="password-settings-title" onSubmit={updatePassword}>
+            <button className="modal-close" type="button" aria-label="Close change password" onClick={() => setShowPasswordSettings(false)}><X size={19} /></button>
+            <p className="eyebrow">ACCOUNT SECURITY</p>
+            <h2 id="password-settings-title">Change password</h2>
+            <p className="modal-description">Choose a new password for the Springcare account. No recovery email is needed while you are signed in.</p>
+            <label className="field-label" htmlFor="dashboard-new-password">New password</label>
+            <input className="number-input" id="dashboard-new-password" type="password" autoComplete="new-password" minLength={10} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+            <label className="field-label" htmlFor="dashboard-confirm-password">Confirm new password</label>
+            <input className="number-input" id="dashboard-confirm-password" type="password" autoComplete="new-password" minLength={10} required value={confirmNewPassword} onChange={(event) => setConfirmNewPassword(event.target.value)} />
+            {error && <p className="error-message" role="alert">{error}</p>}
+            <button className="primary-button" type="submit" disabled={busy}>{busy ? "Updating password…" : "Save new password"} <span>→</span></button>
+            <p className="modal-footnote">Use at least 10 characters. Keep your new password private.</p>
+          </form>
+        </div>
+      )}
 
       {showBranchPicker && (
         <div className="modal-backdrop" role="presentation">
