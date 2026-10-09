@@ -364,7 +364,7 @@ export default function App() {
         <article className="stat-card stat-primary"><div className="stat-top"><span>Total visits</span><span className="stat-icon"><Users size={18} /></span></div><strong className="stat-number">{total}</strong><span className="stat-foot">{loadingVisits ? "Refreshing…" : "Shared records for today"}</span></article>
         <article className="stat-card"><div className="stat-top"><span>Purchases</span><span className="stat-icon green"><ShoppingBag size={18} /></span></div><strong className="stat-number">{purchasers}</strong><span className="stat-foot positive"><ArrowUpRight size={14} /> Completed sales</span></article>
         <article className="stat-card"><div className="stat-top"><span>No purchase</span><span className="stat-icon amber"><ArrowDownRight size={18} /></span></div><strong className="stat-number">{nonPurchasers}</strong><span className="stat-foot">Visit without a sale</span></article>
-        <article className="stat-card"><div className="stat-top"><span>Conversion</span><span className="stat-icon blue"><Activity size={18} /></span></div><strong className="stat-number">{conversion === null ? "—" : `${conversion}%`}</strong><span className="stat-foot">{undecided} undecided {undecided === 1 ? "visit" : "visits"}</span></article>
+        <article className="stat-card"><div className="stat-top"><span>Conversion</span><span className="stat-icon blue"><Activity size={18} /></span></div><strong className="stat-number">{conversion === null ? "—" : `${conversion}%`}</strong><span className="stat-foot">Purchase rate</span></article>
       </section>
 
       <div className="content-grid">
