@@ -40,7 +40,7 @@ A mobile-friendly multi-branch visit counter for Gbagada, Akoka, and Sangotedo.
 
 ## Admin-token password change flow
 
-The dashboard's **Change password** form now calls the `authorize-password-change` Supabase Edge Function and asks for an admin-issued token. The token is validated on the server and must never be added to Vite variables, source code, or a client-side file.
+Both the dashboard's **Change password** form and the **Forgot password** recovery flow require an admin-issued token before a new password can be saved. Both flows call the `authorize-password-change` Supabase Edge Function, which validates the token on the server. The token must never be added to Vite variables, source code, or a client-side file.
 
 Before using this feature:
 
@@ -49,7 +49,7 @@ Before using this feature:
 3. Test a password change with the correct token, then test again with an incorrect token. Confirm the password is unchanged after the failed attempt.
 4. To rotate a lost or exposed token, replace the secret in Supabase Edge Function secrets and redeploy/restart the function if the dashboard requires it. The old token should stop working.
 
-The email-based password recovery flow remains separate and continues to use Supabase's recovery link.
+The Forgot password flow still sends Supabase's normal recovery email first. After the user opens the recovery link, they must provide the admin token to complete the password update.
 
-**Security limitation:** this token protects the app's Change password flow. Supabase's hosted Auth API still permits an authenticated user to update their own password directly, outside this UI. Supabase does not provide a general before-password-update hook for enforcing this custom token on every Auth API request. So this implementation alone cannot guarantee that no user can change a password without a token. Do not treat it as strict server-wide enforcement. If that guarantee is mandatory, the authentication design must change rather than relying on a front-end gate.
+**Security limitation:** this token protects both password-change routes in this app. Supabase's hosted Auth API may still permit password changes through other routes outside the app. This is a simple app-level authorization gate, not a guarantee that every possible Auth API password update requires the token.
 
