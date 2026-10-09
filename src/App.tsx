@@ -53,6 +53,7 @@ export default function App() {
   const [branchChoice, setBranchChoice] = useState("");
   const [showBranchPicker, setShowBranchPicker] = useState(false);
   const [showBatch, setShowBatch] = useState(false);
+  const [showNoPurchaseReason, setShowNoPurchaseReason] = useState(false);
   const [batchCount, setBatchCount] = useState("5");
   const [batchOutcome, setBatchOutcome] = useState<Outcome>("purchased");
   const [reason, setReason] = useState<Reason | "">("");
@@ -372,11 +373,8 @@ export default function App() {
           <p className="panel-description">Choose the outcome for the person who just visited the pharmacy.</p>
           <div className="outcome-list">
             <button className="outcome-button purchased" onClick={() => void addVisits("purchased")} disabled={!branch || busy}><span className="outcome-symbol"><Check size={21} /></span><span className="outcome-text"><strong>Made a purchase</strong><small>Customer bought an item</small></span><span className="outcome-plus">+</span></button>
-            <button className="outcome-button not-purchased" onClick={() => void addVisits("not_purchased", 1, reason || undefined)} disabled={!branch || busy}><span className="outcome-symbol"><X size={21} /></span><span className="outcome-text"><strong>No purchase</strong><small>Customer left without buying</small></span><span className="outcome-plus">+</span></button>
-            <button className="outcome-button undecided" onClick={() => void addVisits("undecided")} disabled={!branch || busy}><span className="outcome-symbol"><CircleHelp size={21} /></span><span className="outcome-text"><strong>Still enquiring</strong><small>Outcome not confirmed</small></span><span className="outcome-plus">+</span></button>
+            <button className="outcome-button not-purchased" onClick={() => { setReason(""); setError(""); setShowNoPurchaseReason(true); }} disabled={!branch || busy}><span className="outcome-symbol"><X size={21} /></span><span className="outcome-text"><strong>No purchase</strong><small>Customer left without buying</small></span><span className="outcome-plus">+</span></button>
           </div>
-          <label className="field-label" htmlFor="reason">Reason for no purchase <span>Optional</span></label>
-          <div className="select-wrap"><select id="reason" value={reason} onChange={(event) => setReason(event.target.value as Reason | "")}><option value="">Select a reason (optional)</option>{REASONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={16} /></div>
           <div className="counter-footer"><span className="text-button muted-button"><RotateCcw size={15} /> Corrections coming in Stage 3</span><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy}>Batch entry <span>+</span></button></div>
         </section>
 
@@ -385,8 +383,7 @@ export default function App() {
           <div className="activity-total"><span className="activity-total-icon"><Users size={20} /></span><div><strong>{total}</strong><small>Total recorded visits</small></div></div>
           <div className="progress-group"><div className="progress-label"><span><i className="legend-dot purchase-dot" /> Purchases</span><strong>{purchasers} <small>{total ? Math.round(purchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${total ? purchasers / total * 100 : 0}%` }} /></div></div>
           <div className="progress-group"><div className="progress-label"><span><i className="legend-dot no-purchase-dot" /> No purchase</span><strong>{nonPurchasers} <small>{total ? Math.round(nonPurchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill no-purchase-fill" style={{ width: `${total ? nonPurchasers / total * 100 : 0}%` }} /></div></div>
-          <div className="progress-group"><div className="progress-label"><span><i className="legend-dot undecided-dot" /> Still enquiring</span><strong>{undecided} <small>{total ? Math.round(undecided / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill undecided-fill" style={{ width: `${total ? undecided / total * 100 : 0}%` }} /></div></div>
-          <div className="snapshot-note"><CircleHelp size={16} /><span>Conversion excludes visits marked as still enquiring. Data shown is loaded from the shared database.</span></div>
+          <div className="snapshot-note"><CircleHelp size={16} /><span>Data shown is loaded from the shared database.</span></div>
         </section>
       </div>
 
@@ -406,6 +403,22 @@ export default function App() {
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="submit" disabled={busy}>{busy ? "Updating password…" : "Save new password"} <span>→</span></button>
             <p className="modal-footnote">Use at least 10 characters. Keep your new password private.</p>
+          </form>
+        </div>
+      )}
+
+      {showNoPurchaseReason && (
+        <div className="modal-backdrop" role="presentation">
+          <form className="modal" role="dialog" aria-modal="true" aria-labelledby="no-purchase-title" onSubmit={(event) => { event.preventDefault(); if (!reason) return; setShowNoPurchaseReason(false); void addVisits("not_purchased", 1, reason); }}>
+            <button className="modal-close" type="button" aria-label="Cancel no-purchase entry" onClick={() => setShowNoPurchaseReason(false)}><X size={19} /></button>
+            <p className="eyebrow">VISIT DETAILS</p>
+            <h2 id="no-purchase-title">Why was there no purchase?</h2>
+            <p className="modal-description">Select the main reason before recording this visit.</p>
+            <label className="field-label" htmlFor="no-purchase-reason">Reason <span>Required</span></label>
+            <div className="select-wrap"><select id="no-purchase-reason" required autoFocus value={reason} onChange={(event) => setReason(event.target.value as Reason | "")}><option value="">Select a reason</option>{REASONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={16} /></div>
+            {error && <p className="error-message" role="alert">{error}</p>}
+            <button className="primary-button" type="submit" disabled={busy || !reason}>{busy ? "Saving visit…" : "Save no-purchase visit"} <span>→</span></button>
+            <button className="text-button" type="button" onClick={() => setShowNoPurchaseReason(false)} disabled={busy}>Cancel</button>
           </form>
         </div>
       )}
@@ -432,9 +445,9 @@ export default function App() {
             <label className="field-label" htmlFor="batch-count">Number of visits</label>
             <input id="batch-count" className="number-input" type="number" min="1" max="100" value={batchCount} onChange={(event) => setBatchCount(event.target.value)} />
             <label className="field-label" htmlFor="batch-outcome">Visit outcome</label>
-            <div className="select-wrap"><select id="batch-outcome" value={batchOutcome} onChange={(event) => setBatchOutcome(event.target.value as Outcome)}><option value="purchased">Made a purchase</option><option value="not_purchased">No purchase</option><option value="undecided">Still enquiring</option></select><ChevronDown size={16} /></div>
-            {batchOutcome === "not_purchased" && <><label className="field-label" htmlFor="batch-reason">Reason <span>Optional</span></label><div className="select-wrap"><select id="batch-reason" value={reason} onChange={(event) => setReason(event.target.value as Reason | "")}><option value="">No reason recorded</option>{REASONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={16} /></div></>}
-            <button className="primary-button" disabled={busy || !Number.isInteger(Number(batchCount)) || Number(batchCount) < 1 || Number(batchCount) > 100} onClick={() => void addVisits(batchOutcome, Number(batchCount), batchOutcome === "not_purchased" ? reason || undefined : undefined)}>Add {batchCount || "0"} visits <span>→</span></button>
+            <div className="select-wrap"><select id="batch-outcome" value={batchOutcome} onChange={(event) => setBatchOutcome(event.target.value as Outcome)}><option value="purchased">Made a purchase</option><option value="not_purchased">No purchase</option></select><ChevronDown size={16} /></div>
+            {batchOutcome === "not_purchased" && <><label className="field-label" htmlFor="batch-reason">Reason <span>Required</span></label><div className="select-wrap"><select id="batch-reason" required value={reason} onChange={(event) => setReason(event.target.value as Reason | "")}><option value="">Select a reason</option>{REASONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={16} /></div></>}
+            <button className="primary-button" disabled={busy || !Number.isInteger(Number(batchCount)) || Number(batchCount) < 1 || Number(batchCount) > 100 || (batchOutcome === "not_purchased" && !reason)} onClick={() => void addVisits(batchOutcome, Number(batchCount), batchOutcome === "not_purchased" ? reason || undefined : undefined)}>Add {batchCount || "0"} visits <span>→</span></button>
             <p className="modal-footnote">The app confirms the save only after the database accepts the records.</p>
           </section>
         </div>
