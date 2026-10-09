@@ -61,6 +61,7 @@ export default function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
   const [showPasswordSettings, setShowPasswordSettings] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -178,13 +179,15 @@ export default function App() {
     setBusy(true);
     setError("");
     setNotice("");
-    const result = await supabase.auth.resetPasswordForEmail("victorokolieau@gmail.com", {
-      redirectTo: "https://springfootfall.vercel.app/",
+    const result = await supabase.functions.invoke("authorize-password-change", {
+      body: { action: "request-recovery", adminToken },
     });
-    if (result.error) {
-      setError(`Could not request password reset: ${result.error.message}`);
+    if (result.error || result.data?.success !== true) {
+      setError("Password recovery was not authorized or could not be requested. Check the admin token and try again.");
     } else {
-      setNotice("Password reset email requested. Check the inbox and spam folder for victorokolieau@gmail.com.");
+      setAdminToken("");
+      setForgotPasswordMode(false);
+      setNotice("Password reset email requested. Check the inbox and spam folder for the account email.");
     }
     setBusy(false);
   }
@@ -203,7 +206,7 @@ export default function App() {
     setBusy(true);
     setError("");
     const result = await supabase.functions.invoke("authorize-password-change", {
-      body: { password: newPassword, adminToken },
+      body: { action: "update-password", password: newPassword, adminToken },
     });
     if (result.error) {
       setError("Password change was not authorized or could not be completed. Check the admin token and try again.");
@@ -332,7 +335,16 @@ export default function App() {
         {error && <p className="error-message" role="alert">{error}</p>}
         <button className="primary-button" type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"} <span>→</span></button>
         {notice && <p className="notice" role="status">{notice}</p>}
-        <button className="text-button" type="button" disabled={busy} onClick={() => void requestPasswordReset()}>Forgot password? Send recovery email</button>
+        {forgotPasswordMode ? (
+          <>
+            <label className="field-label" htmlFor="forgot-admin-token">Admin authorization token</label>
+            <input className="number-input" id="forgot-admin-token" type="password" autoComplete="off" required value={adminToken} onChange={(event) => setAdminToken(event.target.value)} />
+            <button className="primary-button" type="button" disabled={busy || !adminToken.trim()} onClick={() => void requestPasswordReset()}>{busy ? "Requesting recovery…" : "Authorize recovery email"} <span>→</span></button>
+            <button className="text-button" type="button" disabled={busy} onClick={() => { setForgotPasswordMode(false); setAdminToken(""); setError(""); }}>Cancel</button>
+          </>
+        ) : (
+          <button className="text-button" type="button" disabled={busy} onClick={() => { setForgotPasswordMode(true); setAdminToken(""); setError(""); setNotice(""); }}>Forgot password? Request recovery email</button>
+        )}
         <p className="setup-footnote">Staff accounts must be created by the administrator.</p>
       </form>
     </main>
