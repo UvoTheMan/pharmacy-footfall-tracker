@@ -409,17 +409,15 @@ export default function App() {
 
       {showNoPurchaseReason && (
         <div className="modal-backdrop" role="presentation">
-          <form className="modal" role="dialog" aria-modal="true" aria-labelledby="no-purchase-title" onSubmit={(event) => { event.preventDefault(); if (!reason) return; setShowNoPurchaseReason(false); void addVisits("not_purchased", 1, reason); }}>
-            <button className="modal-close" type="button" aria-label="Cancel no-purchase entry" onClick={() => setShowNoPurchaseReason(false)}><X size={19} /></button>
+          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="no-purchase-title">
+            <button className="modal-close" type="button" aria-label="Cancel no-purchase entry" onClick={() => setShowNoPurchaseReason(false)} disabled={busy}><X size={19} /></button>
             <p className="eyebrow">VISIT DETAILS</p>
             <h2 id="no-purchase-title">Why was there no purchase?</h2>
-            <p className="modal-description">Select the main reason before recording this visit.</p>
-            <label className="field-label" htmlFor="no-purchase-reason">Reason <span>Required</span></label>
-            <div className="select-wrap"><select id="no-purchase-reason" required autoFocus value={reason} onChange={(event) => setReason(event.target.value as Reason | "")}><option value="">Select a reason</option>{REASONS.map((item) => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={16} /></div>
+            <p className="modal-description">Tap a reason to record the visit immediately.</p>
+            <div className="branch-options">{REASONS.map((item) => <button key={item} type="button" className="branch-option" disabled={busy} onClick={() => { setReason(item); setShowNoPurchaseReason(false); void addVisits("not_purchased", 1, item); }}><span className="branch-option-icon"><X size={18} /></span><span><strong>{item}</strong></span><span className="outcome-plus">→</span></button>)}</div>
             {error && <p className="error-message" role="alert">{error}</p>}
-            <button className="primary-button" type="submit" disabled={busy || !reason}>{busy ? "Saving visit…" : "Save no-purchase visit"} <span>→</span></button>
             <button className="text-button" type="button" onClick={() => setShowNoPurchaseReason(false)} disabled={busy}>Cancel</button>
-          </form>
+          </section>
         </div>
       )}
 
