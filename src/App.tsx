@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import VisitCorrections from "./components/VisitCorrections";
+import BranchCorrectionRequests from "./components/BranchCorrectionRequests";
 
 type Branch = { id: string; slug: string; name: string };
 type Outcome = "purchased" | "not_purchased" | "undecided";
@@ -231,14 +232,36 @@ export default function App() {
     setProfile(null);
   }
 
-  function chooseBranch() {
+  async function chooseBranch() {
     const chosen = branches.find((item) => item.id === branchChoice);
     if (!chosen) return;
+
+    if (branch && chosen.id !== branch.id && todaysVisits.length > 0) {
+      if (!supabase) return;
+      setBusy(true);
+      setError("");
+      const request = await supabase.rpc("request_branch_correction", {
+        p_source_branch_id: branch.id,
+        p_target_branch_id: chosen.id,
+        p_visit_date: today,
+      });
+      if (request.error) {
+        setError("Could not request branch correction: " + request.error.message);
+        setBusy(false);
+        return;
+      }
+      setBranchChoice(branch.id);
+      setShowBranchPicker(false);
+      setBusy(false);
+      flash("Correction request submitted. An administrator must review the affected visits before they are moved.");
+      return;
+    }
+
     setBranch(chosen);
     localStorage.setItem("pft.selected-branch-id", chosen.id);
     localStorage.setItem("pft.selected-day", today);
     setShowBranchPicker(false);
-    flash(`Today's branch is set to ${chosen.name}.`);
+    flash("Today's branch is set to " + chosen.name + ".");
   }
 
   async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason) {
@@ -380,6 +403,8 @@ export default function App() {
       {notice && <div className="notice" role="status"><Check size={16} />{notice}</div>}
       {error && <div className="error-message banner-error" role="alert"><CircleHelp size={16} />{error}</div>}
 
+      {profile?.role === "admin" && <BranchCorrectionRequests branches={branches} onUpdated={loadVisits} />}
+
       <section className="stats-grid" aria-label="Today's totals">
         <article className="stat-card stat-primary"><div className="stat-top"><span>Total visits</span><span className="stat-icon"><Users size={18} /></span></div><strong className="stat-number">{total}</strong><span className="stat-foot">{loadingVisits ? "Refreshing…" : "Shared records for today"}</span></article>
         <article className="stat-card"><div className="stat-top"><span>Purchases</span><span className="stat-icon green"><ShoppingBag size={18} /></span></div><strong className="stat-number">{purchasers}</strong><span className="stat-foot positive"><ArrowUpRight size={14} /> Completed sales</span></article>
@@ -451,9 +476,9 @@ export default function App() {
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-title">
             <div className="modal-brand"><span className="brand-mark"><Activity size={21} /></span><span className="eyebrow">DAILY BRANCH SETUP</span></div>
             <h2 id="branch-title">Which branch are you recording for?</h2>
-            <p className="modal-description">Only branches assigned to your account are listed. Choose today's branch; it remains selected through browser closure until the next Lagos calendar day.</p>
+            <p className="modal-description">Only branches assigned to your account are listed. Choose today's branch; it remains selected through browser closure until the next Lagos calendar day. If visits have already been recorded, changing branches requires administrator review.</p>
             <div className="branch-options">{branches.map((item) => <button key={item.id} className={branchChoice === item.id ? "branch-option selected" : "branch-option"} onClick={() => setBranchChoice(item.id)}><span className="branch-option-icon"><Users size={18} /></span><span><strong>{item.name}</strong><small>Assigned pharmacy branch</small></span><span className="radio-mark">{branchChoice === item.id && <span />}</span></button>)}</div>
-            <button className="primary-button" disabled={!branchChoice || busy} onClick={chooseBranch}>Confirm branch <span>→</span></button>
+            <button className="primary-button" disabled={!branchChoice || busy || loadingVisits} onClick={() => void chooseBranch()}>{busy ? "Submitting…" : "Confirm branch"} <span>→</span></button>
             <p className="modal-footnote"><Clock3 size={13} /> Branch access is controlled by the database.</p>
           </section>
         </div>
