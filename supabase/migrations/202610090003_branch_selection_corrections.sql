@@ -39,6 +39,9 @@ begin
   if not public.can_access_branch(p_source_branch_id) then
     raise exception 'No access to the selected source branch';
   end if;
+  if not public.can_access_branch(p_target_branch_id) then
+    raise exception 'No access to the selected destination branch';
+  end if;
   if p_source_branch_id = p_target_branch_id then
     raise exception 'Choose a different destination branch';
   end if;
