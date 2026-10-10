@@ -46,7 +46,7 @@ begin
     raise exception 'Choose a different destination branch';
   end if;
   if p_visit_date <> (now() at time zone 'Africa/Lagos')::date then
-    raise exception 'Only today''s branch selection can be corrected';
+    raise exception 'Only the current date can be corrected';
   end if;
   if not exists (
     select 1 from public.branches
