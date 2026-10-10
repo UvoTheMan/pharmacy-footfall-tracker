@@ -236,7 +236,7 @@ export default function App() {
     const chosen = branches.find((item) => item.id === branchChoice);
     if (!chosen) return;
 
-    if (branch && chosen.id !== branch.id && todaysVisits.length > 0) {
+    if (branch && chosen.id !== branch.id && visits.length > 0) {
       if (!supabase) return;
       setBusy(true);
       setError("");
