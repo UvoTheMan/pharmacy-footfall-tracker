@@ -45,6 +45,15 @@ function lagosDisplayDate(date = new Date()) {
   }).format(date);
 }
 
+function FootlyticsMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 32 32" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 5.5H24.5M7 5.5V26.5M7 13H18" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13.5 25.5V21M19 25.5V17M24.5 25.5V12.5" stroke="#9EE6C0" strokeWidth="3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -283,7 +292,7 @@ export default function App() {
   if (!hasSupabaseConfig) return (
     <main className="setup-screen">
       <section className="setup-card">
-        <span className="brand-mark"><Activity size={22} /></span>
+        <span className="brand-mark"><FootlyticsMark /></span>
         <p className="eyebrow">STAGE 2 SETUP</p>
         <h1>Connect your Supabase project</h1>
         <p>The app code is ready for the shared database, but it needs your project's URL and publishable key before anyone can sign in or save visits online.</p>
@@ -304,7 +313,7 @@ export default function App() {
   if (recoveryMode && session) return (
     <main className="setup-screen">
       <form className="setup-card login-card" onSubmit={updatePassword}>
-        <span className="brand-mark"><Activity size={22} /></span>
+        <span className="brand-mark"><FootlyticsMark /></span>
         <p className="eyebrow">PHARMACY FOOTFALL TRACKER</p>
         <h1>Set a new password</h1>
         <p>Choose a new password for the Springcare account.</p>
@@ -325,7 +334,7 @@ export default function App() {
   if (!session) return (
     <main className="setup-screen">
       <form className="setup-card login-card" onSubmit={signIn}>
-        <span className="brand-mark"><Activity size={22} /></span>
+        <span className="brand-mark"><FootlyticsMark /></span>
         <p className="eyebrow">PHARMACY FOOTFALL TRACKER</p>
         <h1>Welcome back.</h1>
         <p>Sign in with the account provided by your administrator.</p>
@@ -355,7 +364,7 @@ export default function App() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="#" aria-label="Pharmacy Footfall Tracker home">
-          <span className="brand-mark"><Activity size={21} strokeWidth={2.4} /></span>
+          <span className="brand-mark"><FootlyticsMark /></span>
           <span className="brand-copy"><strong>Footlytics</strong><small>FOOTFALL INTELLIGENCE</small></span>
         </a>
         <div className="user-actions">
@@ -452,7 +461,7 @@ export default function App() {
       {showBranchPicker && (
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-title">
-            <div className="modal-brand"><span className="brand-mark"><Activity size={21} /></span><span className="eyebrow">DAILY BRANCH SETUP</span></div>
+            <div className="modal-brand"><span className="brand-mark"><FootlyticsMark /></span><span className="eyebrow">DAILY BRANCH SETUP</span></div>
             <h2 id="branch-title">Which branch are you recording for?</h2>
             <p className="modal-description">Only branches assigned to your account are listed. Choose today's branch; it remains selected through browser closure until the next Lagos calendar day.</p>
             <div className="branch-options">{branches.map((item) => <button key={item.id} className={branchChoice === item.id ? "branch-option selected" : "branch-option"} onClick={() => setBranchChoice(item.id)}><span className="branch-option-icon"><Users size={18} /></span><span><strong>{item.name}</strong><small>Assigned pharmacy branch</small></span><span className="radio-mark">{branchChoice === item.id && <span />}</span></button>)}</div>
