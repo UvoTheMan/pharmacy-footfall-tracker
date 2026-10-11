@@ -412,7 +412,7 @@ export default function App() {
       <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} />
       <HistoricalVisits branch={branch} branches={branches} profile={profile} />
 
-      <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span>Built by UVO</span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
+      <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span>Built by UVO <span className="footer-dot">·</span> <a href="mailto:victorokolieau@gmail.com">Contact</a></span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
 
       {showPasswordSettings && (
         <div className="modal-backdrop" role="presentation">
