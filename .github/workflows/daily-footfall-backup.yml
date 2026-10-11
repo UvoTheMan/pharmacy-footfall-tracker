@@ -1,0 +1,42 @@
+name: Daily Footfall CSV Backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      send_email:
+        description: "Send email after generating CSVs (leave unchecked for a safe dry run)"
+        required: true
+        type: boolean
+        default: false
+      backup_date:
+        description: "Optional Lagos date (YYYY-MM-DD); blank means today"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate reports and optionally email
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+          BACKUP_RECIPIENTS: ${{ secrets.BACKUP_RECIPIENTS }}
+          BACKUP_DATE: ${{ inputs.backup_date }}
+          SEND_BACKUP_EMAIL: ${{ inputs.send_email }}
+        run: python scripts/daily_footfall_backup.py
