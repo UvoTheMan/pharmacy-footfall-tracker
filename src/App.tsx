@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import VisitCorrections from "./components/VisitCorrections";
+import HistoricalVisits from "./components/HistoricalVisits";
 
 type Branch = { id: string; slug: string; name: string };
 type Outcome = "purchased" | "not_purchased" | "undecided";
@@ -408,6 +409,7 @@ export default function App() {
       </div>
 
       <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} />
+      <HistoricalVisits branch={branch} branches={branches} profile={profile} />
 
       <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
 
