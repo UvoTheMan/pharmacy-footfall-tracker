@@ -69,6 +69,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
   const branchNames = useMemo(() => new Map(branches.map((item) => [item.id, item.name])), [branches]);
   const canLoad = Boolean(supabase && profile && (profile.role === "admin" || branch));
   const validHistoricalDate = (value: string) => Boolean(value && value >= minDate && value <= maxDate);
+  const validExportDate = (value: string) => Boolean(value && value >= minDate && value <= today);
 
   async function loadHistory() {
     if (!supabase || !profile || (profile.role !== "admin" && !branch)) return;
@@ -127,8 +128,8 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
   }
 
   function applyExportStartDate(value: string) {
-    if (!validHistoricalDate(value)) {
-      setError("The export start date must be within the previous 90 days through yesterday.");
+    if (!validExportDate(value)) {
+      setError("The export start date must be within the previous 90 days through today.");
       return;
     }
     if (value > exportEndDate) {
@@ -140,8 +141,8 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
   }
 
   function applyExportEndDate(value: string) {
-    if (!validHistoricalDate(value)) {
-      setError("The export end date must be within the previous 90 days through yesterday.");
+    if (!validExportDate(value)) {
+      setError("The export end date must be within the previous 90 days through today.");
       return;
     }
     if (value < exportStartDate) {
@@ -154,8 +155,8 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
 
   async function exportCsv() {
     if (!supabase || !profile || (profile.role !== "admin" && !branch)) return;
-    if (!validHistoricalDate(exportStartDate) || !validHistoricalDate(exportEndDate) || exportStartDate > exportEndDate) {
-      setError("Choose a valid export range within the previous 90 days through yesterday.");
+    if (!validExportDate(exportStartDate) || !validExportDate(exportEndDate) || exportStartDate > exportEndDate) {
+      setError("Choose a valid export range within the previous 90 days through today.");
       return;
     }
 
@@ -227,7 +228,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
         <div><p className="eyebrow">HISTORICAL RECORDS</p><h2>Past visits</h2></div>
         <span className="date-pill">Last 90 days</span>
       </div>
-      <p className="panel-description">Choose a past date to review visits. Export CSV for a date range within the previous 90 days, up to yesterday. Older records remain stored in the database.</p>
+      <p className="panel-description">Choose a past date to review visits. Historical viewing ends yesterday; CSV exports can include today and any date within the previous 90 days. Older records remain stored in the database.</p>
 
       <div className="history-filters">
         <label className="history-date-field" htmlFor="history-date">
@@ -285,15 +286,15 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
 
       <div className="history-export-range">
         <h3>Export CSV by date range</h3>
-        <p className="panel-description">Choose the first and last dates to include. Both dates must be within the allowed historical window.</p>
+        <p className="panel-description">Choose the first and last dates to include. The export range can include today, but not future dates or dates older than 90 days.</p>
         <div className="history-filters">
           <label className="history-date-field" htmlFor="history-export-start">
             <span><CalendarDays size={15} /> Start date</span>
-            <input id="history-export-start" type="date" min={minDate} max={maxDate} value={exportStartDate} onChange={(event) => applyExportStartDate(event.target.value)} />
+            <input id="history-export-start" type="date" min={minDate} max={today} value={exportStartDate} onChange={(event) => applyExportStartDate(event.target.value)} />
           </label>
           <label className="history-date-field" htmlFor="history-export-end">
             <span><CalendarDays size={15} /> End date</span>
-            <input id="history-export-end" type="date" min={minDate} max={maxDate} value={exportEndDate} onChange={(event) => applyExportEndDate(event.target.value)} />
+            <input id="history-export-end" type="date" min={minDate} max={today} value={exportEndDate} onChange={(event) => applyExportEndDate(event.target.value)} />
           </label>
           <button type="button" className="secondary-button" onClick={() => void exportCsv()} disabled={!canLoad || exporting}>
             <Download size={14} /> {exporting ? "Preparing CSV…" : "Export date range"}
