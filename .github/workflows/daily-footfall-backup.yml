@@ -1,0 +1,65 @@
+name: Daily Footfall CSV Backup
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/daily-footfall-backup.yml"
+      - "scripts/daily_footfall_backup.py"
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "Choose which Supabase project to read (Production test should remain a dry run)"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+      send_email:
+        description: "Send email after generating CSVs (leave unchecked for a safe dry run)"
+        required: true
+        type: boolean
+        default: false
+      backup_date:
+        description: "Optional Lagos date (YYYY-MM-DD); blank means today"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'staging' }}
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate reports and optionally email
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+          BACKUP_RECIPIENTS: ${{ secrets.BACKUP_RECIPIENTS }}
+          BACKUP_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.backup_date || '' }}
+          SEND_BACKUP_EMAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.send_email || false }}
+        run: python scripts/daily_footfall_backup.py
+
+      - name: Save CSVs for inspection
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'staging' }}-footfall-csv-test
+          path: backup-output/*.csv
+          if-no-files-found: error
+          retention-days: 1
