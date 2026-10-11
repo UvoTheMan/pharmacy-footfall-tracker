@@ -368,7 +368,7 @@ export default function App() {
       <section className="welcome">
         <div>
           <p className="eyebrow">DAILY OPERATIONS</p>
-          <h1>{profile?.display_name ? `Welcome, ${profile.display_name}.` : "Welcome back, team."}</h1>
+          <h1>Welcome</h1>
           <p className="date-line"><CalendarDays size={16} /> {lagosDisplayDate()}</p>
         </div>
         <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setShowBranchPicker(true); }}>
