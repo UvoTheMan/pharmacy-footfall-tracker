@@ -151,8 +151,8 @@ Deno.serve(async (request) => {
     return json({ error: "Email delivery is not fully configured" }, 503);
   }
 
-  // Unique run date prevents concurrent duplicate runs. Resend's idempotency key also
-  // protects the provider-send step if a network response is lost.
+  // Claim the date atomically. Never overwrite a concurrent "sending" or a completed run.
+  // Failed runs may be retried, but only one retry can change failed -> sending.
   const { data: existing, error: lookupError } = await supabase
     .from("footfall_backup_runs").select("status").eq("backup_date", date).maybeSingle();
   if (lookupError) {
@@ -162,14 +162,50 @@ Deno.serve(async (request) => {
   if (existing?.status === "sent") {
     return json({ success: true, skipped: true, reason: "already_sent", date });
   }
+  if (existing?.status === "sending") {
+    return json({ success: false, skipped: true, reason: "already_in_progress", date }, 409);
+  }
 
-  const { error: claimError } = await supabase.from("footfall_backup_runs").upsert({
-    backup_date: date, status: "sending", started_at: new Date().toISOString(),
-    finished_at: null, visit_count: visits.length, report_counts: counts, error_message: null,
-  }, { onConflict: "backup_date" });
-  if (claimError) {
-    console.error("Could not record backup run", { date, error: claimError.message });
-    return json({ error: "Could not record backup run" }, 500);
+  const runDetails = {
+    status: "sending",
+    started_at: new Date().toISOString(),
+    finished_at: null,
+    visit_count: visits.length,
+    report_counts: counts,
+    error_message: null,
+  };
+  if (existing?.status === "failed") {
+    const { data: claimedRun, error: claimError } = await supabase
+      .from("footfall_backup_runs")
+      .update(runDetails)
+      .eq("backup_date", date)
+      .eq("status", "failed")
+      .select("backup_date")
+      .maybeSingle();
+    if (claimError) {
+      console.error("Could not claim failed backup run", { date, error: claimError.message });
+      return json({ error: "Could not record backup run" }, 500);
+    }
+    if (!claimedRun) {
+      return json({ success: false, skipped: true, reason: "run_claimed_concurrently", date }, 409);
+    }
+  } else {
+    const { data: claimedRun, error: claimError } = await supabase
+      .from("footfall_backup_runs")
+      .insert({ backup_date: date, ...runDetails })
+      .select("backup_date")
+      .maybeSingle();
+    if (claimError) {
+      // A second invocation may have inserted this date after our initial lookup.
+      if (claimError.code === "23505") {
+        return json({ success: false, skipped: true, reason: "run_claimed_concurrently", date }, 409);
+      }
+      console.error("Could not create backup run claim", { date, error: claimError.message });
+      return json({ error: "Could not record backup run" }, 500);
+    }
+    if (!claimedRun) {
+      return json({ error: "Could not claim backup run" }, 500);
+    }
   }
 
   try {
