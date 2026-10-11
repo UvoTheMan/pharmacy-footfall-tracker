@@ -9,6 +9,14 @@ on:
       - "scripts/daily_footfall_backup.py"
   workflow_dispatch:
     inputs:
+      target_environment:
+        description: "Choose which Supabase project to read (Production test should remain a dry run)"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
       send_email:
         description: "Send email after generating CSVs (leave unchecked for a safe dry run)"
         required: true
@@ -25,7 +33,7 @@ permissions:
 jobs:
   backup:
     runs-on: ubuntu-latest
-    environment: staging
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'staging' }}
     timeout-minutes: 10
     steps:
       - name: Check out repository
@@ -51,7 +59,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: staging-footfall-csv-test
+          name: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'staging' }}-footfall-csv-test
           path: backup-output/*.csv
           if-no-files-found: error
           retention-days: 1
