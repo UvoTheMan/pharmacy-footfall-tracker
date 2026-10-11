@@ -15,8 +15,9 @@ on public.branch_correction_requests(status, created_at desc);
 
 -- The database, not a client-side check, guarantees at most one pending request
 -- for a source/destination/date tuple.
-create unique index if not exists branch_correction_one_pending_unique
-on public.branch_correction_requests(source_branch_id, target_branch_id, visit_date)
+drop index if exists public.branch_correction_one_pending_unique;
+create unique index branch_correction_one_pending_unique
+on public.branch_correction_requests(source_branch_id, visit_date)
 where status = 'pending';
 
 -- Branch names are safe to expose for choosing a correction destination; this does
