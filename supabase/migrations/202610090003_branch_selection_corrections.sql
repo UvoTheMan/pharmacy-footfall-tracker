@@ -83,8 +83,8 @@ begin
 end;
 $;
 
-drop trigger if exists visits_block_pending_branch_correction on public.visits;
-create trigger visits_block_pending_branch_correction
+drop trigger if exists visits_z_block_pending_branch_correction on public.visits;
+create trigger visits_z_block_pending_branch_correction
 before insert on public.visits
 for each row execute function public.prevent_visits_during_branch_correction();
 
