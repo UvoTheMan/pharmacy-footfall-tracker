@@ -24,10 +24,10 @@ type Props = {
 };
 
 function dateOffset(dateKey: string, offset: number) {
-  const date = new Date(`${dateKey}T12:00:00`);
-  date.setDate(date.getDate() + offset);
+  const date = new Date(`${dateKey}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: "UTC", year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(date);
   const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
   return `${part("year")}-${part("month")}-${part("day")}`;
@@ -69,26 +69,33 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
     setLoading(true);
     setError("");
     setNotice("");
-    let query = supabase
-      .from("visits")
-      .select("id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by,created_at,updated_at")
-      .eq("visit_date", selectedDate)
-      .order("recorded_at", { ascending: false })
-      .range(0, 9999);
+    const allVisits: Visit[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      let query = supabase
+        .from("visits")
+        .select("id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by,created_at,updated_at")
+        .eq("visit_date", selectedDate)
+        .order("recorded_at", { ascending: false })
+        .range(offset, offset + 999);
 
-    if (profile.role !== "admin") {
-      query = query.eq("branch_id", branch!.id);
-    } else if (adminBranchFilter !== "all") {
-      query = query.eq("branch_id", adminBranchFilter);
-    }
+      if (profile.role !== "admin") {
+        query = query.eq("branch_id", branch!.id);
+      } else if (adminBranchFilter !== "all") {
+        query = query.eq("branch_id", adminBranchFilter);
+      }
 
-    const result = await query;
-    if (result.error) {
-      setError(`Could not load historical visits: ${result.error.message}`);
-      setVisits([]);
-    } else {
-      setVisits((result.data ?? []) as Visit[]);
+      const result = await query;
+      if (result.error) {
+        setError(`Could not load historical visits: ${result.error.message}`);
+        setVisits([]);
+        setLoading(false);
+        return;
+      }
+      const page = (result.data ?? []) as Visit[];
+      allVisits.push(...page);
+      if (page.length < 1000) break;
     }
+    setVisits(allVisits);
     setLoading(false);
   }
 
