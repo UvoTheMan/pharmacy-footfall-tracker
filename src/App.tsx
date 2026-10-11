@@ -356,7 +356,7 @@ export default function App() {
       <header className="topbar">
         <a className="brand" href="#" aria-label="Pharmacy Footfall Tracker home">
           <span className="brand-mark"><Activity size={21} strokeWidth={2.4} /></span>
-          <span className="brand-copy"><strong>Footfall</strong><small>PHARMACY TRACKER</small></span>
+          <span className="brand-copy"><strong>UVO’s</strong><small>PHARMACY FOOTFALL TRACKER</small></span>
         </a>
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
@@ -411,7 +411,7 @@ export default function App() {
       <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} />
       <HistoricalVisits branch={branch} branches={branches} profile={profile} />
 
-      <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
+      <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span>Built by UVO</span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
 
       {showPasswordSettings && (
         <div className="modal-backdrop" role="presentation">
