@@ -76,6 +76,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
         .select("id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by,created_at,updated_at")
         .eq("visit_date", selectedDate)
         .order("recorded_at", { ascending: false })
+        .order("id", { ascending: true })
         .range(offset, offset + 999);
 
       if (profile.role !== "admin") {
