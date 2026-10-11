@@ -179,6 +179,12 @@ export default function App() {
 
   useEffect(() => { void loadVisits(); }, [loadVisits]);
 
+  useEffect(() => {
+    if (!pendingCorrection) return;
+    const refresh = window.setInterval(() => { void loadVisits(); }, 15000);
+    return () => window.clearInterval(refresh);
+  }, [pendingCorrection, loadVisits]);
+
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase) return;
