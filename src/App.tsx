@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Activity, ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronDown,
-  CircleHelp, Clock3, KeyRound, LogOut, RotateCcw, ShoppingBag, Users, X,
+  CircleHelp, Clock3, KeyRound, LogOut, ShoppingBag, Users, X,
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import VisitCorrections from "./components/VisitCorrections";
