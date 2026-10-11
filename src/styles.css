@@ -20,6 +20,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 h1,h2,p{margin-top:0}
 h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:#173b30}
 .date-line{display:flex;align-items:center;gap:7px;color:#7c8981;font-size:12px;margin-bottom:0}
+.welcome-tagline{font-size:10px;font-weight:700;letter-spacing:1.5px;color:#28775b;margin:0 0 10px}
 .branch-switch{display:flex;align-items:center;gap:11px;text-align:left;background:#fff;border:1px solid #e2e9e3;border-radius:12px;padding:10px 12px;min-width:190px;color:#223a30}
 .branch-icon{height:35px;width:35px;border-radius:10px;background:#edf5ef;color:#216a4e;display:grid;place-items:center}
 .branch-switch>span:nth-child(2){display:flex;flex-direction:column;gap:3px;flex:1}
