@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Build daily branch CSVs from Supabase; email only when explicitly requested."""
+import csv
+import io
+import json
+import os
+import smtplib
+import ssl
+import sys
+from datetime import datetime
+from email.message import EmailMessage
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
+
+BRANCHES = [("gbagada", "Gbagada"), ("akoka", "Akoka"), ("sangotedo", "Sangotedo")]
+COLUMNS = ["id", "branch_id", "branch_name", "visit_date", "recorded_at", "outcome",
+           "reason", "batch_id", "created_by", "created_at", "updated_at"]
+
+
+def env(name):
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(f"Missing required environment setting: {name}")
+    return value
+
+
+def get_json(url, key):
+    req = Request(url, headers={"apikey": key, "Authorization": f"Bearer {key}",
+                                "Accept": "application/json"})
+    with urlopen(req, timeout=45) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def make_csv(rows):
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=COLUMNS, extrasaction="ignore",
+                            lineterminator="\r\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return ("\ufeff" + output.getvalue()).encode("utf-8")
+
+
+def main():
+    base = env("SUPABASE_URL").rstrip("/")
+    key = env("SUPABASE_SERVICE_ROLE_KEY")
+    date = os.environ.get("BACKUP_DATE", "").strip()
+    if not date:
+        date = datetime.now(ZoneInfo("Africa/Lagos")).date().isoformat()
+    try:
+        parsed = datetime.strptime(date, "%Y-%m-%d")
+        if parsed.strftime("%Y-%m-%d") != date:
+            raise ValueError
+    except ValueError as exc:
+        raise RuntimeError("Backup date must be YYYY-MM-DD.") from exc
+
+    branches = get_json(f"{base}/rest/v1/branches?select=id,slug,name", key)
+    by_id = {item["id"]: item for item in branches}
+    missing = [slug for slug, _ in BRANCHES if not any(b.get("slug") == slug for b in branches)]
+    if missing:
+        raise RuntimeError("Expected branches missing: " + ", ".join(missing))
+
+    visits = []
+    offset = 0
+    while True:
+        params = urlencode({
+            "select": "id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by,created_at,updated_at",
+            "visit_date": f"eq.{date}", "order": "recorded_at.asc,id.asc",
+            "limit": "1000", "offset": str(offset),
+        })
+        page = get_json(f"{base}/rest/v1/visits?{params}", key)
+        if not isinstance(page, list):
+            raise RuntimeError("Unexpected Supabase visits response.")
+        for item in page:
+            item["branch_name"] = by_id.get(item.get("branch_id"), {}).get("name", "Unknown")
+        visits.extend(page)
+        if len(page) < 1000:
+            break
+        offset += 1000
+
+    attachments = []
+    counts = {}
+    for slug, _name in BRANCHES:
+        selected = [v for v in visits if by_id.get(v.get("branch_id"), {}).get("slug") == slug]
+        filename = f"footfall_{slug}_{date}.csv"
+        attachments.append((filename, make_csv(selected)))
+        counts[filename] = len(selected)
+    combined = f"footfall_combined_{date}.csv"
+    attachments.append((combined, make_csv(visits)))
+    counts[combined] = len(visits)
+
+    branch_total = sum(counts[f"footfall_{slug}_{date}.csv"] for slug, _ in BRANCHES)
+    if branch_total != len(visits):
+        raise RuntimeError("Branch counts do not match combined count; refusing to continue.")
+
+    print(json.dumps({"date": date, "total_visits": len(visits), "reports": counts}, indent=2))
+    if os.environ.get("SEND_BACKUP_EMAIL", "").lower() != "true":
+        print("Dry run: no email sent.")
+        return
+
+    sender = env("SMTP_USERNAME")
+    password = env("SMTP_APP_PASSWORD").replace(" ", "")
+    recipients = list(dict.fromkeys(a.strip() for a in env("BACKUP_RECIPIENTS").split(",") if a.strip()))
+    if not recipients or any("@" not in address for address in recipients):
+        raise RuntimeError("Configure valid comma-separated recipient email addresses.")
+
+    msg = EmailMessage()
+    msg["From"] = sender
+    msg["To"] = ", ".join(recipients)
+    msg["Subject"] = f"Pharmacy Footfall Tracker daily backup - {date}"
+    msg.set_content(f"Attached are the four daily CSV reports for Lagos date {date}. Total visits: {len(visits)}.")
+    for filename, content in attachments:
+        msg.add_attachment(content, maintype="text", subtype="csv", filename=filename)
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=45) as smtp:
+        smtp.login(sender, password)
+        smtp.send_message(msg)
+    print("Backup email sent successfully.")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        print(f"Backup failed: {error}", file=sys.stderr)
+        sys.exit(1)
