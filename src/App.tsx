@@ -369,6 +369,7 @@ export default function App() {
         <div>
           <p className="eyebrow">DAILY OPERATIONS</p>
           <h1>Welcome</h1>
+          <p className="welcome-tagline">VISITS. INSIGHTS. GROWTH.</p>
           <p className="date-line"><CalendarDays size={16} /> {lagosDisplayDate()}</p>
         </div>
         <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setShowBranchPicker(true); }}>
