@@ -1,6 +1,8 @@
 name: Daily Footfall CSV Backup
 
 on:
+  schedule:
+    - cron: "59 22 * * *"
   pull_request:
     branches:
       - main
@@ -33,7 +35,7 @@ permissions:
 jobs:
   backup:
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'staging' }}
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.event_name == 'schedule' && 'Production' || 'staging') }}
     timeout-minutes: 10
     steps:
       - name: Check out repository
@@ -52,14 +54,14 @@ jobs:
           SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
           BACKUP_RECIPIENTS: ${{ secrets.BACKUP_RECIPIENTS }}
           BACKUP_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.backup_date || '' }}
-          SEND_BACKUP_EMAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.send_email || false }}
+          SEND_BACKUP_EMAIL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.send_email) || false }}
         run: python scripts/daily_footfall_backup.py
 
       - name: Save CSVs for inspection
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'staging' }}-footfall-csv-test
+          name: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.event_name == 'schedule' && 'Production' || 'staging') }}-footfall-csv-test
           path: backup-output/*.csv
           if-no-files-found: error
           retention-days: 1
