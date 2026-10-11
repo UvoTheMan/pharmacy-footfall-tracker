@@ -79,8 +79,9 @@ Deno.serve(async (request) => {
   let body: { date?: unknown; dryRun?: unknown } = {};
   try { body = await request.json(); } catch { /* Empty body means today's Lagos date. */ }
   const date = typeof body.date === "string" ? body.date : lagosDateKey();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-      new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date) {
+  const parsedDate = new Date(date + "T00:00:00Z");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate.getTime()) ||
+      parsedDate.toISOString().slice(0, 10) !== date) {
     return json({ error: "date must be a valid YYYY-MM-DD date" }, 400);
   }
   const dryRun = body.dryRun === true;
