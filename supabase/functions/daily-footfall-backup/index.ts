@@ -65,12 +65,11 @@ Deno.serve(async (request) => {
   const resendKey = Deno.env.get("RESEND_API_KEY");
   const fromEmail = Deno.env.get("BACKUP_FROM_EMAIL");
   const recipientConfig = Deno.env.get("BACKUP_RECIPIENTS") ?? "victorokolie911@gmail.com";
-  if (!supabaseUrl || !serviceRoleKey || !resendKey || !fromEmail) {
-    console.error("Backup configuration incomplete", {
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error("Backup database configuration incomplete", {
       supabaseUrl: Boolean(supabaseUrl), serviceRoleKey: Boolean(serviceRoleKey),
-      resendKey: Boolean(resendKey), fromEmail: Boolean(fromEmail),
     });
-    return json({ error: "Backup service is not fully configured" }, 503);
+    return json({ error: "Backup database service is not configured" }, 503);
   }
   const recipients = [...new Set(recipientConfig.split(",").map((x) => x.trim()).filter(Boolean))];
   if (!recipients.length || recipients.some((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))) {
@@ -103,16 +102,24 @@ Deno.serve(async (request) => {
     return json({ error: "Expected branch configuration is incomplete" }, 500);
   }
 
-  const { data: rawVisits, error: visitsError } = await supabase
-    .from("visits")
-    .select("id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by,created_at,updated_at")
-    .eq("visit_date", date)
-    .order("recorded_at", { ascending: true })
-    .order("id", { ascending: true })
-    .limit(100000);
-  if (visitsError) {
-    console.error("Unable to read visit records", { date, error: visitsError.message });
-    return json({ error: "Unable to read visit records" }, 500);
+  // Supabase projects commonly cap a single response at 1,000 rows. Page through
+  // the full date to avoid silently omitting visits from the backup.
+  const rawVisits: Record<string, any>[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page, error: visitsError } = await supabase
+      .from("visits")
+      .select("id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by,created_at,updated_at")
+      .eq("visit_date", date)
+      .order("recorded_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + 999);
+    if (visitsError) {
+      console.error("Unable to read visit records", { date, offset, error: visitsError.message });
+      return json({ error: "Unable to read visit records" }, 500);
+    }
+    const rows = page ?? [];
+    rawVisits.push(...rows);
+    if (rows.length < 1000) break;
   }
 
   const visits: Visit[] = (rawVisits ?? []).map((v) => ({
@@ -134,6 +141,13 @@ Deno.serve(async (request) => {
   if (dryRun) {
     return json({ success: true, dryRun: true, date, visitCount: visits.length, reportCounts: counts,
       filenames: reports.map((r) => r.filename), recipients });
+  }
+
+  if (!resendKey || !fromEmail) {
+    console.error("Email delivery configuration incomplete", {
+      resendKey: Boolean(resendKey), fromEmail: Boolean(fromEmail),
+    });
+    return json({ error: "Email delivery is not fully configured" }, 503);
   }
 
   // Unique run date prevents concurrent duplicate runs. Resend's idempotency key also
