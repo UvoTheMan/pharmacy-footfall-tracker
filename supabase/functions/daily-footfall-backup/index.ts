@@ -56,7 +56,7 @@ Deno.serve(async (request) => {
   const expectedSecret = Deno.env.get("BACKUP_CRON_SECRET") ?? "";
   const suppliedSecret = request.headers.get("x-backup-secret") ?? "";
   if (!expectedSecret || suppliedSecret.length !== expectedSecret.length ||
-      !crypto.subtle || !constantTimeEqual(suppliedSecret, expectedSecret)) {
+      !crypto.subtle || !(await constantTimeEqual(suppliedSecret, expectedSecret))) {
     return json({ error: "Unauthorized" }, 401);
   }
 
