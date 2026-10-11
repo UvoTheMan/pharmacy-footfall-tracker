@@ -15,7 +15,7 @@ on:
         type: choice
         options:
           - staging
-          - production
+          - Production
         default: staging
       send_email:
         description: "Send email after generating CSVs (leave unchecked for a safe dry run)"
