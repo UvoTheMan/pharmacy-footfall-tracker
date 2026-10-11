@@ -1,6 +1,12 @@
 name: Daily Footfall CSV Backup
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/daily-footfall-backup.yml"
+      - "scripts/daily_footfall_backup.py"
   workflow_dispatch:
     inputs:
       send_email:
@@ -37,6 +43,6 @@ jobs:
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
           BACKUP_RECIPIENTS: ${{ secrets.BACKUP_RECIPIENTS }}
-          BACKUP_DATE: ${{ inputs.backup_date }}
-          SEND_BACKUP_EMAIL: ${{ inputs.send_email }}
+          BACKUP_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.backup_date || '' }}
+          SEND_BACKUP_EMAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.send_email || false }}
         run: python scripts/daily_footfall_backup.py
