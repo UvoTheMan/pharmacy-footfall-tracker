@@ -200,7 +200,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
       visit.visit_date, visit.recorded_at, visit.outcome, visit.reason, visit.batch_id,
       visit.created_by, visit.created_at, visit.updated_at,
     ]);
-    const csv = "\\uFEFF" + [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\\r\\n") + "\\r\\n";
+    const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const link = document.createElement("a");
     const scope = profile.role === "admin" && adminBranchFilter === "all"
