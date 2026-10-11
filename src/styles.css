@@ -11,7 +11,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
 .brand-mark{height:39px;width:39px;border-radius:12px;display:grid;place-items:center;background:#12483b;color:#fff}
 .brand-copy{display:flex;flex-direction:column;gap:2px}
-.brand-copy strong{font:800 17px Manrope,sans-serif;letter-spacing:-.5px}
+.brand-copy strong{font:800 20px Manrope,sans-serif;letter-spacing:-.65px;color:#12483b;text-shadow:0 1px 0 rgba(18,72,59,.08)}
 .brand-copy small{font-size:9px;letter-spacing:1.65px;color:#7b8a82;font-weight:700}
 .local-time{display:flex;align-items:center;gap:8px;color:#6d7d74;font-size:12px;background:#fff;border:1px solid #e5ebe6;padding:8px 12px;border-radius:30px}
 .live-dot{width:7px;height:7px;border-radius:50%;background:#35a877;display:inline-block;box-shadow:0 0 0 3px #e4f6ed}
