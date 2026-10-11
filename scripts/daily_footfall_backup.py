@@ -9,6 +9,7 @@ import ssl
 import sys
 from datetime import datetime
 from email.message import EmailMessage
+from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
@@ -80,13 +81,19 @@ def main():
 
     attachments = []
     counts = {}
+    output_dir = Path("backup-output")
+    output_dir.mkdir(parents=True, exist_ok=True)
     for slug, _name in BRANCHES:
         selected = [v for v in visits if by_id.get(v.get("branch_id"), {}).get("slug") == slug]
         filename = f"footfall_{slug}_{date}.csv"
-        attachments.append((filename, make_csv(selected)))
+        content = make_csv(selected)
+        (output_dir / filename).write_bytes(content)
+        attachments.append((filename, content))
         counts[filename] = len(selected)
     combined = f"footfall_combined_{date}.csv"
-    attachments.append((combined, make_csv(visits)))
+    combined_content = make_csv(visits)
+    (output_dir / combined).write_bytes(combined_content)
+    attachments.append((combined, combined_content))
     counts[combined] = len(visits)
 
     branch_total = sum(counts[f"footfall_{slug}_{date}.csv"] for slug, _ in BRANCHES)
@@ -94,6 +101,7 @@ def main():
         raise RuntimeError("Branch counts do not match combined count; refusing to continue.")
 
     print(json.dumps({"date": date, "total_visits": len(visits), "reports": counts}, indent=2))
+    print("Generated four CSV files in backup-output/.")
     if os.environ.get("SEND_BACKUP_EMAIL", "").lower() != "true":
         print("Dry run: no email sent.")
         return
