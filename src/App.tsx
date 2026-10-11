@@ -356,7 +356,7 @@ export default function App() {
       <header className="topbar">
         <a className="brand" href="#" aria-label="Pharmacy Footfall Tracker home">
           <span className="brand-mark"><Activity size={21} strokeWidth={2.4} /></span>
-          <span className="brand-copy"><strong>UVO’s Footfall Tracker</strong><small>PHARMACY MANAGEMENT</small></span>
+          <span className="brand-copy"><strong>Footlytics</strong><small>FOOTFALL INTELLIGENCE</small></span>
         </a>
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
