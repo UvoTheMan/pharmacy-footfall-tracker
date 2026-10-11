@@ -391,11 +391,6 @@ export default function App() {
       {notice && <div className="notice" role="status"><Check size={16} />{notice}</div>}
       {error && <div className="error-message banner-error" role="alert"><CircleHelp size={16} />{error}</div>}
 
-      <aside className="testing-cutoff" aria-label="Testing cutoff notice">
-        <span className="testing-cutoff-icon"><CalendarDays size={19} /></span>
-        <div><strong>Testing ended: Sunday, 11 October 2026</strong><p>From Monday, 12 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
-      </aside>
-
       <section className="stats-grid" aria-label="Today's totals">
         <article className="stat-card stat-primary"><div className="stat-top"><span>Total visits</span><span className="stat-icon"><Users size={18} /></span></div><strong className="stat-number">{total}</strong><span className="stat-foot">{loadingVisits ? "Refreshing…" : "Shared records for today"}</span></article>
         <article className="stat-card"><div className="stat-top"><span>Purchases</span><span className="stat-icon green"><ShoppingBag size={18} /></span></div><strong className="stat-number">{purchasers}</strong><span className="stat-foot positive"><ArrowUpRight size={14} /> Completed sales</span></article>
@@ -425,6 +420,11 @@ export default function App() {
 
       <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} />
       <HistoricalVisits branch={branch} branches={branches} profile={profile} />
+
+      <details className="testing-cutoff">
+        <summary><CalendarDays size={16} /> Testing cutoff and historical records</summary>
+        <div className="testing-cutoff-content"><strong>Testing ended: Sunday, 11 October 2026</strong><p>From Monday, 12 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
+      </details>
 
       <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span>Built by UVO <span className="footer-dot">·</span> <a href="mailto:victorokolieau@gmail.com">Contact</a></span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
 
