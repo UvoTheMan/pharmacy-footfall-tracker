@@ -27,7 +27,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $$
   select b.id, b.slug, b.name
   from public.branches b
   where b.active = true
@@ -36,7 +36,7 @@ as $
       where p.user_id = (select auth.uid()) and p.active = true
     )
   order by b.name;
-$;
+$$;
 
 create or replace function public.has_pending_branch_correction(
   p_source_branch_id uuid,
@@ -47,7 +47,7 @@ language plpgsql
 stable
 security definer
 set search_path = ''
-as $
+as $$
 begin
   if auth.uid() is null then raise exception 'Sign-in required'; end if;
   if not public.can_access_branch(p_source_branch_id) then
@@ -60,7 +60,7 @@ begin
       and r.status = 'pending'
   );
 end;
-$;
+$$;
 
 -- Enforce the pause at the database layer so direct or stale clients cannot
 -- continue adding visits to a branch/date with a pending correction request.
@@ -69,7 +69,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 begin
   if exists (
     select 1 from public.branch_correction_requests r
@@ -81,7 +81,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists visits_z_block_pending_branch_correction on public.visits;
 create trigger visits_z_block_pending_branch_correction
