@@ -11,7 +11,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
 .brand-mark{height:39px;width:39px;border-radius:12px;display:grid;place-items:center;background:#12483b;color:#fff}
 .brand-copy{display:flex;flex-direction:column;gap:2px}
-.brand-copy strong{font:800 20px Manrope,sans-serif;letter-spacing:-.65px;color:#12483b;text-shadow:0 1px 0 rgba(18,72,59,.08)}
+.brand-copy strong{font:800 22px Manrope,sans-serif;letter-spacing:.15px;color:#12483b;text-shadow:0 1px 0 rgba(18,72,59,.08)}
 .brand-copy small{font-size:9px;letter-spacing:1.65px;color:#7b8a82;font-weight:700}
 .local-time{display:flex;align-items:center;gap:8px;color:#6d7d74;font-size:12px;background:#fff;border:1px solid #e5ebe6;padding:8px 12px;border-radius:30px}
 .live-dot{width:7px;height:7px;border-radius:50%;background:#35a877;display:inline-block;box-shadow:0 0 0 3px #e4f6ed}
@@ -111,7 +111,7 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .number-input{width:100%;padding:12px;border:1px solid #e3e9e4;border-radius:9px;background:#fbfcfb;outline:none;color:#2a4033}
 .batch-modal .primary-button{margin-top:24px}
 @media(max-width:850px){.app-shell{padding:0 22px 24px}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}.summary-panel{order:2}}
-@media(max-width:520px){.app-shell{padding:0 15px 20px}.topbar{height:68px}.brand-mark{width:35px;height:35px}.brand-copy strong{font-size:15px}.local-time{font-size:10px;padding:7px 9px;gap:6px}.welcome{align-items:flex-start;flex-direction:column;padding:25px 0 20px;gap:18px}h1{font-size:24px}.branch-switch{width:100%}.stats-grid{gap:10px;margin-bottom:14px}.stat-card{padding:14px}.stat-number{font-size:27px}.stat-top{font-size:10px}.stat-foot{font-size:9px}.content-grid{gap:14px}.panel{padding:17px}.panel-heading h2{font-size:18px}.outcome-button{padding:11px}.outcome-symbol{width:35px;height:35px}.footer{align-items:flex-start;flex-direction:column;padding-top:18px}.modal{padding:23px 19px;border-radius:16px}.modal h2{font-size:21px}}
+@media(max-width:520px){.app-shell{padding:0 15px 20px}.topbar{height:68px}.brand-mark{width:35px;height:35px}.brand-copy strong{font-size:16px;letter-spacing:.1px}.local-time{font-size:10px;padding:7px 9px;gap:6px}.welcome{align-items:flex-start;flex-direction:column;padding:25px 0 20px;gap:18px}h1{font-size:24px}.branch-switch{width:100%}.stats-grid{gap:10px;margin-bottom:14px}.stat-card{padding:14px}.stat-number{font-size:27px}.stat-top{font-size:10px}.stat-foot{font-size:9px}.content-grid{gap:14px}.panel{padding:17px}.panel-heading h2{font-size:18px}.outcome-button{padding:11px}.outcome-symbol{width:35px;height:35px}.footer{align-items:flex-start;flex-direction:column;padding-top:18px}.modal{padding:23px 19px;border-radius:16px}.modal h2{font-size:21px}}
 
 
 /* Stage 2 authentication and configuration screens */
