@@ -397,7 +397,7 @@ export default function App() {
             <button className="outcome-button purchased" onClick={() => void addVisits("purchased")} disabled={!branch || busy}><span className="outcome-symbol"><Check size={21} /></span><span className="outcome-text"><strong>Made a purchase</strong><small>Customer bought an item</small></span><span className="outcome-plus">+</span></button>
             <button className="outcome-button not-purchased" onClick={() => { setReason(""); setError(""); setShowNoPurchaseReason(true); }} disabled={!branch || busy}><span className="outcome-symbol"><X size={21} /></span><span className="outcome-text"><strong>No purchase</strong><small>Customer left without buying</small></span><span className="outcome-plus">+</span></button>
           </div>
-          <div className="counter-footer"><span className="text-button muted-button"><RotateCcw size={15} /> Corrections coming in Stage 3</span><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy}>Batch entry <span>+</span></button></div>
+          <div className="counter-footer"><span /><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy}>Batch entry <span>+</span></button></div>
         </section>
 
         <section className="panel summary-panel">
