@@ -13,6 +13,86 @@ create table if not exists public.branch_correction_requests (
 create index if not exists branch_correction_pending_idx
 on public.branch_correction_requests(status, created_at desc);
 
+-- The database, not a client-side check, guarantees at most one pending request
+-- for a source/destination/date tuple.
+create unique index if not exists branch_correction_one_pending_unique
+on public.branch_correction_requests(source_branch_id, target_branch_id, visit_date)
+where status = 'pending';
+
+-- Branch names are safe to expose for choosing a correction destination; this does
+-- not grant permission to read or write that branch's visits.
+create or replace function public.get_active_correction_branches()
+returns table (id uuid, slug text, name text)
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select b.id, b.slug, b.name
+  from public.branches b
+  where b.active = true
+    and exists (
+      select 1 from public.profiles p
+      where p.user_id = (select auth.uid()) and p.active = true
+    )
+  order by b.name;
+$;
+
+create or replace function public.has_pending_branch_correction(
+  p_source_branch_id uuid,
+  p_visit_date date
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $
+begin
+  if auth.uid() is null then raise exception 'Sign-in required'; end if;
+  if not public.can_access_branch(p_source_branch_id) then
+    raise exception 'No access to the selected source branch';
+  end if;
+  return exists (
+    select 1 from public.branch_correction_requests r
+    where r.source_branch_id = p_source_branch_id
+      and r.visit_date = p_visit_date
+      and r.status = 'pending'
+  );
+end;
+$;
+
+-- Enforce the pause at the database layer so direct or stale clients cannot
+-- continue adding visits to a branch/date with a pending correction request.
+create or replace function public.prevent_visits_during_branch_correction()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $
+begin
+  if exists (
+    select 1 from public.branch_correction_requests r
+    where r.source_branch_id = new.branch_id
+      and r.visit_date = new.visit_date
+      and r.status = 'pending'
+  ) then
+    raise exception 'Visit entry is paused while a branch correction is pending';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists visits_block_pending_branch_correction on public.visits;
+create trigger visits_block_pending_branch_correction
+before insert on public.visits
+for each row execute function public.prevent_visits_during_branch_correction();
+
+revoke all on function public.get_active_correction_branches() from public;
+revoke all on function public.has_pending_branch_correction(uuid, date) from public;
+grant execute on function public.get_active_correction_branches() to authenticated;
+grant execute on function public.has_pending_branch_correction(uuid, date) to authenticated;
+
 alter table public.branch_correction_requests enable row level security;
 
 drop policy if exists "Admins can view branch correction requests" on public.branch_correction_requests;
@@ -39,9 +119,6 @@ begin
   if not public.can_access_branch(p_source_branch_id) then
     raise exception 'No access to the selected source branch';
   end if;
-  if not public.can_access_branch(p_target_branch_id) then
-    raise exception 'No access to the selected destination branch';
-  end if;
   if p_source_branch_id = p_target_branch_id then
     raise exception 'Choose a different destination branch';
   end if;
@@ -64,9 +141,13 @@ begin
       and status = 'pending'
   ) then raise exception 'A correction request is already pending'; end if;
 
-  insert into public.branch_correction_requests(source_branch_id, target_branch_id, visit_date)
-  values (p_source_branch_id, p_target_branch_id, p_visit_date)
-  returning id into v_request_id;
+  begin
+    insert into public.branch_correction_requests(source_branch_id, target_branch_id, visit_date)
+    values (p_source_branch_id, p_target_branch_id, p_visit_date)
+    returning id into v_request_id;
+  exception when unique_violation then
+    raise exception 'A correction request is already pending';
+  end;
 
   return v_request_id;
 end;
