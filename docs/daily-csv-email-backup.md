@@ -51,6 +51,6 @@ Use Supabase Cron to invoke the Edge Function every day at that time. Store the 
 
 The backup date is unique in `footfall_backup_runs`. A run already marked `sent` is skipped. Resend receives an idempotency key based on the backup date, which helps prevent duplicate delivery if the provider accepted a request but the function did not receive its response. Failed attempts are logged and can be retried. Check the Supabase Edge Function logs, run-log row, and Resend email logs when diagnosing failures.
 
-## Important limitation to verify before production
+## Volume and delivery checks before production
 
-The function currently retrieves up to 100,000 visits for the requested date in one query. If daily volume grows beyond that, switch to pagination before relying on the backup. Test attachment size limits against the actual daily volume and Resend account limits.
+Visit records are read in stable 1,000-row pages, so Supabase's usual per-response row cap will not silently truncate the report. The four CSVs are attached to a single email, so confirm real attachment sizes against Resend's current message-size limits during the manual test. If daily volume grows substantially, consider a compressed attachment or separate messages rather than silently dropping records.
