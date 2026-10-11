@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Activity, ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronDown,
-  CircleHelp, Clock3, KeyRound, LogOut, RotateCcw, ShoppingBag, Users, X,
+  CircleHelp, Clock3, KeyRound, LogOut, ShoppingBag, Users, X,
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import VisitCorrections from "./components/VisitCorrections";
@@ -43,6 +43,15 @@ function lagosDisplayDate(date = new Date()) {
   return new Intl.DateTimeFormat("en-NG", {
     timeZone: "Africa/Lagos", weekday: "long", day: "numeric", month: "long", year: "numeric",
   }).format(date);
+}
+
+function FootlyticsMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 32 32" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 5.5H24.5M7 5.5V26.5M7 13H18" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13.5 25.5V21M19 25.5V17M24.5 25.5V12.5" stroke="#9EE6C0" strokeWidth="3.5" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 export default function App() {
@@ -283,7 +292,7 @@ export default function App() {
   if (!hasSupabaseConfig) return (
     <main className="setup-screen">
       <section className="setup-card">
-        <span className="brand-mark"><Activity size={22} /></span>
+        <span className="brand-mark"><FootlyticsMark /></span>
         <p className="eyebrow">STAGE 2 SETUP</p>
         <h1>Connect your Supabase project</h1>
         <p>The app code is ready for the shared database, but it needs your project's URL and publishable key before anyone can sign in or save visits online.</p>
@@ -304,7 +313,7 @@ export default function App() {
   if (recoveryMode && session) return (
     <main className="setup-screen">
       <form className="setup-card login-card" onSubmit={updatePassword}>
-        <span className="brand-mark"><Activity size={22} /></span>
+        <span className="brand-mark"><FootlyticsMark /></span>
         <p className="eyebrow">PHARMACY FOOTFALL TRACKER</p>
         <h1>Set a new password</h1>
         <p>Choose a new password for the Springcare account.</p>
@@ -325,7 +334,7 @@ export default function App() {
   if (!session) return (
     <main className="setup-screen">
       <form className="setup-card login-card" onSubmit={signIn}>
-        <span className="brand-mark"><Activity size={22} /></span>
+        <span className="brand-mark"><FootlyticsMark /></span>
         <p className="eyebrow">PHARMACY FOOTFALL TRACKER</p>
         <h1>Welcome back.</h1>
         <p>Sign in with the account provided by your administrator.</p>
@@ -355,8 +364,8 @@ export default function App() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="#" aria-label="Pharmacy Footfall Tracker home">
-          <span className="brand-mark"><Activity size={21} strokeWidth={2.4} /></span>
-          <span className="brand-copy"><strong>Footfall</strong><small>PHARMACY TRACKER</small></span>
+          <span className="brand-mark"><FootlyticsMark /></span>
+          <span className="brand-copy"><strong>Footlytics</strong><small>FOOTFALL INTELLIGENCE</small></span>
         </a>
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
@@ -368,7 +377,8 @@ export default function App() {
       <section className="welcome">
         <div>
           <p className="eyebrow">DAILY OPERATIONS</p>
-          <h1>{profile?.display_name ? `Welcome, ${profile.display_name}.` : "Welcome back, team."}</h1>
+          <h1>Welcome</h1>
+          <p className="welcome-tagline">VISITS. INSIGHTS. GROWTH.</p>
           <p className="date-line"><CalendarDays size={16} /> {lagosDisplayDate()}</p>
         </div>
         <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setShowBranchPicker(true); }}>
@@ -380,6 +390,11 @@ export default function App() {
 
       {notice && <div className="notice" role="status"><Check size={16} />{notice}</div>}
       {error && <div className="error-message banner-error" role="alert"><CircleHelp size={16} />{error}</div>}
+
+      <aside className="testing-cutoff" aria-label="Testing cutoff notice">
+        <span className="testing-cutoff-icon"><CalendarDays size={19} /></span>
+        <div><strong>Testing ended: Sunday, 11 October 2026</strong><p>From Monday, 12 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
+      </aside>
 
       <section className="stats-grid" aria-label="Today's totals">
         <article className="stat-card stat-primary"><div className="stat-top"><span>Total visits</span><span className="stat-icon"><Users size={18} /></span></div><strong className="stat-number">{total}</strong><span className="stat-foot">{loadingVisits ? "Refreshing…" : "Shared records for today"}</span></article>
@@ -396,7 +411,7 @@ export default function App() {
             <button className="outcome-button purchased" onClick={() => void addVisits("purchased")} disabled={!branch || busy}><span className="outcome-symbol"><Check size={21} /></span><span className="outcome-text"><strong>Made a purchase</strong><small>Customer bought an item</small></span><span className="outcome-plus">+</span></button>
             <button className="outcome-button not-purchased" onClick={() => { setReason(""); setError(""); setShowNoPurchaseReason(true); }} disabled={!branch || busy}><span className="outcome-symbol"><X size={21} /></span><span className="outcome-text"><strong>No purchase</strong><small>Customer left without buying</small></span><span className="outcome-plus">+</span></button>
           </div>
-          <div className="counter-footer"><span className="text-button muted-button"><RotateCcw size={15} /> Corrections coming in Stage 3</span><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy}>Batch entry <span>+</span></button></div>
+          <div className="counter-footer"><span /><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy}>Batch entry <span>+</span></button></div>
         </section>
 
         <section className="panel summary-panel">
@@ -411,7 +426,7 @@ export default function App() {
       <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} />
       <HistoricalVisits branch={branch} branches={branches} profile={profile} />
 
-      <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
+      <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span>Built by UVO <span className="footer-dot">·</span> <a href="mailto:victorokolieau@gmail.com">Contact</a></span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
 
       {showPasswordSettings && (
         <div className="modal-backdrop" role="presentation">
@@ -451,7 +466,7 @@ export default function App() {
       {showBranchPicker && (
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-title">
-            <div className="modal-brand"><span className="brand-mark"><Activity size={21} /></span><span className="eyebrow">DAILY BRANCH SETUP</span></div>
+            <div className="modal-brand"><span className="brand-mark"><FootlyticsMark /></span><span className="eyebrow">DAILY BRANCH SETUP</span></div>
             <h2 id="branch-title">Which branch are you recording for?</h2>
             <p className="modal-description">Only branches assigned to your account are listed. Choose today's branch; it remains selected through browser closure until the next Lagos calendar day.</p>
             <div className="branch-options">{branches.map((item) => <button key={item.id} className={branchChoice === item.id ? "branch-option selected" : "branch-option"} onClick={() => setBranchChoice(item.id)}><span className="branch-option-icon"><Users size={18} /></span><span><strong>{item.name}</strong><small>Assigned pharmacy branch</small></span><span className="radio-mark">{branchChoice === item.id && <span />}</span></button>)}</div>
