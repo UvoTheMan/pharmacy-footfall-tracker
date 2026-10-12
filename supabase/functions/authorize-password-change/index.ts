@@ -1,32 +1,27 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const productionOrigin = "https://footlyticsapp.vercel.app";
 const allowedOrigins = new Set([
-  "https://springfootfall.vercel.app",
+  productionOrigin,
+  "https://pharmacy-footfall-tracker-git-fix-br-23c2a2-uvothemans-projects.vercel.app",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ]);
 
 function isAllowedOrigin(origin: string | null): boolean {
-  if (!origin) return false;
-  if (allowedOrigins.has(origin)) return true;
-  try {
-    const url = new URL(origin);
-    return url.protocol === "https:" && url.hostname.endsWith(".vercel.app");
-  } catch {
-    return false;
-  }
+  return origin !== null && allowedOrigins.has(origin);
 }
 
 function corsHeaders(origin: string | null) {
-  const allowedOrigin = isAllowedOrigin(origin)
-    ? origin!
-    : "https://springfootfall.vercel.app";
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
+  const headers: Record<string, string> = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
+  if (isAllowedOrigin(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin!;
+  }
+  return headers;
 }
 
 function jsonResponse(body: Record<string, unknown>, status: number, origin: string | null) {
@@ -83,7 +78,7 @@ Deno.serve(async (request) => {
   });
 
   if (body.action === "request-recovery") {
-    const redirectOrigin = isAllowedOrigin(origin) ? origin! : "https://springfootfall.vercel.app";
+    const redirectOrigin = isAllowedOrigin(origin) ? origin! : productionOrigin;
     const { error: recoveryError } = await userClient.auth.resetPasswordForEmail(
       "victorokolieau@gmail.com",
       { redirectTo: redirectOrigin },
