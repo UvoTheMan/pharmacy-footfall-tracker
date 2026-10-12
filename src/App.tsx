@@ -462,13 +462,13 @@ export default function App() {
               ))}
             </div>
           </nav>
-        ) : (
+        ) : profile?.role !== "admin" ? (
           <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setShowBranchPicker(true); }}>
             <span className="branch-icon"><Users size={17} /></span>
             <span><small>ACTIVE BRANCH</small><strong>{branch?.name ?? "Choose branch"}</strong></span>
             <ChevronDown size={16} />
           </button>
-        )}
+        ) : null}
       </section>
 
       {notice && <div className="notice" role="status"><Check size={16} />{notice}</div>}
