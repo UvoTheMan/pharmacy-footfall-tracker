@@ -11,6 +11,7 @@ type Visit = {
   recorded_at: string;
   outcome: "purchased" | "not_purchased" | "undecided";
   reason: string | null;
+  unavailable_item_requested: boolean;
   batch_id: string | null;
   created_by: string;
   created_at: string;
@@ -85,7 +86,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
     for (let offset = 0; ; offset += 1000) {
       let query = supabase
         .from("visits")
-        .select("id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by,created_at,updated_at")
+        .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested,batch_id,created_by,created_at,updated_at")
         .eq("visit_date", selectedDate)
         .order("recorded_at", { ascending: false })
         .order("id", { ascending: true })
@@ -194,11 +195,11 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
 
     const headers = [
       "id", "branch_id", "branch_name", "visit_date", "recorded_at", "outcome",
-      "reason", "batch_id", "created_by", "created_at", "updated_at",
+      "reason", "unavailable_item_requested", "batch_id", "created_by", "created_at", "updated_at",
     ];
     const rows = exportVisits.map((visit) => [
       visit.id, visit.branch_id, branchNames.get(visit.branch_id) ?? visit.branch_id,
-      visit.visit_date, visit.recorded_at, visit.outcome, visit.reason, visit.batch_id,
+      visit.visit_date, visit.recorded_at, visit.outcome, visit.reason, visit.unavailable_item_requested, visit.batch_id,
       visit.created_by, visit.created_at, visit.updated_at,
     ]);
     const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
@@ -221,6 +222,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
   const purchases = visits.filter((visit) => visit.outcome === "purchased").length;
   const noPurchases = visits.filter((visit) => visit.outcome === "not_purchased").length;
   const undecided = visits.filter((visit) => visit.outcome === "undecided").length;
+  const unavailableDespitePurchase = visits.filter((visit) => visit.outcome === "purchased" && visit.unavailable_item_requested).length;
 
   return (
     <section className="panel history-panel">
@@ -254,6 +256,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
         <div><strong>{purchases}</strong><span>Purchases</span></div>
         <div><strong>{noPurchases}</strong><span>No purchase</span></div>
         {undecided > 0 && <div><strong>{undecided}</strong><span>Undecided</span></div>}
+        <div><strong>{unavailableDespitePurchase}</strong><span>Purchased despite stockout</span></div>
       </div>
 
       <div className="history-toolbar">
@@ -268,7 +271,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
       ) : (
         <div className="history-table-wrap">
           <table className="history-table">
-            <thead><tr><th>Time (Lagos)</th><th>Branch</th><th>Outcome</th><th>Reason</th><th>Record ID</th></tr></thead>
+            <thead><tr><th>Time (Lagos)</th><th>Branch</th><th>Outcome</th><th>Reason</th><th>Unavailable request</th><th>Record ID</th></tr></thead>
             <tbody>
               {visits.map((visit) => (
                 <tr key={visit.id}>
@@ -276,6 +279,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
                   <td>{branchNames.get(visit.branch_id) ?? "Unknown branch"}</td>
                   <td><span className={`correction-badge ${visit.outcome === "not_purchased" ? "not-purchased" : "purchased"}`}>{visit.outcome === "purchased" ? "Purchased" : visit.outcome === "not_purchased" ? "No purchase" : "Undecided"}</span></td>
                   <td>{visit.reason ?? "—"}</td>
+                  <td>{visit.outcome === "purchased" && visit.unavailable_item_requested ? "Yes" : "—"}</td>
                   <td><code>{visit.id}</code></td>
                 </tr>
               ))}
