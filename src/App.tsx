@@ -482,7 +482,7 @@ export default function App() {
 
       {profile?.role === "admin" && <BranchCorrectionRequests branches={branches} onUpdated={loadVisits} mode="history" />}
 
-      <div className={profile?.role === "admin" ? "content-grid admin-content-grid" : "content-grid"}
+      <div className={profile?.role === "admin" ? "content-grid admin-content-grid" : "content-grid"}>
         {profile?.role !== "admin" && <section className="panel counter-panel">
           <div className="panel-heading"><div><p className="eyebrow">QUICK ENTRY</p><h2>Record a visit</h2></div><span className="heading-chip"><span className="live-dot" /> {busy ? "Saving…" : "Online"}</span></div>
           <p className="panel-description">Choose the outcome for the person who just visited the pharmacy.</p>
