@@ -522,7 +522,7 @@ export default function App() {
           <summary><span className="admin-record-rollup-title"><span className="eyebrow">TODAY'S RECORDS</span><strong>Today's records</strong><small>Expand to review today's visits and read-only outcomes.</small></span><span className="admin-record-rollup-meta">{todaysVisits.length} visits <ChevronDown size={17} /></span></summary>
           <div className="admin-record-rollup-content"><VisitCorrections visits={todaysVisits} onUpdated={loadVisits} canEdit={false} /></div>
         </details>
-      ) : <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} canEdit={profile?.role !== "admin"} />}
+      ) : <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} canEdit={true} />}
       {profile?.role === "admin" ? (
         <details className="admin-record-rollup">
           <summary><span className="admin-record-rollup-title"><span className="eyebrow">HISTORICAL RECORDS</span><strong>Historical records</strong><small>Search previous dates, filter by branch, and export CSVs.</small></span><span className="admin-record-rollup-meta">Last 90 days <ChevronDown size={17} /></span></summary>
