@@ -15,6 +15,7 @@ type Props = { role: "staff" | "admin" };
 export default function ManualBackup({ role }: Props) {
   const today = lagosDateKey();
   const [mode, setMode] = useState<"day" | "range">("day");
+  const [expanded, setExpanded] = useState(false);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [sending, setSending] = useState(false);
@@ -61,22 +62,23 @@ export default function ManualBackup({ role }: Props) {
       setError(serverMessage ?? result.error?.message ?? "The backup email could not be sent. Please try again or contact the administrator.");
     } else {
       const count = Number(result.data.visitCount ?? 0);
-      setNotice(`Email sent successfully for ${period}. ${count} visit record${count === 1 ? "" : "s"} included across the four CSV reports.`);
+      setNotice(`Backup email job queued for ${period}. ${count} visit record${count === 1 ? "" : "s"} included. GitHub Actions will generate the four CSV reports and send them using the configured Gmail app password.`);
     }
     setSending(false);
   }
 
   return (
-    <details className="panel manual-backup-panel">
-      <summary className="manual-backup-summary">
+    <section className="panel manual-backup-panel">
+      <button type="button" className="manual-backup-summary" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
         <span className="manual-backup-title">
           <span className="eyebrow">EMAIL EXPORT</span>
           <strong>Manual data backup</strong>
           <small>Send CSV reports for all three branches to both configured backup email addresses.</small>
         </span>
         <span className="heading-chip"><Mail size={14} /> Staff and admin</span>
-      </summary>
-      <div className="manual-backup-content">
+        <span className="manual-backup-toggle" aria-hidden="true">{expanded ? "−" : "+"}</span>
+      </button>
+      {expanded && <div className="manual-backup-content">
         <p className="panel-description">
           Choose one day or a date range. This sends four CSV files: each branch report and one combined report.
         </p>
@@ -103,7 +105,7 @@ export default function ManualBackup({ role }: Props) {
       {notice && <p className="notice" role="status">{notice}</p>}
       {error && <p className="error-message" role="alert">{error}</p>}
         <p className="setup-footnote">Includes branch-specific CSVs for Gbagada, Akoka, and Sangotedo, plus one combined CSV. {role === "admin" ? "This action does not change visit records." : "This action is for reporting only and does not change visit records."}</p>
-      </div>
-    </details>
+      </div>}
+    </section>
   );
 }
