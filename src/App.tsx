@@ -528,7 +528,12 @@ export default function App() {
           <summary><span className="admin-record-rollup-title"><span className="eyebrow">HISTORICAL RECORDS</span><strong>Historical records</strong><small>Search previous dates, filter by branch, and export CSVs.</small></span><span className="admin-record-rollup-meta">Last 90 days <ChevronDown size={17} /></span></summary>
           <div className="admin-record-rollup-content"><HistoricalVisits branch={branch} branches={branches} profile={profile} /></div>
         </details>
-      ) : <HistoricalVisits branch={branch} branches={branches} profile={profile} />}
+      ) : (
+        <details className="admin-record-rollup staff-history-rollup">
+          <summary><span className="admin-record-rollup-title"><span className="eyebrow">HISTORY &amp; EXPORT</span><strong>Historical records &amp; CSV export</strong><small>Review past visits or download a CSV for a date range.</small></span><span className="admin-record-rollup-meta">Last 90 days <ChevronDown size={17} /></span></summary>
+          <div className="admin-record-rollup-content"><HistoricalVisits branch={branch} branches={branches} profile={profile} /></div>
+        </details>
+      )}
 
       {/* Manual backup stays collapsed and directly above the testing warning. */}
       {profile && <ManualBackup role={profile.role} />}
