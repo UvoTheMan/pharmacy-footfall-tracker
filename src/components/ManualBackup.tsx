@@ -48,7 +48,17 @@ export default function ManualBackup({ role }: Props) {
       body: { startDate, endDate },
     });
     if (result.error || result.data?.success !== true) {
-      setError(result.data?.error ?? result.error?.message ?? "The backup email could not be sent. Please try again or contact the administrator.");
+      let serverMessage = result.data?.error as string | undefined;
+      const context = (result.error as (Error & { context?: unknown }) | null)?.context;
+      if (!serverMessage && context instanceof Response) {
+        try {
+          const payload = await context.clone().json() as { error?: string };
+          serverMessage = payload.error;
+        } catch {
+          // Fall back to the SDK error when the response isn't JSON.
+        }
+      }
+      setError(serverMessage ?? result.error?.message ?? "The backup email could not be sent. Please try again or contact the administrator.");
     } else {
       const count = Number(result.data.visitCount ?? 0);
       setNotice(`Email sent successfully for ${period}. ${count} visit record${count === 1 ? "" : "s"} included across the four CSV reports.`);
@@ -57,17 +67,19 @@ export default function ManualBackup({ role }: Props) {
   }
 
   return (
-    <section className="panel manual-backup-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">EMAIL EXPORT</p>
-          <h2>Manual data backup</h2>
-        </div>
+    <details className="panel manual-backup-panel">
+      <summary className="manual-backup-summary">
+        <span className="manual-backup-title">
+          <span className="eyebrow">EMAIL EXPORT</span>
+          <strong>Manual data backup</strong>
+          <small>Send CSV reports for all three branches to both configured backup email addresses.</small>
+        </span>
         <span className="heading-chip"><Mail size={14} /> Staff and admin</span>
-      </div>
-      <p className="panel-description">
-        Send the collated records for all three branches to both configured backup email addresses in one action.
-      </p>
+      </summary>
+      <div className="manual-backup-content">
+        <p className="panel-description">
+          Choose one day or a date range. This sends four CSV files: each branch report and one combined report.
+        </p>
       <div className="manual-backup-mode" role="group" aria-label="Export period">
         <button type="button" className={mode === "day" ? "admin-branch-tab active" : "admin-branch-tab"} aria-pressed={mode === "day"} onClick={() => { setMode("day"); setEndDate(startDate || today); setError(""); setNotice(""); }}>Single day</button>
         <button type="button" className={mode === "range" ? "admin-branch-tab active" : "admin-branch-tab"} aria-pressed={mode === "range"} onClick={() => { setMode("range"); setError(""); setNotice(""); }}>Date range</button>
@@ -90,7 +102,8 @@ export default function ManualBackup({ role }: Props) {
       </button>
       {notice && <p className="notice" role="status">{notice}</p>}
       {error && <p className="error-message" role="alert">{error}</p>}
-      <p className="setup-footnote">Includes branch-specific CSVs for Gbagada, Akoka, and Sangotedo, plus one combined CSV. {role === "admin" ? "This action does not change visit records." : "This action is for reporting only and does not change visit records."}</p>
-    </section>
+        <p className="setup-footnote">Includes branch-specific CSVs for Gbagada, Akoka, and Sangotedo, plus one combined CSV. {role === "admin" ? "This action does not change visit records." : "This action is for reporting only and does not change visit records."}</p>
+      </div>
+    </details>
   );
 }
