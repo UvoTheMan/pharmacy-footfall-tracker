@@ -502,7 +502,7 @@ export default function App() {
         </section>
       </div>
 
-      <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} />
+      <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} canEdit={profile?.role !== "admin"} />
       <HistoricalVisits branch={branch} branches={branches} profile={profile} />
 
       <details className="testing-cutoff">
