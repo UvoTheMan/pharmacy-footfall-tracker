@@ -191,9 +191,13 @@ export default function App() {
     setBusy(true);
     setError("");
     const enteredLogin = username.trim().toLowerCase();
-    const email = enteredLogin === "springcare" ? "victorokolieau@gmail.com" : enteredLogin;
+    const email = enteredLogin === "springcare"
+      ? "victorokolieau@gmail.com"
+      : enteredLogin === "springcarestaff"
+        ? "victorokolie911@gmail.com"
+        : enteredLogin;
     if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
-      setError("Enter springcare or your account email address.");
+      setError("Enter SpringCare, SpringCareStaff, or your account email address.");
       setBusy(false);
       return;
     }
