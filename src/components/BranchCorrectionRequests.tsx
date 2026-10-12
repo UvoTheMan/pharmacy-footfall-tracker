@@ -29,7 +29,7 @@ type Verification = {
   error?: string;
 };
 
-export default function BranchCorrectionRequests({ branches, onUpdated }: { branches: Branch[]; onUpdated: () => Promise<void> }) {
+export default function BranchCorrectionRequests({ branches, onUpdated, mode = "requests" }: { branches: Branch[]; onUpdated: () => Promise<void>; mode?: "requests" | "history" }) {
   const [requests, setRequests] = useState<Request[]>([]);
   const [resolvedRequests, setResolvedRequests] = useState<Request[]>([]);
   const [activeRequest, setActiveRequest] = useState<Request | null>(null);
@@ -170,6 +170,7 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
 
   return (
     <section className="panel">
+      {mode === "requests" && <>
       <div className="panel-heading">
         <div><p className="eyebrow">ADMIN REVIEW</p><h2>Branch correction requests</h2></div>
         <span className="date-pill">{requests.length} pending</span>
@@ -209,11 +210,12 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
           <button className="correction-edit" type="button" disabled={busy} onClick={() => void reviewRequest(request)}>Review visits</button>
         </article>
       ))}
-      <div className="approval-history">
-        <div className="panel-heading">
-          <div><p className="eyebrow">RESOLVED REQUESTS</p><h3>Approval history</h3></div>
+      </>}
+      {mode === "history" && <details className="approval-history">
+        <summary className="approval-history-summary">
+          <span><p className="eyebrow">ADMIN REVIEW</p><strong>Review history</strong></span>
           <span className="date-pill">{resolvedRequests.length} reviewed</span>
-        </div>
+        </summary>
         <p className="panel-description">Previously approved and rejected branch-correction requests, with the decision date. Approver identity is not stored.</p>
         {resolvedRequests.length === 0 ? (
           <p className="modal-footnote">No completed branch correction decisions yet.</p>
@@ -227,7 +229,7 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
             <span className={request.status === "approved" ? "correction-badge purchased" : "correction-badge not-purchased"}>{request.status === "approved" ? "Approved" : "Rejected"}</span>
           </article>
         ))}
-      </div>
+      </details>}
       {activeRequest && (
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-correction-review-title">
