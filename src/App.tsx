@@ -22,6 +22,7 @@ type Visit = {
   recorded_at: string;
   outcome: Outcome;
   reason: Reason | null;
+  unavailable_item_requested: boolean;
   batch_id: string | null;
   created_by: string;
 };
@@ -163,7 +164,7 @@ export default function App() {
     setError("");
     const result = await supabase
       .from("visits")
-      .select("id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by")
+      .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested,batch_id,created_by")
       .eq("branch_id", branch.id)
       .eq("visit_date", today)
       .order("recorded_at", { ascending: false });
@@ -301,7 +302,7 @@ export default function App() {
     flash("Today's branch is set to " + chosen.name + ".");
   }
 
-  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason) {
+  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false) {
     if (pendingCorrection) {
       setError("Visit entry is paused while a branch correction is awaiting administrator review.");
       return;
@@ -320,6 +321,7 @@ export default function App() {
       recorded_at: now.toISOString(),
       outcome,
       reason: outcome === "not_purchased" ? visitReason ?? null : null,
+      unavailable_item_requested: outcome === "purchased" && unavailableItemRequested,
       batch_id: batchId,
       created_by: session.user.id,
     }));
@@ -340,6 +342,7 @@ export default function App() {
   const purchasers = todaysVisits.filter((visit) => visit.outcome === "purchased").length;
   const nonPurchasers = todaysVisits.filter((visit) => visit.outcome === "not_purchased").length;
   const undecided = todaysVisits.filter((visit) => visit.outcome === "undecided").length;
+  const unavailableDespitePurchase = todaysVisits.filter((visit) => visit.outcome === "purchased" && visit.unavailable_item_requested).length;
   const total = todaysVisits.length;
   const conversion = total - undecided > 0 ? Math.round((purchasers / (total - undecided)) * 100) : null;
 
@@ -463,6 +466,7 @@ export default function App() {
             <button className="outcome-button purchased" onClick={() => void addVisits("purchased")} disabled={!branch || busy || pendingCorrection}><span className="outcome-symbol"><Check size={21} /></span><span className="outcome-text"><strong>Made a purchase</strong><small>Customer bought an item</small></span><span className="outcome-plus">+</span></button>
             <button className="outcome-button not-purchased" onClick={() => { setReason(""); setError(""); setShowNoPurchaseReason(true); }} disabled={!branch || busy || pendingCorrection}><span className="outcome-symbol"><X size={21} /></span><span className="outcome-text"><strong>No purchase</strong><small>Customer left without buying</small></span><span className="outcome-plus">+</span></button>
           </div>
+          <button className="secondary-button" style={{ width: "100%", marginTop: 10 }} onClick={() => void addVisits("purchased", 1, undefined, true)} disabled={!branch || busy || pendingCorrection}>Purchased, but requested item unavailable <span>↗</span></button>
           <div className="counter-footer"><span /><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy || pendingCorrection}>Batch entry <span>+</span></button></div>
         </section>
 
@@ -471,6 +475,7 @@ export default function App() {
           <div className="activity-total"><span className="activity-total-icon"><Users size={20} /></span><div><strong>{total}</strong><small>Total recorded visits</small></div></div>
           <div className="progress-group"><div className="progress-label"><span><i className="legend-dot purchase-dot" /> Purchases</span><strong>{purchasers} <small>{total ? Math.round(purchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${total ? purchasers / total * 100 : 0}%` }} /></div></div>
           <div className="progress-group"><div className="progress-label"><span><i className="legend-dot no-purchase-dot" /> No purchase</span><strong>{nonPurchasers} <small>{total ? Math.round(nonPurchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill no-purchase-fill" style={{ width: `${total ? nonPurchasers / total * 100 : 0}%` }} /></div></div>
+          <div className="snapshot-note"><CircleHelp size={16} /><span>Unavailable request despite purchase: <strong>{unavailableDespitePurchase}</strong></span></div>
           <div className="snapshot-note"><CircleHelp size={16} /><span>Data shown is loaded from the shared database.</span></div>
         </section>
       </div>
