@@ -273,7 +273,7 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 
 
 /* Admin dashboard decluttering and dedicated analytics workspace */
-.admin-page-switch{white-space:nowrap;background:#18794e!important;border:1px solid #146b44!important;color:#fff!important;border-radius:10px;padding:10px 14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:800;box-shadow:0 3px 9px #18794e26;transition:background .15s,box-shadow .15s,transform .15s}.admin-page-switch:hover{background:#12643f!important;box-shadow:0 4px 12px #18794e38;transform:translateY(-1px)}.admin-page-switch:focus-visible{outline:3px solid #a7e4bf;outline-offset:2px}.admin-page-switch-label{display:inline}
+.admin-page-switch{white-space:nowrap;background:#18794e!important;border-color:#146b44!important;color:#fff!important}.admin-page-switch:hover{background:#12643f!important;border-color:#12643f!important;color:#fff!important}
 .admin-analytics-page{max-width:1120px;margin:0 auto}
 .admin-analytics-page>.panel-description{max-width:760px;margin:0 0 18px;line-height:1.7}
 .admin-analytics-page .admin-analytics-panel{margin-top:0}
@@ -297,8 +297,8 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .admin-record-rollup-content .history-panel{padding:0;border:0}
 .admin-record-rollup-content .panel-description{margin-top:12px}
 @media(max-width:600px){
-  .admin-page-switch{min-width:0;justify-content:center;padding:9px 11px;gap:7px}
-  .admin-page-switch-label{display:inline;font-size:10px}
+  .admin-page-switch{min-width:38px;justify-content:center;padding:8px}
+  .admin-page-switch-label{display:none}
   .admin-record-rollup>summary{padding:15px 13px;gap:10px}
   .admin-record-rollup-title strong{font-size:14px}
   .admin-record-rollup-title small{font-size:10px;max-width:230px}
