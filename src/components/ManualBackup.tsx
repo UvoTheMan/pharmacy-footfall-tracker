@@ -10,12 +10,6 @@ function lagosDateKey(date = new Date()) {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
-function shiftDate(date: string, days: number) {
-  const value = new Date(`${date}T12:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
-}
-
 type Props = { role: "staff" | "admin" };
 
 export default function ManualBackup({ role }: Props) {
