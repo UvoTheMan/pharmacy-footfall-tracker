@@ -48,12 +48,18 @@ def main():
     date = os.environ.get("BACKUP_DATE", "").strip()
     if not date:
         date = datetime.now(ZoneInfo("Africa/Lagos")).date().isoformat()
+    start_date = os.environ.get("BACKUP_START_DATE", "").strip() or date
+    end_date = os.environ.get("BACKUP_END_DATE", "").strip() or date
     try:
-        parsed = datetime.strptime(date, "%Y-%m-%d")
-        if parsed.strftime("%Y-%m-%d") != date:
+        for value in (start_date, end_date):
+            parsed = datetime.strptime(value, "%Y-%m-%d")
+            if parsed.strftime("%Y-%m-%d") != value:
+                raise ValueError
+        if start_date > end_date:
             raise ValueError
     except ValueError as exc:
-        raise RuntimeError("Backup date must be YYYY-MM-DD.") from exc
+        raise RuntimeError("Backup start/end dates must be valid YYYY-MM-DD dates, with start no later than end.") from exc
+    period_label = start_date if start_date == end_date else f"{start_date}_to_{end_date}"
 
     branches = get_json(f"{base}/rest/v1/branches?select=id,slug,name", key)
     by_id = {item["id"]: item for item in branches}
@@ -66,7 +72,7 @@ def main():
     while True:
         params = urlencode({
             "select": "id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested,batch_id,created_by,created_at,updated_at",
-            "visit_date": f"eq.{date}", "order": "recorded_at.asc,id.asc",
+            "visit_date": f"gte.{start_date}", "visit_date": f"lte.{end_date}", "order": "visit_date.asc,recorded_at.asc,id.asc",
             "limit": "1000", "offset": str(offset),
         })
         page = get_json(f"{base}/rest/v1/visits?{params}", key)
@@ -85,22 +91,22 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     for slug, _name in BRANCHES:
         selected = [v for v in visits if by_id.get(v.get("branch_id"), {}).get("slug") == slug]
-        filename = f"footfall_{slug}_{date}.csv"
+        filename = f"footfall_{slug}_{period_label}.csv"
         content = make_csv(selected)
         (output_dir / filename).write_bytes(content)
         attachments.append((filename, content))
         counts[filename] = len(selected)
-    combined = f"footfall_combined_{date}.csv"
+    combined = f"footfall_combined_{period_label}.csv"
     combined_content = make_csv(visits)
     (output_dir / combined).write_bytes(combined_content)
     attachments.append((combined, combined_content))
     counts[combined] = len(visits)
 
-    branch_total = sum(counts[f"footfall_{slug}_{date}.csv"] for slug, _ in BRANCHES)
+    branch_total = sum(counts[f"footfall_{slug}_{period_label}.csv"] for slug, _ in BRANCHES)
     if branch_total != len(visits):
         raise RuntimeError("Branch counts do not match combined count; refusing to continue.")
 
-    print(json.dumps({"date": date, "total_visits": len(visits), "reports": counts}, indent=2))
+    print(json.dumps({"start_date": start_date, "end_date": end_date, "total_visits": len(visits), "reports": counts}, indent=2))
     print("Generated four CSV files in backup-output/.")
     if os.environ.get("SEND_BACKUP_EMAIL", "").lower() != "true":
         print("Dry run: no email sent.")
@@ -115,8 +121,8 @@ def main():
     msg = EmailMessage()
     msg["From"] = sender
     msg["To"] = ", ".join(recipients)
-    msg["Subject"] = f"Pharmacy Footfall Tracker daily backup - {date}"
-    msg.set_content(f"Attached are the four daily CSV reports for Lagos date {date}. Total visits: {len(visits)}.")
+    msg["Subject"] = f"Footlytics CSV backup - {period_label}"
+    msg.set_content(f"Attached are the four Footlytics CSV reports for Lagos dates {start_date} through {end_date}. Total visits: {len(visits)}.")
     for filename, content in attachments:
         msg.add_attachment(content, maintype="text", subtype="csv", filename=filename)
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=45) as smtp:
