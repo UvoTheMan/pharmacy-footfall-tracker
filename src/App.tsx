@@ -174,12 +174,20 @@ export default function App() {
     if (!supabase) return;
     setBusy(true);
     setError("");
-    if (username.trim().toLowerCase() !== "springcare") {
+    const normalizedUsername = username.trim().toLowerCase();
+    const accountEmails: Record<string, string> = {
+      springcare: "victorokolieau@gmail.com",
+      "victorokolieau@gmail.com": "victorokolieau@gmail.com",
+      sprincarestaff: "victorokolie911@gmail.com",
+      "victorokolie911@gmail.com": "victorokolie911@gmail.com",
+    };
+    const email = accountEmails[normalizedUsername];
+    if (!email) {
       setError("Incorrect username or password.");
       setBusy(false);
       return;
     }
-    const result = await supabase.auth.signInWithPassword({ email: "victorokolieau@gmail.com", password });
+    const result = await supabase.auth.signInWithPassword({ email, password });
     if (result.error) setError("Incorrect username or password.");
     setBusy(false);
   }
