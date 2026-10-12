@@ -29,7 +29,7 @@ function lagosDateKey(date = new Date()): string {
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(date);
   const part = (p: string) => parts.find((item) => item.type === p)?.value ?? "";
-  return \`\${part("year")}-\${part("month")}-\${part("day")}\`;
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 Deno.serve(async (request) => {
@@ -87,7 +87,7 @@ Deno.serve(async (request) => {
     method: "POST",
     headers: {
       "Accept": "application/vnd.github+json",
-      "Authorization": \`Bearer \${githubToken}\`,
+      "Authorization": `Bearer ${githubToken}`,
       "X-GitHub-Api-Version": "2022-11-28",
       "Content-Type": "application/json",
     },
