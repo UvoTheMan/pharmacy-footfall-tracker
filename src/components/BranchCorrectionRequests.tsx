@@ -17,6 +17,16 @@ type Visit = {
   outcome: "purchased" | "not_purchased" | "undecided";
   reason: string | null;
 };
+type Verification = {
+  requestDate: string;
+  sourceBranchId: string;
+  targetBranchId: string;
+  selectedCount: number;
+  confirmedMovedCount: number | null;
+  sourceRemainingCount: number | null;
+  destinationTotalCount: number | null;
+  error?: string;
+};
 
 export default function BranchCorrectionRequests({ branches, onUpdated }: { branches: Branch[]; onUpdated: () => Promise<void> }) {
   const [requests, setRequests] = useState<Request[]>([]);
@@ -26,6 +36,7 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [verification, setVerification] = useState<Verification | null>(null);
 
   const loadRequests = useCallback(async () => {
     if (!supabase) return;
@@ -45,6 +56,7 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
     setBusy(true);
     setError("");
     setNotice("");
+    setVerification(null);
     setActiveRequest(request);
     setSelected([]);
     const result = await supabase
@@ -86,11 +98,55 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
       setBusy(false);
       return;
     }
+    if (approve) {
+      const requestDate = activeRequest.visit_date;
+      const movedIds = [...selected];
+      const [movedResult, sourceCountResult, destinationCountResult] = await Promise.all([
+        supabase
+          .from("visits")
+          .select("id,branch_id,visit_date")
+          .in("id", movedIds),
+        supabase
+          .from("visits")
+          .select("id", { count: "exact", head: true })
+          .eq("branch_id", activeRequest.source_branch_id)
+          .eq("visit_date", requestDate),
+        supabase
+          .from("visits")
+          .select("id", { count: "exact", head: true })
+          .eq("branch_id", activeRequest.target_branch_id)
+          .eq("visit_date", requestDate),
+      ]);
+
+      const verificationError = movedResult.error ?? sourceCountResult.error ?? destinationCountResult.error;
+      const confirmedMovedCount = verificationError
+        ? null
+        : (movedResult.data ?? []).filter(
+            (visit) => visit.branch_id === activeRequest.target_branch_id && visit.visit_date === requestDate,
+          ).length;
+
+      setVerification({
+        requestDate,
+        sourceBranchId: activeRequest.source_branch_id,
+        targetBranchId: activeRequest.target_branch_id,
+        selectedCount: movedIds.length,
+        confirmedMovedCount,
+        sourceRemainingCount: verificationError ? null : sourceCountResult.count ?? 0,
+        destinationTotalCount: verificationError ? null : destinationCountResult.count ?? 0,
+        error: verificationError?.message,
+      });
+      setNotice(verificationError
+        ? "Correction was approved, but automatic verification could not complete. Refresh Past Records and check both branches."
+        : confirmedMovedCount === movedIds.length
+          ? "Correction approved and verified against the saved database records."
+          : "Correction was approved, but the saved records did not all match the expected destination. Please inspect both branches.");
+      await onUpdated();
+    } else {
+      setNotice("Branch correction request rejected.");
+    }
     setActiveRequest(null);
     setVisits([]);
     setSelected([]);
-    setNotice(approve ? "Selected visits moved to the corrected branch." : "Branch correction request rejected.");
-    if (approve) await onUpdated();
     await loadRequests();
     setBusy(false);
   }
@@ -109,6 +165,27 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
       <p className="panel-description">Review the visits selected for reassignment. No requester or approver identity is recorded.</p>
       {notice && <div className="notice" role="status"><Check size={15} />{notice}</div>}
       {error && <p className="error-message" role="alert">{error}</p>}
+      {verification && (
+        <div className="correction-row" role="status">
+          <div className="correction-details">
+            <strong>Post-approval verification · {verification.requestDate}</strong>
+            <span>{branchName(verification.sourceBranchId)} → {branchName(verification.targetBranchId)}</span>
+            {verification.error ? (
+              <span>Could not verify saved records: {verification.error}</span>
+            ) : (
+              <>
+                <span>{verification.confirmedMovedCount} of {verification.selectedCount} selected visits confirmed in the destination branch for this date.</span>
+                <span>Source branch records remaining on that date: {verification.sourceRemainingCount}</span>
+                <span>Destination branch total records on that date: {verification.destinationTotalCount}</span>
+              </>
+            )}
+          </div>
+          <button className="correction-edit" type="button" disabled={busy} onClick={() => {
+            setVerification(null);
+            setNotice("");
+          }}>Dismiss</button>
+        </div>
+      )}
       {requests.length === 0 ? (
         <p className="modal-footnote">No pending branch correction requests.</p>
       ) : requests.map((request) => (
