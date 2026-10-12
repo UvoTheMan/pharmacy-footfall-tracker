@@ -64,8 +64,9 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "Invalid request." }, 400, origin);
   }
 
-  const adminToken = typeof body.adminToken === "string" ? body.adminToken : "";
-  if (!adminToken || !(await constantTimeEqual(adminToken, expectedToken))) {
+  const adminToken = typeof body.adminToken === "string" ? body.adminToken.trim() : "";
+  const configuredToken = expectedToken.trim();
+  if (!adminToken || !(await constantTimeEqual(adminToken, configuredToken))) {
     return jsonResponse({ error: "Admin authorization failed." }, 403, origin);
   }
 
