@@ -254,3 +254,20 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .analytics-day-bar{display:block;width:13px;min-height:2px;max-height:105px;border-radius:4px 4px 0 0;background:#3ba477}
 .analytics-day-label{font-size:9px;color:#8c9990;padding-bottom:7px;white-space:nowrap}
 @media(max-width:700px){.analytics-grid{grid-template-columns:1fr}.analytics-refresh{width:100%;justify-content:center}.analytics-filters{align-items:stretch}.analytics-filters .history-date-field{min-width:0}.analytics-row-label{gap:7px}.analytics-row-label span{font-size:9px}.analytics-kpis>div{min-width:calc(50% - 6px)}}
+
+
+/* Collapsible manual CSV email sender */
+.manual-backup-panel{margin:20px 0 0;padding:0;overflow:hidden}
+.manual-backup-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px;cursor:pointer;list-style:none}
+.manual-backup-summary::-webkit-details-marker{display:none}
+.manual-backup-summary::after{content:"+";order:2;margin-left:2px;color:#71877a;font-size:22px;line-height:1}
+.manual-backup-panel[open] .manual-backup-summary::after{content:"−"}
+.manual-backup-summary:hover .manual-backup-title strong{color:#174d3b}
+.manual-backup-title{display:flex;flex-direction:column;gap:5px;min-width:0}
+.manual-backup-title .eyebrow{margin:0}
+.manual-backup-title strong{font:800 17px Manrope,sans-serif;letter-spacing:-.3px;color:#1b3b30}
+.manual-backup-title small{font-size:11px;line-height:1.5;color:#89958d}
+.manual-backup-content{padding:0 22px 22px}
+.manual-backup-content .panel-description{margin-top:0}
+.manual-backup-content .setup-footnote{margin-top:18px!important}
+@media(max-width:520px){.manual-backup-summary{padding:16px}.manual-backup-summary .heading-chip{display:none}.manual-backup-title small{max-width:245px}.manual-backup-content{padding:0 16px 17px}}
