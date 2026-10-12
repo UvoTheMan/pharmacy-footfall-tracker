@@ -52,7 +52,7 @@ Deno.serve(async (request) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  if (!expectedToken || expectedToken.length < 32 || !supabaseUrl || !anonKey || !serviceRoleKey) {
+  if (!expectedToken || expectedToken.trim().length < 32 || !supabaseUrl || !anonKey || !serviceRoleKey) {
     console.error("Password authorization function is missing required server configuration.");
     return jsonResponse({ error: "Password authorization service is not configured." }, 503, origin);
   }

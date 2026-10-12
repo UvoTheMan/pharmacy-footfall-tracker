@@ -201,7 +201,7 @@ export default function App() {
       body: { action: "request-recovery", adminToken, username: username.trim() },
     });
     if (result.error || result.data?.success !== true) {
-      setError("Password recovery was not authorized or could not be requested. Check the admin token and try again.");
+      setError(result.data?.error ?? "Password recovery was rejected. Make sure you are using the exact current Production Supabase ADMIN_PASSWORD_CHANGE_TOKEN secret, then try again.");
     } else {
       setAdminToken("");
       setForgotPasswordMode(false);
