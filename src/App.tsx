@@ -513,6 +513,7 @@ export default function App() {
       <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} canEdit={profile?.role !== "admin"} />
       <HistoricalVisits branch={branch} branches={branches} profile={profile} />
 
+      {/* Manual backup stays collapsed and directly above the testing warning. */}
       {profile && <ManualBackup role={profile.role} />}
 
       <details className="testing-cutoff">
