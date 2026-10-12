@@ -198,14 +198,14 @@ export default function App() {
     setError("");
     setNotice("");
     const result = await supabase.functions.invoke("authorize-password-change", {
-      body: { action: "request-recovery", adminToken },
+      body: { action: "request-recovery", adminToken, username: username.trim() },
     });
     if (result.error || result.data?.success !== true) {
       setError("Password recovery was not authorized or could not be requested. Check the admin token and try again.");
     } else {
       setAdminToken("");
       setForgotPasswordMode(false);
-      setNotice("Password reset email requested. Check the inbox and spam folder for the account email.");
+      setNotice(`Password reset email requested for ${username.trim()}. Check that account’s inbox and spam folder.`);
     }
     setBusy(false);
   }
@@ -227,7 +227,7 @@ export default function App() {
       body: { action: "update-password", password: newPassword, adminToken },
     });
     if (result.error) {
-      setError("Password change was not authorized or could not be completed. Check the admin token and try again.");
+      setError(result.data?.error ?? "Password change could not be completed. Confirm the admin token and reopen the latest recovery email if your session expired.");
       setBusy(false);
       return;
     }
@@ -324,7 +324,7 @@ export default function App() {
         <span className="brand-mark"><FootlyticsMark /></span>
         <p className="eyebrow">PHARMACY FOOTFALL TRACKER</p>
         <h1>Set a new password</h1>
-        <p>Choose a new password for the Springcare account.</p>
+        <p>Choose a new password for the account associated with this recovery link.</p>
         <label className="field-label" htmlFor="new-password">New password</label>
         <input className="number-input" id="new-password" type="password" autoComplete="new-password" minLength={10} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
         <label className="field-label" htmlFor="confirm-new-password">Confirm new password</label>
@@ -355,9 +355,10 @@ export default function App() {
         {notice && <p className="notice" role="status">{notice}</p>}
         {forgotPasswordMode ? (
           <>
+            <p className="setup-footnote">Enter the account username in the Username field above (Springcare or Sprincarestaff), then authorize the recovery email.</p>
             <label className="field-label" htmlFor="forgot-admin-token">Admin authorization token</label>
             <input className="number-input" id="forgot-admin-token" type="password" autoComplete="off" required value={adminToken} onChange={(event) => setAdminToken(event.target.value)} />
-            <button className="primary-button" type="button" disabled={busy || !adminToken.trim()} onClick={() => void requestPasswordReset()}>{busy ? "Requesting recovery…" : "Authorize recovery email"} <span>→</span></button>
+            <button className="primary-button" type="button" disabled={busy || !adminToken.trim() || !username.trim()} onClick={() => void requestPasswordReset()}>{busy ? "Requesting recovery…" : "Authorize recovery email"} <span>→</span></button>
             <button className="text-button" type="button" disabled={busy} onClick={() => { setForgotPasswordMode(false); setAdminToken(""); setError(""); }}>Cancel</button>
           </>
         ) : (
