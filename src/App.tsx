@@ -513,12 +513,12 @@ export default function App() {
       <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} canEdit={profile?.role !== "admin"} />
       <HistoricalVisits branch={branch} branches={branches} profile={profile} />
 
+      {profile && <ManualBackup role={profile.role} />}
+
       <details className="testing-cutoff">
         <summary><CalendarDays size={16} /> Testing cutoff and historical records</summary>
         <div className="testing-cutoff-content"><strong>Testing ended: Sunday, 11 October 2026</strong><p>From Monday, 12 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
       </details>
-
-      {profile && <ManualBackup role={profile.role} />}
 
       <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span>Built by UVO <span className="footer-dot">·</span> <a href="mailto:victorokolieau@gmail.com">Contact</a></span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
 
