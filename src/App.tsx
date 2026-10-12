@@ -8,6 +8,7 @@ import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import VisitCorrections from "./components/VisitCorrections";
 import HistoricalVisits from "./components/HistoricalVisits";
 import BranchCorrectionRequests from "./components/BranchCorrectionRequests";
+import ManualBackup from "./components/ManualBackup";
 
 type Branch = { id: string; slug: string; name: string };
 type Outcome = "purchased" | "not_purchased" | "undecided";
@@ -471,6 +472,8 @@ export default function App() {
       {error && <div className="error-message banner-error" role="alert"><CircleHelp size={16} />{error}</div>}
 
       {pendingCorrection && <div className="notice" role="status">A branch correction is pending. Visit entry is paused until an administrator approves or rejects the request.</div>}
+
+      {profile && <ManualBackup role={profile.role} />}
       {profile?.role === "admin" && <BranchCorrectionRequests branches={branches} onUpdated={loadVisits} />}
 
       <section className="stats-grid" aria-label="Today's totals">
