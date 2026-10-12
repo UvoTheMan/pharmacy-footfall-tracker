@@ -135,7 +135,12 @@ export default function App() {
       const savedBranch = savedDate === today
         ? availableBranches.find((item) => item.id === savedBranchId)
         : undefined;
-      if (savedBranch) {
+      if (currentProfile.role === "admin") {
+        const initialBranch = savedBranch ?? availableBranches[0] ?? null;
+        setBranch(initialBranch);
+        setBranchChoice(initialBranch?.id ?? "");
+        setShowBranchPicker(false);
+      } else if (savedBranch) {
         setBranch(savedBranch);
         setBranchChoice(savedBranch.id);
         setShowBranchPicker(false);
@@ -144,7 +149,7 @@ export default function App() {
         setBranchChoice("");
         setShowBranchPicker(true);
       }
-      if (!availableBranches.length) {
+      if (!availableBranches.length && currentProfile.role !== "admin") {
         setError("No branch access is assigned to this account. Ask an administrator to assign your branch.");
       }
     } catch (e) {
@@ -257,6 +262,7 @@ export default function App() {
   }
 
   async function chooseBranch() {
+    if (profile?.role === "admin") return;
     const selectableBranches = todaysVisits.length > 0 ? correctionTargets : branches;
     const chosen = selectableBranches.find((item) => item.id === branchChoice);
     if (!chosen) return;
@@ -295,6 +301,10 @@ export default function App() {
   }
 
   async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false) {
+    if (profile?.role === "admin") {
+      setError("Admin accounts can review branch performance and correct existing records, but cannot add new visits.");
+      return;
+    }
     if (pendingCorrection) {
       setError("Visit entry is paused while a branch correction is awaiting administrator review.");
       return;
@@ -431,11 +441,30 @@ export default function App() {
           <p className="welcome-tagline">VISITS. INSIGHTS. GROWTH.</p>
           <p className="date-line"><CalendarDays size={16} /> {lagosDisplayDate()}</p>
         </div>
-        <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setShowBranchPicker(true); }}>
-          <span className="branch-icon"><Users size={17} /></span>
-          <span><small>ACTIVE BRANCH</small><strong>{branch?.name ?? "Choose branch"}</strong></span>
-          <ChevronDown size={16} />
-        </button>
+        {profile?.role === "admin" ? (
+          <nav className="admin-branch-nav" aria-label="Switch branch">
+            <span className="admin-branch-nav-label">VIEW BRANCH</span>
+            <div className="admin-branch-tabs">
+              {branches.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={branch?.id === item.id ? "admin-branch-tab active" : "admin-branch-tab"}
+                  aria-pressed={branch?.id === item.id}
+                  onClick={() => { setBranch(item); setBranchChoice(item.id); setVisits([]); setError(""); }}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
+          </nav>
+        ) : (
+          <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setShowBranchPicker(true); }}>
+            <span className="branch-icon"><Users size={17} /></span>
+            <span><small>ACTIVE BRANCH</small><strong>{branch?.name ?? "Choose branch"}</strong></span>
+            <ChevronDown size={16} />
+          </button>
+        )}
       </section>
 
       {notice && <div className="notice" role="status"><Check size={16} />{notice}</div>}
@@ -451,8 +480,8 @@ export default function App() {
         <article className="stat-card"><div className="stat-top"><span>Conversion</span><span className="stat-icon blue"><Activity size={18} /></span></div><strong className="stat-number">{conversion === null ? "—" : `${conversion}%`}</strong><span className="stat-foot">Purchase rate</span></article>
       </section>
 
-      <div className="content-grid">
-        <section className="panel counter-panel">
+      <div className={profile?.role === "admin" ? "content-grid admin-content-grid" : "content-grid"}>
+        {profile?.role !== "admin" && <section className="panel counter-panel">
           <div className="panel-heading"><div><p className="eyebrow">QUICK ENTRY</p><h2>Record a visit</h2></div><span className="heading-chip"><span className="live-dot" /> {busy ? "Saving…" : "Online"}</span></div>
           <p className="panel-description">Choose the outcome for the person who just visited the pharmacy.</p>
           <div className="outcome-list">
@@ -461,7 +490,7 @@ export default function App() {
           </div>
           <button className="secondary-button" style={{ width: "100%", marginTop: 10 }} onClick={() => void addVisits("purchased", 1, undefined, true)} disabled={!branch || busy || pendingCorrection}>Purchased, but requested item unavailable <span>↗</span></button>
           <div className="counter-footer"><span /><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy || pendingCorrection}>Batch entry <span>+</span></button></div>
-        </section>
+        </section>}
 
         <section className="panel summary-panel">
           <div className="panel-heading"><div><p className="eyebrow">LIVE SNAPSHOT</p><h2>Today's activity</h2></div><span className="date-pill">Today</span></div>
@@ -518,7 +547,7 @@ export default function App() {
         </div>
       )}
 
-      {showBranchPicker && (
+      {showBranchPicker && profile?.role !== "admin" && (
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-title">
             <div className="modal-brand"><span className="brand-mark"><FootlyticsMark /></span><span className="eyebrow">DAILY BRANCH SETUP</span></div>
