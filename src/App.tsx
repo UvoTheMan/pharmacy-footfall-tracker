@@ -7,6 +7,7 @@ import {
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import VisitCorrections from "./components/VisitCorrections";
 import HistoricalVisits from "./components/HistoricalVisits";
+import BranchCorrectionRequests from "./components/BranchCorrectionRequests";
 
 type Branch = { id: string; slug: string; name: string };
 type Outcome = "purchased" | "not_purchased" | "undecided";
@@ -21,6 +22,7 @@ type Visit = {
   recorded_at: string;
   outcome: Outcome;
   reason: Reason | null;
+  unavailable_item_requested: boolean;
   batch_id: string | null;
   created_by: string;
 };
@@ -59,6 +61,8 @@ export default function App() {
   const [authReady, setAuthReady] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [correctionTargets, setCorrectionTargets] = useState<Branch[]>([]);
+  const [pendingCorrection, setPendingCorrection] = useState(false);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [branchChoice, setBranchChoice] = useState("");
@@ -100,6 +104,7 @@ export default function App() {
       setProfile(null);
       setBranches([]);
       setVisits([]);
+      setPendingCorrection(false);
       setBranch(null);
     });
     return () => data.subscription.unsubscribe();
@@ -124,6 +129,8 @@ export default function App() {
       setProfile(currentProfile);
       const availableBranches = (branchResult.data ?? []) as Branch[];
       setBranches(availableBranches);
+      const correctionTargetsResult = await supabase.rpc("get_active_correction_branches");
+      setCorrectionTargets(correctionTargetsResult.error ? availableBranches : ((correctionTargetsResult.data ?? []) as Branch[]));
       const savedDate = localStorage.getItem("pft.selected-day");
       const savedBranchId = localStorage.getItem("pft.selected-branch-id");
       const savedBranch = savedDate === today
@@ -158,16 +165,24 @@ export default function App() {
     setError("");
     const result = await supabase
       .from("visits")
-      .select("id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by")
+      .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested,batch_id,created_by")
       .eq("branch_id", branch.id)
       .eq("visit_date", today)
       .order("recorded_at", { ascending: false });
     if (result.error) setError(`Could not load visits: ${result.error.message}`);
     else setVisits((result.data ?? []) as Visit[]);
+    const pendingResult = await supabase.rpc("has_pending_branch_correction", { p_source_branch_id: branch.id, p_visit_date: today });
+    if (!pendingResult.error) setPendingCorrection(pendingResult.data === true);
     setLoadingVisits(false);
   }, [branch, session, today]);
 
   useEffect(() => { void loadVisits(); }, [loadVisits]);
+
+  useEffect(() => {
+    if (!pendingCorrection) return;
+    const refresh = window.setInterval(() => { void loadVisits(); }, 15000);
+    return () => window.clearInterval(refresh);
+  }, [pendingCorrection, loadVisits]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -249,17 +264,43 @@ export default function App() {
     setProfile(null);
   }
 
-  function chooseBranch() {
-    const chosen = branches.find((item) => item.id === branchChoice);
+  async function chooseBranch() {
+    const selectableBranches = todaysVisits.length > 0 ? correctionTargets : branches;
+    const chosen = selectableBranches.find((item) => item.id === branchChoice);
     if (!chosen) return;
+    if (pendingCorrection) {
+      setError("A branch correction is already awaiting administrator review. Visit entry is paused until it is resolved.");
+      return;
+    }
+    if (branch && chosen.id !== branch.id && todaysVisits.length > 0) {
+      if (!supabase) return;
+      setBusy(true);
+      setError("");
+      const request = await supabase.rpc("request_branch_correction", { p_source_branch_id: branch.id, p_target_branch_id: chosen.id, p_visit_date: today });
+      if (request.error) {
+        setError("Could not request branch correction: " + request.error.message);
+        setBusy(false);
+        return;
+      }
+      setBranchChoice(branch.id);
+      setPendingCorrection(true);
+      setShowBranchPicker(false);
+      setBusy(false);
+      flash("Correction request submitted. Visit entry is paused until an administrator reviews the request.");
+      return;
+    }
     setBranch(chosen);
     localStorage.setItem("pft.selected-branch-id", chosen.id);
     localStorage.setItem("pft.selected-day", today);
     setShowBranchPicker(false);
-    flash(`Today's branch is set to ${chosen.name}.`);
+    flash("Today’s branch is set to " + chosen.name + ".");
   }
 
-  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason) {
+  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false) {
+    if (pendingCorrection) {
+      setError("Visit entry is paused while a branch correction is awaiting administrator review.");
+      return;
+    }
     if (!supabase || !branch || !session) {
       setError("Sign in and select an assigned branch before recording visits.");
       return;
@@ -274,6 +315,7 @@ export default function App() {
       recorded_at: now.toISOString(),
       outcome,
       reason: outcome === "not_purchased" ? visitReason ?? null : null,
+      unavailable_item_requested: outcome === "purchased" && unavailableItemRequested,
       batch_id: batchId,
       created_by: session.user.id,
     }));
@@ -294,6 +336,7 @@ export default function App() {
   const purchasers = todaysVisits.filter((visit) => visit.outcome === "purchased").length;
   const nonPurchasers = todaysVisits.filter((visit) => visit.outcome === "not_purchased").length;
   const undecided = todaysVisits.filter((visit) => visit.outcome === "undecided").length;
+  const unavailableDespitePurchase = todaysVisits.filter((visit) => visit.outcome === "purchased" && visit.unavailable_item_requested).length;
   const total = todaysVisits.length;
   const conversion = total - undecided > 0 ? Math.round((purchasers / (total - undecided)) * 100) : null;
 
@@ -400,6 +443,9 @@ export default function App() {
       {notice && <div className="notice" role="status"><Check size={16} />{notice}</div>}
       {error && <div className="error-message banner-error" role="alert"><CircleHelp size={16} />{error}</div>}
 
+      {pendingCorrection && <div className="notice" role="status">A branch correction is pending. Visit entry is paused until an administrator approves or rejects the request.</div>}
+      {profile?.role === "admin" && <BranchCorrectionRequests branches={branches} onUpdated={loadVisits} />}
+
       <section className="stats-grid" aria-label="Today's totals">
         <article className="stat-card stat-primary"><div className="stat-top"><span>Total visits</span><span className="stat-icon"><Users size={18} /></span></div><strong className="stat-number">{total}</strong><span className="stat-foot">{loadingVisits ? "Refreshing…" : "Shared records for today"}</span></article>
         <article className="stat-card"><div className="stat-top"><span>Purchases</span><span className="stat-icon green"><ShoppingBag size={18} /></span></div><strong className="stat-number">{purchasers}</strong><span className="stat-foot positive"><ArrowUpRight size={14} /> Completed sales</span></article>
@@ -412,10 +458,11 @@ export default function App() {
           <div className="panel-heading"><div><p className="eyebrow">QUICK ENTRY</p><h2>Record a visit</h2></div><span className="heading-chip"><span className="live-dot" /> {busy ? "Saving…" : "Online"}</span></div>
           <p className="panel-description">Choose the outcome for the person who just visited the pharmacy.</p>
           <div className="outcome-list">
-            <button className="outcome-button purchased" onClick={() => void addVisits("purchased")} disabled={!branch || busy}><span className="outcome-symbol"><Check size={21} /></span><span className="outcome-text"><strong>Made a purchase</strong><small>Customer bought an item</small></span><span className="outcome-plus">+</span></button>
-            <button className="outcome-button not-purchased" onClick={() => { setReason(""); setError(""); setShowNoPurchaseReason(true); }} disabled={!branch || busy}><span className="outcome-symbol"><X size={21} /></span><span className="outcome-text"><strong>No purchase</strong><small>Customer left without buying</small></span><span className="outcome-plus">+</span></button>
+            <button className="outcome-button purchased" onClick={() => void addVisits("purchased")} disabled={!branch || busy || pendingCorrection}><span className="outcome-symbol"><Check size={21} /></span><span className="outcome-text"><strong>Made a purchase</strong><small>Customer bought an item</small></span><span className="outcome-plus">+</span></button>
+            <button className="outcome-button not-purchased" onClick={() => { setReason(""); setError(""); setShowNoPurchaseReason(true); }} disabled={!branch || busy || pendingCorrection}><span className="outcome-symbol"><X size={21} /></span><span className="outcome-text"><strong>No purchase</strong><small>Customer left without buying</small></span><span className="outcome-plus">+</span></button>
           </div>
-          <div className="counter-footer"><span /><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy}>Batch entry <span>+</span></button></div>
+          <button className="secondary-button" style={{ width: "100%", marginTop: 10 }} onClick={() => void addVisits("purchased", 1, undefined, true)} disabled={!branch || busy || pendingCorrection}>Purchased, but requested item unavailable <span>↗</span></button>
+          <div className="counter-footer"><span /><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy || pendingCorrection}>Batch entry <span>+</span></button></div>
         </section>
 
         <section className="panel summary-panel">
@@ -423,6 +470,7 @@ export default function App() {
           <div className="activity-total"><span className="activity-total-icon"><Users size={20} /></span><div><strong>{total}</strong><small>Total recorded visits</small></div></div>
           <div className="progress-group"><div className="progress-label"><span><i className="legend-dot purchase-dot" /> Purchases</span><strong>{purchasers} <small>{total ? Math.round(purchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${total ? purchasers / total * 100 : 0}%` }} /></div></div>
           <div className="progress-group"><div className="progress-label"><span><i className="legend-dot no-purchase-dot" /> No purchase</span><strong>{nonPurchasers} <small>{total ? Math.round(nonPurchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill no-purchase-fill" style={{ width: `${total ? nonPurchasers / total * 100 : 0}%` }} /></div></div>
+          <div className="snapshot-note"><CircleHelp size={16} /><span>Unavailable request despite purchase: <strong>{unavailableDespitePurchase}</strong></span></div>
           <div className="snapshot-note"><CircleHelp size={16} /><span>Data shown is loaded from the shared database.</span></div>
         </section>
       </div>
@@ -477,9 +525,10 @@ export default function App() {
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-title">
             <div className="modal-brand"><span className="brand-mark"><FootlyticsMark /></span><span className="eyebrow">DAILY BRANCH SETUP</span></div>
             <h2 id="branch-title">Which branch are you recording for?</h2>
-            <p className="modal-description">Only branches assigned to your account are listed. Choose today's branch; it remains selected through browser closure until the next Lagos calendar day.</p>
-            <div className="branch-options">{branches.map((item) => <button key={item.id} className={branchChoice === item.id ? "branch-option selected" : "branch-option"} onClick={() => setBranchChoice(item.id)}><span className="branch-option-icon"><Users size={18} /></span><span><strong>{item.name}</strong><small>Assigned pharmacy branch</small></span><span className="radio-mark">{branchChoice === item.id && <span />}</span></button>)}</div>
-            <button className="primary-button" disabled={!branchChoice || busy} onClick={chooseBranch}>Confirm branch <span>→</span></button>
+            <p className="modal-description">{todaysVisits.length > 0 ? "Choose the branch where today’s visits should have been recorded. This submits a correction request and pauses new visit entry until an administrator resolves it." : "Only branches assigned to your account are available for recording. Choose today’s branch; it remains selected through browser closure until the next Lagos calendar day."}</p>
+            {pendingCorrection && <p className="modal-footnote">A correction is already pending. Close this window and wait for administrator review.</p>}
+            <div className="branch-options">{(todaysVisits.length > 0 ? correctionTargets : branches).map((item) => <button key={item.id} disabled={pendingCorrection || busy} className={branchChoice === item.id ? "branch-option selected" : "branch-option"} onClick={() => setBranchChoice(item.id)}><span className="branch-option-icon"><Users size={18} /></span><span><strong>{item.name}</strong><small>{branches.some((branchItem) => branchItem.id === item.id) ? "Assigned pharmacy branch" : "Correction destination only"}</small></span><span className="radio-mark">{branchChoice === item.id && <span />}</span></button>)}</div>
+            <button className="primary-button" disabled={!branchChoice || busy || loadingVisits || pendingCorrection} onClick={() => void chooseBranch()}>{busy ? "Submitting…" : "Confirm branch"} <span>→</span></button>
             <p className="modal-footnote"><Clock3 size={13} /> Branch access is controlled by the database.</p>
           </section>
         </div>
