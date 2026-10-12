@@ -67,7 +67,7 @@ export default function ManualBackup({ role }: Props) {
   }
 
   return (
-    <section className="panel manual-backup-panel">
+    <section className={`panel manual-backup-panel${expanded ? " expanded" : ""}`}>
       <button type="button" className="manual-backup-summary" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
         <span className="manual-backup-title">
           <span className="eyebrow">EMAIL EXPORT</span>
