@@ -211,3 +211,16 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .approval-history-summary::after{content:"+";order:1;margin-left:auto;font-size:20px;color:#71877a}
 .approval-history[open] .approval-history-summary::after{content:"−"}
 .approval-history-summary:hover strong{color:#174d3b}
+
+
+/* Manual email backup */
+.manual-backup-panel { margin-bottom: 1.25rem; }
+.manual-backup-mode { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+.manual-backup-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 0.75rem 0; }
+.manual-backup-fields .field-label { display: flex; flex-direction: column; gap: 0.45rem; }
+.manual-backup-range { display: flex; align-items: center; gap: 0.45rem; color: var(--muted, #64748b); font-size: 0.875rem; margin: 0.5rem 0 1rem; }
+.manual-backup-submit { display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem; width: 100%; }
+@media (max-width: 560px) {
+  .manual-backup-fields { grid-template-columns: minmax(0, 1fr); }
+  .manual-backup-submit { min-height: 48px; }
+}
