@@ -184,6 +184,7 @@ export default function App() {
     const accountEmails: Record<string, string> = {
       springcare: "victorokolieau@gmail.com",
       "victorokolieau@gmail.com": "victorokolieau@gmail.com",
+      springcarestaff: "victorokolie911@gmail.com",
       sprincarestaff: "victorokolie911@gmail.com",
       "victorokolie911@gmail.com": "victorokolie911@gmail.com",
     };
