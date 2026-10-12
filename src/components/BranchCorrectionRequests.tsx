@@ -10,6 +10,7 @@ type Request = {
   visit_date: string;
   status: "pending" | "approved" | "rejected";
   created_at: string;
+  resolved_at: string | null;
 };
 type Visit = {
   id: string;
@@ -28,8 +29,9 @@ type Verification = {
   error?: string;
 };
 
-export default function BranchCorrectionRequests({ branches, onUpdated }: { branches: Branch[]; onUpdated: () => Promise<void> }) {
+export default function BranchCorrectionRequests({ branches, onUpdated, mode = "requests" }: { branches: Branch[]; onUpdated: () => Promise<void>; mode?: "requests" | "history" }) {
   const [requests, setRequests] = useState<Request[]>([]);
+  const [resolvedRequests, setResolvedRequests] = useState<Request[]>([]);
   const [activeRequest, setActiveRequest] = useState<Request | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -40,13 +42,23 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
 
   const loadRequests = useCallback(async () => {
     if (!supabase) return;
-    const result = await supabase
-      .from("branch_correction_requests")
-      .select("id,source_branch_id,target_branch_id,visit_date,status,created_at")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
-    if (result.error) setError(`Could not load branch correction requests: ${result.error.message}`);
-    else setRequests((result.data ?? []) as Request[]);
+    const allRequests: Request[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await supabase
+        .from("branch_correction_requests")
+        .select("id,source_branch_id,target_branch_id,visit_date,status,created_at,resolved_at")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + 999);
+      if (result.error) {
+        setError(`Could not load branch correction requests: ${result.error.message}`);
+        return;
+      }
+      const page = (result.data ?? []) as Request[];
+      allRequests.push(...page);
+      if (page.length < 1000) break;
+    }
+    setRequests(allRequests.filter((request) => request.status === "pending").sort((left, right) => left.created_at.localeCompare(right.created_at)));
+    setResolvedRequests(allRequests.filter((request) => request.status !== "pending").sort((left, right) => (right.resolved_at ?? "").localeCompare(left.resolved_at ?? "")));
   }, []);
 
   useEffect(() => { void loadRequests(); }, [loadRequests]);
@@ -158,6 +170,7 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
 
   return (
     <section className="panel">
+      {mode === "requests" && <>
       <div className="panel-heading">
         <div><p className="eyebrow">ADMIN REVIEW</p><h2>Branch correction requests</h2></div>
         <span className="date-pill">{requests.length} pending</span>
@@ -197,6 +210,26 @@ export default function BranchCorrectionRequests({ branches, onUpdated }: { bran
           <button className="correction-edit" type="button" disabled={busy} onClick={() => void reviewRequest(request)}>Review visits</button>
         </article>
       ))}
+      </>}
+      {mode === "history" && <details className="approval-history">
+        <summary className="approval-history-summary">
+          <span><p className="eyebrow">ADMIN REVIEW</p><strong>Review history</strong></span>
+          <span className="date-pill">{resolvedRequests.length} reviewed</span>
+        </summary>
+        <p className="panel-description">Previously approved and rejected branch-correction requests, with the decision date. Approver identity is not stored.</p>
+        {resolvedRequests.length === 0 ? (
+          <p className="modal-footnote">No completed branch correction decisions yet.</p>
+        ) : resolvedRequests.map((request) => (
+          <article className="correction-row" key={request.id}>
+            <div className="correction-details">
+              <strong>{branchName(request.source_branch_id)} → {branchName(request.target_branch_id)}</strong>
+              <span>{request.visit_date}</span>
+              <span>{request.status === "approved" ? "Approved" : "Rejected"}{request.resolved_at ? ` · ${new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" }).format(new Date(request.resolved_at))}` : ""}</span>
+            </div>
+            <span className={request.status === "approved" ? "correction-badge purchased" : "correction-badge not-purchased"}>{request.status === "approved" ? "Approved" : "Rejected"}</span>
+          </article>
+        ))}
+      </details>}
       {activeRequest && (
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-correction-review-title">

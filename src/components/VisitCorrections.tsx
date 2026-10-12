@@ -24,9 +24,9 @@ const REASONS: Reason[] = [
   "Will buy later", "Other / Unknown",
 ];
 
-type Props = { visits: Visit[]; onUpdated: () => Promise<void> };
+type Props = { visits: Visit[]; onUpdated: () => Promise<void>; canEdit?: boolean };
 
-export default function VisitCorrections({ visits, onUpdated }: Props) {
+export default function VisitCorrections({ visits, onUpdated, canEdit = true }: Props) {
   const [editing, setEditing] = useState<Visit | null>(null);
   const [outcome, setOutcome] = useState<Outcome>("purchased");
   const [reason, setReason] = useState<Reason | "">("");
@@ -35,6 +35,7 @@ export default function VisitCorrections({ visits, onUpdated }: Props) {
   const [notice, setNotice] = useState("");
 
   function beginEdit(visit: Visit) {
+    if (!canEdit) return;
     setEditing(visit);
     setOutcome(visit.outcome === "not_purchased" ? "not_purchased" : "purchased");
     setReason(visit.outcome === "not_purchased" ? visit.reason ?? "" : "");
@@ -43,7 +44,7 @@ export default function VisitCorrections({ visits, onUpdated }: Props) {
   }
 
   async function saveCorrection() {
-    if (!supabase || !editing) return;
+    if (!canEdit || !supabase || !editing) return;
     if (outcome === "not_purchased" && !reason) {
       setError("Choose a reason before saving a no-purchase correction.");
       return;
@@ -77,7 +78,7 @@ export default function VisitCorrections({ visits, onUpdated }: Props) {
           <div><p className="eyebrow">TODAY'S RECORDS</p><h2>Recent visits</h2></div>
           <span className="date-pill">{visits.length} {visits.length === 1 ? "visit" : "visits"}</span>
         </div>
-        <p className="panel-description">Correct an outcome or no-purchase reason if a visit was recorded incorrectly. Corrections are logged.</p>
+        <p className="panel-description">{canEdit ? "Correct an outcome or no-purchase reason if a visit was recorded incorrectly. Corrections are logged." : "Review today’s visit records for the selected branch. Admin accounts have read-only access to visit outcomes."}</p>
         {notice && <div className="notice" role="status"><Check size={15} />{notice}</div>}
         {visits.length === 0 ? (
           <div className="corrections-empty">No visits recorded for this branch today.</div>
@@ -92,13 +93,13 @@ export default function VisitCorrections({ visits, onUpdated }: Props) {
                   </span>
                   <strong>{visit.outcome === "not_purchased" ? visit.reason ?? "Reason not recorded" : "Purchase recorded"}</strong>
                 </div>
-                <button type="button" className="correction-edit" onClick={() => beginEdit(visit)}><Edit3 size={13} /> Edit</button>
+                {canEdit && <button type="button" className="correction-edit" onClick={() => beginEdit(visit)}><Edit3 size={13} /> Edit</button>}
               </article>
             ))}
           </div>
         )}
       </section>
-      {editing && (
+      {canEdit && editing && (
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-visit-title">
             <button className="modal-close" type="button" aria-label="Cancel visit correction" disabled={saving} onClick={() => setEditing(null)}><X size={19} /></button>
