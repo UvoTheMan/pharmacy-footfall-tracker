@@ -116,8 +116,17 @@ Deno.serve(async (request) => {
   const dayCount = Math.floor((new Date(endDate + "T00:00:00Z").getTime() - new Date(startDate + "T00:00:00Z").getTime()) / 86400000) + 1;
   if (dayCount > 366) return json({ error: "A single manual export can cover up to 366 days." }, 400, origin);
   if (!resendKey || !fromEmail) {
-    console.error("Manual backup email delivery configuration incomplete.");
-    return json({ error: "Email delivery is not configured." }, 503, origin);
+    console.error("Manual backup email delivery configuration incomplete.", {
+      hasResendApiKey: Boolean(resendKey),
+      hasBackupFromEmail: Boolean(fromEmail),
+    });
+    const missing = [
+      !resendKey ? "RESEND_API_KEY" : "",
+      !fromEmail ? "BACKUP_FROM_EMAIL" : "",
+    ].filter(Boolean).join(" and ");
+    return json({
+      error: "Email delivery is not configured in the staging Supabase project. Missing " + missing + ". Set the missing secret(s), then retry.",
+    }, 503, origin);
   }
   const recipients = [...new Set(recipientConfig.split(",").map((item) => item.trim()).filter(Boolean))];
   if (recipients.length < 2 || recipients.some((item) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item))) {
