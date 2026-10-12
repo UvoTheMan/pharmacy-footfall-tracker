@@ -99,7 +99,7 @@ export default function ManualBackup({ role }: Props) {
         <p className="manual-backup-range"><CalendarDays size={14} /> {days} calendar day{days === 1 ? "" : "s"} selected{days > 366 ? " · Maximum is 366 days" : ""}</p>
       )}
       <button className="primary-button manual-backup-submit" type="button" onClick={() => void sendBackup()} disabled={sending || !startDate || !endDate || endDate < startDate || days > 366}>
-        <Send size={16} /> {sending ? "Preparing and emailing reports…" : "Send CSV reports to both emails"}
+        <Send size={16} /> {sending ? "Queueing Gmail backup…" : "Send CSV reports to both emails"}
       </button>
       {notice && <p className="notice" role="status">{notice}</p>}
       {error && <p className="error-message" role="alert">{error}</p>}
