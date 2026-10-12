@@ -1,6 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const productionOrigin = "https://footlyticsapp.vercel.app";
 const allowedOrigins = new Set([
+  productionOrigin,
   "https://springfootfall.vercel.app",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -9,7 +11,7 @@ const allowedOrigins = new Set([
 function corsHeaders(origin: string | null) {
   const allowedOrigin = origin && allowedOrigins.has(origin)
     ? origin
-    : "https://springfootfall.vercel.app";
+    : productionOrigin;
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -55,7 +57,7 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "Password authorization service is not configured." }, 503, origin);
   }
 
-  let body: { action?: unknown; password?: unknown; adminToken?: unknown };
+  let body: { action?: unknown; password?: unknown; adminToken?: unknown; username?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -72,13 +74,24 @@ Deno.serve(async (request) => {
   });
 
   if (body.action === "request-recovery") {
+    const normalizedUsername = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+    const recoveryAccounts: Record<string, string> = {
+      springcare: "victorokolieau@gmail.com",
+      "victorokolieau@gmail.com": "victorokolieau@gmail.com",
+      sprincarestaff: "victorokolie911@gmail.com",
+      "victorokolie911@gmail.com": "victorokolie911@gmail.com",
+    };
+    const targetEmail = recoveryAccounts[normalizedUsername];
+    if (!targetEmail) {
+      return jsonResponse({ error: "Enter a valid account username: Springcare or Sprincarestaff." }, 400, origin);
+    }
     const { error: recoveryError } = await userClient.auth.resetPasswordForEmail(
-      "victorokolieau@gmail.com",
-      { redirectTo: "https://springfootfall.vercel.app/" },
+      targetEmail,
+      { redirectTo: `${productionOrigin}/` },
     );
     if (recoveryError) {
       console.error("Password recovery email request failed.");
-      return jsonResponse({ error: "Recovery email could not be requested." }, 400, origin);
+      return jsonResponse({ error: "Recovery email could not be requested. Check Supabase Auth redirect URL settings." }, 400, origin);
     }
     return jsonResponse({ success: true }, 200, origin);
   }
