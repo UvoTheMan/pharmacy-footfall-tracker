@@ -184,6 +184,7 @@ export default function App() {
     const accountEmails: Record<string, string> = {
       springcare: "victorokolieau@gmail.com",
       "victorokolieau@gmail.com": "victorokolieau@gmail.com",
+      springcarestaff: "victorokolie911@gmail.com",
       sprincarestaff: "victorokolie911@gmail.com",
       "victorokolie911@gmail.com": "victorokolie911@gmail.com",
     };
@@ -395,7 +396,7 @@ export default function App() {
         {notice && <p className="notice" role="status">{notice}</p>}
         {forgotPasswordMode ? (
           <>
-            <p className="setup-footnote">Enter the account username in the Username field above (Springcare or Sprincarestaff), then authorize the recovery email.</p>
+            <p className="setup-footnote">Enter the account username in the Username field above (Springcare or Springcarestaff). The older spelling Sprincarestaff is also accepted.</p>
             <label className="field-label" htmlFor="forgot-admin-token">Admin authorization token</label>
             <input className="number-input" id="forgot-admin-token" type="password" autoComplete="off" required value={adminToken} onChange={(event) => setAdminToken(event.target.value)} />
             <button className="primary-button" type="button" disabled={busy || !adminToken.trim() || !username.trim()} onClick={() => void requestPasswordReset()}>{busy ? "Requesting recovery…" : "Authorize recovery email"} <span>→</span></button>
