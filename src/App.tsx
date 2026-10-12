@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  Activity, ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronDown,
+  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown,
   CircleHelp, Clock3, KeyRound, LogOut, ShoppingBag, Users, X,
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
@@ -69,6 +69,7 @@ export default function App() {
   const [branch, setBranch] = useState<Branch | null>(null);
   const [branchChoice, setBranchChoice] = useState("");
   const [showBranchPicker, setShowBranchPicker] = useState(false);
+  const [adminPage, setAdminPage] = useState<"dashboard" | "analytics">("dashboard");
   const [showBatch, setShowBatch] = useState(false);
   const [showNoPurchaseReason, setShowNoPurchaseReason] = useState(false);
   const [batchCount, setBatchCount] = useState("5");
@@ -431,6 +432,7 @@ export default function App() {
         </a>
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
+          {profile?.role === "admin" && <button className="signout-button admin-page-switch" type="button" onClick={() => setAdminPage((page) => page === "dashboard" ? "analytics" : "dashboard")} aria-label={adminPage === "analytics" ? "Return to daily dashboard" : "Open analysis and analytics"}>{adminPage === "analytics" ? <><Activity size={15} /> Daily dashboard</> : <><BarChart3 size={15} /> Analysis &amp; analytics</>}</button>}
           <button className="signout-button" onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
           <button className="signout-button" onClick={() => void signOut()} aria-label="Sign out"><LogOut size={15} /> Sign out</button>
         </div>
@@ -438,12 +440,12 @@ export default function App() {
 
       <section className="welcome">
         <div>
-          <p className="eyebrow">DAILY OPERATIONS</p>
-          <h1>Welcome</h1>
-          <p className="welcome-tagline">VISITS. INSIGHTS. GROWTH.</p>
+          <p className="eyebrow">{profile?.role === "admin" && adminPage === "analytics" ? "ADMIN WORKSPACE" : "DAILY OPERATIONS"}</p>
+          <h1>{profile?.role === "admin" && adminPage === "analytics" ? "Analysis & analytics" : "Welcome"}</h1>
+          <p className="welcome-tagline">{profile?.role === "admin" && adminPage === "analytics" ? "BRANCH PERFORMANCE. TRENDS. OPPORTUNITIES." : "VISITS. INSIGHTS. GROWTH."}</p>
           <p className="date-line"><CalendarDays size={16} /> {lagosDisplayDate()}</p>
         </div>
-        {profile?.role === "admin" ? (
+        {profile?.role === "admin" && adminPage === "dashboard" ? (
           <nav className="admin-branch-nav" aria-label="Switch branch">
             <span className="admin-branch-nav-label">VIEW BRANCH</span>
             <div className="admin-branch-tabs">
@@ -474,6 +476,13 @@ export default function App() {
 
       {pendingCorrection && <div className="notice" role="status">A branch correction is pending. Visit entry is paused until an administrator approves or rejects the request.</div>}
 
+      {profile?.role === "admin" && adminPage === "analytics" ? (
+        <section className="admin-analytics-page" aria-label="Admin analysis and analytics">
+          <p className="panel-description">A dedicated workspace for reviewing performance across Gbagada, Akoka, and Sangotedo. More analysis tools can be added here without crowding daily operations.</p>
+          <AdminAnalytics branches={branches} />
+        </section>
+      ) : (
+      <>
       {profile?.role === "admin" && <BranchCorrectionRequests branches={branches} onUpdated={loadVisits} />}
 
       <section className="stats-grid" aria-label="Today's totals">
@@ -508,10 +517,18 @@ export default function App() {
       </div>
 
 
-      {profile?.role === "admin" && <AdminAnalytics branches={branches} />}
-
-      <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} canEdit={profile?.role !== "admin"} />
-      <HistoricalVisits branch={branch} branches={branches} profile={profile} />
+      {profile?.role === "admin" ? (
+        <details className="admin-record-rollup">
+          <summary><span className="admin-record-rollup-title"><span className="eyebrow">TODAY'S RECORDS</span><strong>Today's records</strong><small>Expand to review today's visits and read-only outcomes.</small></span><span className="admin-record-rollup-meta">{todaysVisits.length} visits <ChevronDown size={17} /></span></summary>
+          <div className="admin-record-rollup-content"><VisitCorrections visits={todaysVisits} onUpdated={loadVisits} canEdit={false} /></div>
+        </details>
+      ) : <VisitCorrections visits={todaysVisits} onUpdated={loadVisits} canEdit={profile?.role !== "admin"} />}
+      {profile?.role === "admin" ? (
+        <details className="admin-record-rollup">
+          <summary><span className="admin-record-rollup-title"><span className="eyebrow">HISTORICAL RECORDS</span><strong>Historical records</strong><small>Search previous dates, filter by branch, and export CSVs.</small></span><span className="admin-record-rollup-meta">Last 90 days <ChevronDown size={17} /></span></summary>
+          <div className="admin-record-rollup-content"><HistoricalVisits branch={branch} branches={branches} profile={profile} /></div>
+        </details>
+      ) : <HistoricalVisits branch={branch} branches={branches} profile={profile} />}
 
       {/* Manual backup stays collapsed and directly above the testing warning. */}
       {profile && <ManualBackup role={profile.role} />}
@@ -520,6 +537,8 @@ export default function App() {
         <summary><CalendarDays size={16} /> Testing cutoff and historical records</summary>
         <div className="testing-cutoff-content"><strong>Testing ended: Sunday, 11 October 2026</strong><p>From Monday, 12 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
       </details>
+      </>
+      )}
 
       <footer className="footer"><span>Pharmacy Footfall Tracker <span className="footer-dot">·</span> Stage 3 visit corrections</span><span>Built by UVO <span className="footer-dot">·</span> <a href="mailto:victorokolieau@gmail.com">Contact</a></span><span className="local-only"><span className="live-dot" /> Signed in as {profile?.role ?? "staff"}</span></footer>
 
