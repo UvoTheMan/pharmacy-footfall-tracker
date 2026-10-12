@@ -105,9 +105,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const maxBranch = Math.max(1, ...branchStats.map((branch) => branch.total));
 
   return (
-    <section className="panel admin-analytics-panel" id="admin-analytics">
+    <section className="panel admin-analytics-panel" id="admin-analytics" aria-labelledby="admin-analytics-title">
       <div className="panel-heading">
-        <div><p className="eyebrow">ADMIN WORKSPACE</p><h2><BarChart3 size={20} /> Analysis &amp; analytics</h2></div>
+        <div><p className="eyebrow">ADMIN WORKSPACE</p><h2 id="admin-analytics-title"><BarChart3 size={20} /> Analysis &amp; analytics</h2></div>
         <span className="date-pill">All branches</span>
       </div>
       <p className="panel-description">Compare branch activity, purchase conversion, daily trends, and reasons for missed sales across a selected reporting period. Data is read-only.</p>
