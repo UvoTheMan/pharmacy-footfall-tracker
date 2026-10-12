@@ -72,7 +72,7 @@ def main():
     while True:
         params = urlencode({
             "select": "id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested,batch_id,created_by,created_at,updated_at",
-            "visit_date": f"gte.{start_date}", "visit_date": f"lte.{end_date}", "order": "visit_date.asc,recorded_at.asc,id.asc",
+            "and": f"(visit_date.gte.{start_date},visit_date.lte.{end_date})", "order": "visit_date.asc,recorded_at.asc,id.asc",
             "limit": "1000", "offset": str(offset),
         })
         page = get_json(f"{base}/rest/v1/visits?{params}", key)
