@@ -61,8 +61,7 @@ export default function ManualBackup({ role }: Props) {
       }
       setError(serverMessage ?? result.error?.message ?? "The backup email could not be sent. Please try again or contact the administrator.");
     } else {
-      const count = Number(result.data.visitCount ?? 0);
-      setNotice(`Backup email job queued for ${period}. ${count} visit record${count === 1 ? "" : "s"} included. GitHub Actions will generate the four CSV reports and send them using the configured Gmail app password.`);
+      setNotice(`Backup email job queued for ${period}. GitHub Actions will generate the four CSV reports and send them using the configured Gmail app password. Check the GitHub Actions run for the final delivery status.`);
     }
     setSending(false);
   }
@@ -73,14 +72,14 @@ export default function ManualBackup({ role }: Props) {
         <span className="manual-backup-title">
           <span className="eyebrow">EMAIL EXPORT</span>
           <strong>Manual data backup</strong>
-          <small>Send CSV reports for all three branches to both configured backup email addresses.</small>
+          <small>Queue CSV reports for all three branches to both configured backup email addresses.</small>
         </span>
         <span className="heading-chip"><Mail size={14} /> Staff and admin</span>
         <span className="manual-backup-toggle" aria-hidden="true">{expanded ? "−" : "+"}</span>
       </button>
       {expanded && <div className="manual-backup-content">
         <p className="panel-description">
-          Choose one day or a date range. This sends four CSV files: each branch report and one combined report.
+          Choose one day or a date range. This queues a GitHub Actions job to generate four CSV files and email them through Gmail: one per branch and one combined report.
         </p>
       <div className="manual-backup-mode" role="group" aria-label="Export period">
         <button type="button" className={mode === "day" ? "admin-branch-tab active" : "admin-branch-tab"} aria-pressed={mode === "day"} onClick={() => { setMode("day"); setEndDate(startDate || today); setError(""); setNotice(""); }}>Single day</button>
