@@ -196,7 +196,7 @@ export default function App() {
       : enteredLogin === "springcarestaff"
         ? "victorokolie911@gmail.com"
         : enteredLogin;
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("Enter SpringCare, SpringCareStaff, or your account email address.");
       setBusy(false);
       return;
