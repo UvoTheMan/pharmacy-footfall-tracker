@@ -6,9 +6,20 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:5173",
 ]);
 
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (allowedOrigins.has(origin)) return true;
+  try {
+    const url = new URL(origin);
+    return url.protocol === "https:" && url.hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+}
+
 function corsHeaders(origin: string | null) {
-  const allowedOrigin = origin && allowedOrigins.has(origin)
-    ? origin
+  const allowedOrigin = isAllowedOrigin(origin)
+    ? origin!
     : "https://springfootfall.vercel.app";
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
@@ -72,9 +83,10 @@ Deno.serve(async (request) => {
   });
 
   if (body.action === "request-recovery") {
+    const redirectOrigin = isAllowedOrigin(origin) ? origin! : "https://springfootfall.vercel.app";
     const { error: recoveryError } = await userClient.auth.resetPasswordForEmail(
       "victorokolieau@gmail.com",
-      { redirectTo: "https://springfootfall.vercel.app/" },
+      { redirectTo: redirectOrigin },
     );
     if (recoveryError) {
       console.error("Password recovery email request failed.");
