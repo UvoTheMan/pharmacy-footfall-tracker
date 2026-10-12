@@ -199,3 +199,15 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .admin-branch-tab.active{background:#174d3b;border-color:#174d3b;color:#fff;box-shadow:0 3px 8px #164b3c18}
 .admin-content-grid{grid-template-columns:minmax(0,1fr)}
 @media(max-width:520px){.admin-branch-nav{align-items:stretch;width:100%}.admin-branch-tabs{justify-content:flex-start}.admin-branch-tab{flex:1;min-width:0;padding:10px 8px}.admin-content-grid{grid-template-columns:1fr}}
+
+
+/* Collapsible admin review history */
+.approval-history{margin-top:0}
+.approval-history-summary{display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none}
+.approval-history-summary::-webkit-details-marker{display:none}
+.approval-history-summary>span:first-child{display:flex;flex-direction:column;gap:5px}
+.approval-history-summary .eyebrow{margin:0}
+.approval-history-summary strong{font-size:16px;color:#294638}
+.approval-history-summary::after{content:"+";order:1;margin-left:auto;font-size:20px;color:#71877a}
+.approval-history[open] .approval-history-summary::after{content:"−"}
+.approval-history-summary:hover strong{color:#174d3b}
