@@ -25,7 +25,15 @@ on:
         type: boolean
         default: false
       backup_date:
-        description: "Optional Lagos date (YYYY-MM-DD); blank means today"
+        description: "Optional Lagos date (YYYY-MM-DD); blank means today unless a date range is supplied"
+        required: false
+        type: string
+      start_date:
+        description: "Optional manual export start date (YYYY-MM-DD)"
+        required: false
+        type: string
+      end_date:
+        description: "Optional manual export end date (YYYY-MM-DD)"
         required: false
         type: string
 
@@ -54,6 +62,8 @@ jobs:
           SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
           BACKUP_RECIPIENTS: ${{ secrets.BACKUP_RECIPIENTS }}
           BACKUP_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.backup_date || '' }}
+          BACKUP_START_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.start_date || '' }}
+          BACKUP_END_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.end_date || '' }}
           SEND_BACKUP_EMAIL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.send_email) || false }}
         run: python scripts/daily_footfall_backup.py
 
