@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 BRANCHES = [("gbagada", "Gbagada"), ("akoka", "Akoka"), ("sangotedo", "Sangotedo")]
 COLUMNS = ["id", "branch_id", "branch_name", "visit_date", "recorded_at", "outcome",
-           "reason", "batch_id", "created_by", "created_at", "updated_at"]
+           "reason", "unavailable_item_requested", "batch_id", "created_by", "created_at", "updated_at"]
 
 
 def env(name):
@@ -65,7 +65,7 @@ def main():
     offset = 0
     while True:
         params = urlencode({
-            "select": "id,branch_id,visit_date,recorded_at,outcome,reason,batch_id,created_by,created_at,updated_at",
+            "select": "id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested,batch_id,created_by,created_at,updated_at",
             "visit_date": f"eq.{date}", "order": "recorded_at.asc,id.asc",
             "limit": "1000", "offset": str(offset),
         })
