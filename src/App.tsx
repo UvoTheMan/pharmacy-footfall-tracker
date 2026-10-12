@@ -432,7 +432,7 @@ export default function App() {
         </a>
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
-          {profile?.role === "admin" && <button className="signout-button admin-page-switch" type="button" onClick={() => setAdminPage((page) => page === "dashboard" ? "analytics" : "dashboard")} aria-label={adminPage === "analytics" ? "Return to daily dashboard" : "Open analysis and analytics"}>{adminPage === "analytics" ? <><Activity size={15} /> Daily dashboard</> : <><BarChart3 size={15} /> Analysis &amp; analytics</>}</button>}
+          {profile?.role === "admin" && <button className="signout-button admin-page-switch" type="button" onClick={() => setAdminPage((page) => page === "dashboard" ? "analytics" : "dashboard")} aria-label={adminPage === "analytics" ? "Return to daily dashboard" : "Open analysis and analytics"}>{adminPage === "analytics" ? <><Activity size={15} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><BarChart3 size={15} /><span className="admin-page-switch-label">Analysis &amp; analytics</span></>}</button>}
           <button className="signout-button" onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
           <button className="signout-button" onClick={() => void signOut()} aria-label="Sign out"><LogOut size={15} /> Sign out</button>
         </div>
