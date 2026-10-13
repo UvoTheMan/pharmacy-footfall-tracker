@@ -7,7 +7,7 @@ import os
 import smtplib
 import ssl
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
 from urllib.parse import urlencode
@@ -46,10 +46,19 @@ def main():
     base = env("SUPABASE_URL").rstrip("/")
     key = env("SUPABASE_SERVICE_ROLE_KEY")
     date = os.environ.get("BACKUP_DATE", "").strip()
-    if not date:
-        date = datetime.now(ZoneInfo("Africa/Lagos")).date().isoformat()
-    start_date = os.environ.get("BACKUP_START_DATE", "").strip() or date
-    end_date = os.environ.get("BACKUP_END_DATE", "").strip() or date
+    start_date = os.environ.get("BACKUP_START_DATE", "").strip()
+    end_date = os.environ.get("BACKUP_END_DATE", "").strip()
+    weekly_report = os.environ.get("BACKUP_WEEKLY_REPORT", "").lower() == "true"
+    if weekly_report and not date and not start_date and not end_date:
+        today = datetime.now(ZoneInfo("Africa/Lagos")).date()
+        current_monday = today - timedelta(days=today.weekday())
+        start_date = (current_monday - timedelta(days=7)).isoformat()
+        end_date = (current_monday - timedelta(days=1)).isoformat()
+    else:
+        if not date:
+            date = datetime.now(ZoneInfo("Africa/Lagos")).date().isoformat()
+        start_date = start_date or date
+        end_date = end_date or date
     try:
         for value in (start_date, end_date):
             parsed = datetime.strptime(value, "%Y-%m-%d")
@@ -134,8 +143,9 @@ def main():
         msg = EmailMessage()
         msg["From"] = sender
         msg["To"] = ", ".join(recipients)
+        scope_label = "all three branch reports plus the combined report" if report_scope == "all" else f"{report_scope.title()} branch report only"
         msg["Subject"] = f"Footlytics CSV backup - {period_label}"
-        msg.set_content(f"Attached are the four Footlytics CSV reports for Lagos dates {start_date} through {end_date}. Total visits: {len(visits)}.")
+        msg.set_content(f"Attached are the Footlytics CSV report(s) for {scope_label}, covering Lagos dates {start_date} through {end_date}. Total visits in this scope: {len(visits)}.")
         for filename, content in attachments:
             msg.add_attachment(content, maintype="text", subtype="csv", filename=filename)
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=45) as smtp:
