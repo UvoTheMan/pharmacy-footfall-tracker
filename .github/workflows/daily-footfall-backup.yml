@@ -68,8 +68,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          BACKUP_FROM_EMAIL: ${{ secrets.BACKUP_FROM_EMAIL }}
           BACKUP_RECIPIENTS: ${{ secrets.BACKUP_RECIPIENTS }}
           BACKUP_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.backup_date || '' }}
           BACKUP_START_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.start_date || '' }}
