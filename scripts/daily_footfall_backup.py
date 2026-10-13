@@ -7,7 +7,7 @@ import os
 import smtplib
 import ssl
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
 from urllib.parse import urlencode
@@ -46,10 +46,24 @@ def main():
     base = env("SUPABASE_URL").rstrip("/")
     key = env("SUPABASE_SERVICE_ROLE_KEY")
     date = os.environ.get("BACKUP_DATE", "").strip()
-    if not date:
-        date = datetime.now(ZoneInfo("Africa/Lagos")).date().isoformat()
-    start_date = os.environ.get("BACKUP_START_DATE", "").strip() or date
-    end_date = os.environ.get("BACKUP_END_DATE", "").strip() or date
+    start_date = os.environ.get("BACKUP_START_DATE", "").strip()
+    end_date = os.environ.get("BACKUP_END_DATE", "").strip()
+    weekly_report = os.environ.get("BACKUP_WEEKLY_REPORT", "").lower() == "true"
+    if weekly_report and not date and not start_date and not end_date:
+        today = datetime.now(ZoneInfo("Africa/Lagos")).date()
+        current_monday = today - timedelta(days=today.weekday())
+        start_date = (current_monday - timedelta(days=7)).isoformat()
+        end_date = (current_monday - timedelta(days=1)).isoformat()
+    else:
+        if not date:
+            date = datetime.now(ZoneInfo("Africa/Lagos")).date().isoformat()
+        start_date = start_date or date
+        end_date = end_date or date
+
+    report_scope = os.environ.get("BACKUP_REPORT_SCOPE", "all").strip().lower() or "all"
+    valid_scopes = {"all", *(slug for slug, _ in BRANCHES)}
+    if report_scope not in valid_scopes:
+        raise RuntimeError("Report scope must be all or one valid branch slug.")
     try:
         for value in (start_date, end_date):
             parsed = datetime.strptime(value, "%Y-%m-%d")
@@ -85,29 +99,34 @@ def main():
             break
         offset += 1000
 
+    if report_scope != "all":
+        visits = [v for v in visits if by_id.get(v.get("branch_id"), {}).get("slug") == report_scope]
+    selected_branches = BRANCHES if report_scope == "all" else [item for item in BRANCHES if item[0] == report_scope]
+
     attachments = []
     counts = {}
     output_dir = Path("backup-output")
     output_dir.mkdir(parents=True, exist_ok=True)
-    for slug, _name in BRANCHES:
+    for slug, _name in selected_branches:
         selected = [v for v in visits if by_id.get(v.get("branch_id"), {}).get("slug") == slug]
         filename = f"footfall_{slug}_{period_label}.csv"
         content = make_csv(selected)
         (output_dir / filename).write_bytes(content)
         attachments.append((filename, content))
         counts[filename] = len(selected)
-    combined = f"footfall_combined_{period_label}.csv"
-    combined_content = make_csv(visits)
-    (output_dir / combined).write_bytes(combined_content)
-    attachments.append((combined, combined_content))
-    counts[combined] = len(visits)
+    if report_scope == "all":
+        combined = f"footfall_combined_{period_label}.csv"
+        combined_content = make_csv(visits)
+        (output_dir / combined).write_bytes(combined_content)
+        attachments.append((combined, combined_content))
+        counts[combined] = len(visits)
 
-    branch_total = sum(counts[f"footfall_{slug}_{period_label}.csv"] for slug, _ in BRANCHES)
+    branch_total = sum(counts[f"footfall_{slug}_{period_label}.csv"] for slug, _ in selected_branches)
     if branch_total != len(visits):
         raise RuntimeError("Branch counts do not match combined count; refusing to continue.")
 
     print(json.dumps({"start_date": start_date, "end_date": end_date, "total_visits": len(visits), "reports": counts}, indent=2))
-    print("Generated four CSV files in backup-output/.")
+    print(f"Generated {len(attachments)} CSV file(s) in backup-output for scope {report_scope}.")
     if os.environ.get("SEND_BACKUP_EMAIL", "").lower() != "true":
         print("Dry run: no email sent.")
         return
@@ -121,8 +140,9 @@ def main():
     msg = EmailMessage()
     msg["From"] = sender
     msg["To"] = ", ".join(recipients)
+    scope_label = "all branches and combined report" if report_scope == "all" else f"{report_scope.title()} branch only"
     msg["Subject"] = f"Footlytics CSV backup - {period_label}"
-    msg.set_content(f"Attached are the four Footlytics CSV reports for Lagos dates {start_date} through {end_date}. Total visits: {len(visits)}.")
+    msg.set_content(f"Attached are the Footlytics CSV report(s) for {scope_label}, covering Lagos dates {start_date} through {end_date}. Total visits in this scope: {len(visits)}.")
     for filename, content in attachments:
         msg.add_attachment(content, maintype="text", subtype="csv", filename=filename)
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=45) as smtp:
