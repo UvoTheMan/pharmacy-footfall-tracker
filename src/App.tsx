@@ -536,7 +536,7 @@ export default function App() {
       )}
 
       {/* Manual backup stays collapsed and directly above the testing warning. */}
-      {profile && <ManualBackup role={profile.role} />}
+      {profile && <ManualBackup role={profile.role} branchSlug={branch?.slug} />}
 
       <details className="testing-cutoff">
         <summary><CalendarDays size={16} /> Testing cutoff and historical records</summary>
