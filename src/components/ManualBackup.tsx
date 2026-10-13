@@ -80,7 +80,7 @@ export default function ManualBackup({ role, branchSlug }: Props) {
       </button>
       {expanded && <div className="manual-backup-content">
         <p className="panel-description">
-          Choose one day or a date range. This queues a GitHub Actions job to queue the report permitted for your account: admins receive one CSV per branch plus a combined report; staff receive only the active branch CSV.
+          Choose one day or a date range. This queues a GitHub Actions job to generate the report permitted for your account: admins receive one CSV per branch plus a combined report; staff receive only the active branch CSV.
         </p>
       <div className="manual-backup-mode" role="group" aria-label="Export period">
         <button type="button" className={mode === "day" ? "admin-branch-tab active" : "admin-branch-tab"} aria-pressed={mode === "day"} onClick={() => { setMode("day"); setEndDate(startDate || today); setError(""); setNotice(""); }}>Single day</button>
