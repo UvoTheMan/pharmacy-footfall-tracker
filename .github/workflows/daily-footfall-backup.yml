@@ -46,16 +46,6 @@ on:
           - akoka
           - sangotedo
         default: all
-      report_scope:
-        description: "Admin: all reports; staff: assigned branch only"
-        required: true
-        type: choice
-        options:
-          - all
-          - gbagada
-          - akoka
-          - sangotedo
-        default: all
 
 permissions:
   contents: read
