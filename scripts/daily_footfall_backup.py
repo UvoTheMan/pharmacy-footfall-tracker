@@ -137,6 +137,8 @@ def main():
     if not recipients or any("@" not in address for address in recipients):
         raise RuntimeError("Configure valid comma-separated recipient email addresses.")
 
+    scope_label = "all branches and combined report" if report_scope == "all" else f"{report_scope.title()} branch only"
+
     # Use the same Resend delivery service as the automatic backup. Do not retry
     # failed sends automatically because delivery can be uncertain after a timeout.
     import base64
