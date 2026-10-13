@@ -2,7 +2,7 @@ name: Daily Footfall CSV Backup
 
 on:
   schedule:
-    - cron: "59 22 * * *"
+    - cron: "15 2 * * 1"
   pull_request:
     branches:
       - main
@@ -36,6 +36,16 @@ on:
         description: "Optional manual export end date (YYYY-MM-DD)"
         required: false
         type: string
+      report_scope:
+        description: "Admin: all reports; staff: assigned branch only"
+        required: true
+        type: choice
+        options:
+          - all
+          - gbagada
+          - akoka
+          - sangotedo
+        default: all
 
 permissions:
   contents: read
@@ -65,6 +75,8 @@ jobs:
           BACKUP_START_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.start_date || '' }}
           BACKUP_END_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.end_date || '' }}
           SEND_BACKUP_EMAIL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.send_email) || false }}
+          BACKUP_WEEKLY_REPORT: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+          BACKUP_REPORT_SCOPE: ${{ github.event_name == 'schedule' && 'all' || (github.event_name == 'workflow_dispatch' && inputs.report_scope) || 'all' }}
         run: python scripts/daily_footfall_backup.py
 
       - name: Save CSVs for inspection
