@@ -72,10 +72,32 @@ Deno.serve(async (request) => {
     return json({ error: "Only active staff and admin accounts can send manual backups." }, 403, origin);
   }
 
-  let body: { startDate?: unknown; endDate?: unknown } = {};
+  let body: { startDate?: unknown; endDate?: unknown; branchSlug?: unknown } = {};
   try { body = await request.json(); } catch { return json({ error: "A date range is required." }, 400, origin); }
   const startDate = body.startDate;
   const endDate = body.endDate;
+
+  let reportScope = "all";
+  if (profile.role === "staff") {
+    if (typeof body.branchSlug !== "string" || !body.branchSlug.trim()) {
+      return json({ error: "Choose your assigned active branch before requesting a backup." }, 400, origin);
+    }
+    const { data: selectedBranch, error: branchError } = await serviceClient
+      .from("branches").select("id,slug").eq("slug", body.branchSlug.trim().toLowerCase()).eq("active", true).maybeSingle();
+    if (branchError) {
+      console.error("Could not verify requested branch:", branchError.message);
+      return json({ error: "Could not verify your branch access." }, 500, origin);
+    }
+    if (!selectedBranch) return json({ error: "That branch is not active or does not exist." }, 403, origin);
+    const { data: membership, error: membershipError } = await serviceClient
+      .from("branch_memberships").select("user_id").eq("user_id", authData.user.id).eq("branch_id", selectedBranch.id).maybeSingle();
+    if (membershipError) {
+      console.error("Could not verify branch membership:", membershipError.message);
+      return json({ error: "Could not verify your branch assignment." }, 500, origin);
+    }
+    if (!membership) return json({ error: "You can only export data for a branch assigned to your account." }, 403, origin);
+    reportScope = selectedBranch.slug;
+  }
   const today = lagosDateKey();
   if (!validDate(startDate) || !validDate(endDate) || startDate > endDate || endDate > today) {
     return json({ error: "Choose valid dates in the past or today, with the start date no later than the end date." }, 400, origin);
@@ -98,6 +120,7 @@ Deno.serve(async (request) => {
         send_email: "true",
         start_date: startDate,
         end_date: endDate,
+        report_scope: reportScope,
       },
     }),
   });
@@ -112,6 +135,6 @@ Deno.serve(async (request) => {
     queued: true,
     startDate,
     endDate,
-    message: "The Gmail backup job was queued in GitHub Actions.",
+    message: "The backup job was queued in GitHub Actions.",
   }, 202, origin);
 });
