@@ -145,9 +145,40 @@ def main():
     msg.set_content(f"Attached are the Footlytics CSV report(s) for {scope_label}, covering Lagos dates {start_date} through {end_date}. Total visits in this scope: {len(visits)}.")
     for filename, content in attachments:
         msg.add_attachment(content, maintype="text", subtype="csv", filename=filename)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=45) as smtp:
-        smtp.login(sender, password)
-        smtp.send_message(msg)
+    smtp_context = ssl.create_default_context()
+    stage = "connecting to Gmail SMTP over SSL (port 465)"
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=smtp_context, timeout=45) as smtp:
+            stage = "authenticating with Gmail over SSL (port 465)"
+            smtp.login(sender, password)
+            stage = "sending the email via Gmail SMTP"
+            smtp.send_message(msg)
+    except Exception as ssl_error:
+        if stage == "sending the email via Gmail SMTP":
+            raise RuntimeError(
+                f"{stage} failed: {ssl_error}. Delivery may be uncertain; check the recipient inbox before retrying."
+            ) from ssl_error
+        print(
+            f"Gmail SMTP SSL attempt failed during {stage}: {ssl_error}. "
+            "Trying STARTTLS on port 587.",
+            file=sys.stderr,
+        )
+        starttls_stage = "connecting to Gmail SMTP (port 587)"
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=45) as smtp:
+                smtp.ehlo()
+                starttls_stage = "starting TLS encryption on port 587"
+                smtp.starttls(context=smtp_context)
+                smtp.ehlo()
+                starttls_stage = "authenticating with Gmail over STARTTLS (port 587)"
+                smtp.login(sender, password)
+                starttls_stage = "sending the email via Gmail SMTP"
+                smtp.send_message(msg)
+        except Exception as starttls_error:
+            raise RuntimeError(
+                f"Gmail email failed. SSL/465 failed during {stage}: {ssl_error}; "
+                f"STARTTLS/587 failed during {starttls_stage}: {starttls_error}"
+            ) from starttls_error
     print("Backup email sent successfully.")
 
 
