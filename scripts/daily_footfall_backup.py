@@ -131,55 +131,54 @@ def main():
         print("Dry run: no email sent.")
         return
 
-    sender = env("SMTP_USERNAME")
-    password = env("SMTP_APP_PASSWORD").replace(" ", "")
+    resend_key = env("RESEND_API_KEY")
+    from_email = env("BACKUP_FROM_EMAIL")
     recipients = list(dict.fromkeys(a.strip() for a in env("BACKUP_RECIPIENTS").split(",") if a.strip()))
     if not recipients or any("@" not in address for address in recipients):
         raise RuntimeError("Configure valid comma-separated recipient email addresses.")
 
-    msg = EmailMessage()
-    msg["From"] = sender
-    msg["To"] = ", ".join(recipients)
-    scope_label = "all branches and combined report" if report_scope == "all" else f"{report_scope.title()} branch only"
-    msg["Subject"] = f"Footlytics CSV backup - {period_label}"
-    msg.set_content(f"Attached are the Footlytics CSV report(s) for {scope_label}, covering Lagos dates {start_date} through {end_date}. Total visits in this scope: {len(visits)}.")
-    for filename, content in attachments:
-        msg.add_attachment(content, maintype="text", subtype="csv", filename=filename)
-    smtp_context = ssl.create_default_context()
-    stage = "connecting to Gmail SMTP over SSL (port 465)"
+    # Use the same Resend delivery service as the automatic backup. Do not retry
+    # failed sends automatically because delivery can be uncertain after a timeout.
+    import base64
+    import urllib.error
+
+    payload = {
+        "from": from_email,
+        "to": recipients,
+        "subject": f"Footlytics CSV backup - {period_label}",
+        "text": (
+            f"Attached are the Footlytics CSV report(s) for {scope_label}, "
+            f"covering Lagos dates {start_date} through {end_date}. "
+            f"Total visits in this scope: {len(visits)}."
+        ),
+        "attachments": [
+            {"filename": filename, "content": base64.b64encode(content).decode("ascii")}
+            for filename, content in attachments
+        ],
+    }
+    request = Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {resend_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=smtp_context, timeout=45) as smtp:
-            stage = "authenticating with Gmail over SSL (port 465)"
-            smtp.login(sender, password)
-            stage = "sending the email via Gmail SMTP"
-            smtp.send_message(msg)
-    except Exception as ssl_error:
-        if stage == "sending the email via Gmail SMTP":
-            raise RuntimeError(
-                f"{stage} failed: {ssl_error}. Delivery may be uncertain; check the recipient inbox before retrying."
-            ) from ssl_error
-        print(
-            f"Gmail SMTP SSL attempt failed during {stage}: {ssl_error}. "
-            "Trying STARTTLS on port 587.",
-            file=sys.stderr,
-        )
-        starttls_stage = "connecting to Gmail SMTP (port 587)"
-        try:
-            with smtplib.SMTP("smtp.gmail.com", 587, timeout=45) as smtp:
-                smtp.ehlo()
-                starttls_stage = "starting TLS encryption on port 587"
-                smtp.starttls(context=smtp_context)
-                smtp.ehlo()
-                starttls_stage = "authenticating with Gmail over STARTTLS (port 587)"
-                smtp.login(sender, password)
-                starttls_stage = "sending the email via Gmail SMTP"
-                smtp.send_message(msg)
-        except Exception as starttls_error:
-            raise RuntimeError(
-                f"Gmail email failed. SSL/465 failed during {stage}: {ssl_error}; "
-                f"STARTTLS/587 failed during {starttls_stage}: {starttls_error}"
-            ) from starttls_error
-    print("Backup email sent successfully.")
+        with urlopen(request, timeout=45) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            print(f"Backup email accepted by Resend. Email ID: {result.get('id', 'not returned')}")
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")[:1000]
+        raise RuntimeError(f"Resend rejected the backup email (HTTP {error.code}): {detail}") from error
+    except Exception as error:
+        raise RuntimeError(
+            f"Could not confirm Resend email submission ({type(error).__name__}). "
+            "Check the recipient inbox before retrying."
+        ) from error
+
 
 
 if __name__ == "__main__":
