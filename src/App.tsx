@@ -650,7 +650,7 @@ export default function App() {
 
       <details className="testing-cutoff">
         <summary><CalendarDays size={16} /> Testing cutoff and historical records</summary>
-        <div className="testing-cutoff-content"><strong>Testing ended: Sunday, 11 October 2026</strong><p>From Monday, 12 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
+        <div className="testing-cutoff-content"><strong>Testing ended: Tuesday, 13 October 2026</strong><p>From Wednesday, 14 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
       </details>
       </>
       )}
