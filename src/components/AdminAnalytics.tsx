@@ -587,15 +587,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </div>
             <div className="analytics-period-legend"><span><i className="analytics-stack-purchased" /> Purchased</span><span><i className="analytics-stack-no-purchase" /> No purchase</span></div>
           </section>
-          <section hidden={!isVisible("operating-hours")} className="analytics-subpanel analytics-operating-hours">
-            <h3><Clock3 size={16} /> Operating hours context</h3>
-            <p className="analytics-help">Footlytics uses the pharmacy schedule below when interpreting hourly footfall. The hourly chart excludes records timestamped before opening; daily totals remain unchanged.</p>
-            <div className="analytics-operating-hours-grid">
-              <div><strong>8:00 AM</strong><span>Monday–Saturday opening</span></div>
-              <div><strong>2:00 PM</strong><span>Sunday opening</span></div>
-            </div>
-            <p className="analytics-help">Daily and weekday totals are raw visit counts, not visits-per-open-hour. A closing time has not been configured, so no closing-hour assumption is applied.</p>
-          </section>
           <div className="analytics-trends-stack">
           <section hidden={!isVisible("daily-trend")} className="analytics-subpanel analytics-trend">
             <h3><CalendarDays size={16} /> Daily visit trend</h3>
@@ -675,13 +666,15 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         <div className="analytics-tab-content">
           <div hidden={!isVisible("reason-kpis")} className="history-summary analytics-kpis">
             <div><strong>{noPurchase.toLocaleString()}</strong><span>No-purchase visits</span></div>
-            <div><strong>{reasonStats.length}</strong><span>Reason categories</span></div>
-            <div><strong>{reasonStats[0]?.count ?? 0}</strong><span>Most frequent reason</span></div>
+            <div><strong>{noPurchase > 0 ? reasonStats.length : "—"}</strong><span>Reason categories</span></div>
+            <div><strong>{reasonStats[0]?.reason ?? (noPurchase > 0 ? "Not recorded" : "No data")}</strong><span>Most frequent reason</span><small>{reasonStats[0] ? reasonStats[0].count + " visits" : noPurchase > 0 ? "No reason values saved" : "No no-purchase visits"}</small></div>
           </div>
           <section hidden={!isVisible("reason-breakdown")} className="analytics-subpanel analytics-reasons-panel">
             <h3><Search size={16} /> No-purchase reasons</h3>
             <p className="analytics-help">Counts and percentages are based on no-purchase visits in the selected period. Blank reasons are grouped as Other / Unknown.</p>
-            {reasonStats.length === 0 ? <p className="corrections-empty">No no-purchase reasons recorded in this period.</p> : reasonStats.map((item, index) => {
+            {noPurchase === 0 && <p className="corrections-empty">No no-purchase visits were recorded in this period, so there are no reason metrics to summarise.</p>}
+            {reasonStats.length === 0 && noPurchase > 0 && <p className="corrections-empty">No reasons were saved for the no-purchase visits in this period.</p>}
+            {reasonStats.length > 0 && reasonStats.map((item, index) => {
               const colors = ["#e27b48", "#7b83d8", "#2395a8", "#c85e91", "#7b9b45", "#ba8a38"];
               return <div className="analytics-reason-row" key={item.reason}>
                 <div className="analytics-row-label"><strong>{item.reason}</strong><span>{item.count.toLocaleString()} · {percent(item.count, noPurchase)}%</span></div>
@@ -713,6 +706,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         <button type="button" className="analytics-export-button" onClick={downloadAnalysisPdf} disabled={loading || Boolean(error)}><Download size={15} /> Export current view to PDF</button>
       </div>
       <p className="history-footnote">Analytics use saved visit records only. This view does not edit, move, or delete data.</p>
+      <p className="analytics-hours-note"><Clock3 size={12} /> Opening hours: Mon–Sat 8:00 AM · Sunday 2:00 PM. Hourly charts exclude pre-opening records; daily totals remain unchanged.</p>
     </section>
   );
 }
