@@ -44,6 +44,36 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const [startDate, setStartDate] = useState(shiftDate(today, -29));
   const [endDate, setEndDate] = useState(today);
   const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
+  const [visibleData, setVisibleData] = useState<Record<string, boolean>>({});
+  const sectionOptions: Record<AnalysisTab, { id: string; label: string }[]> = {
+    overview: [
+      { id: "kpi-visits", label: "Total visits" }, { id: "kpi-purchases", label: "Purchases" },
+      { id: "kpi-no-purchase", label: "No-purchase visits" }, { id: "kpi-conversion", label: "Purchase conversion" },
+      { id: "kpi-unavailable", label: "Unavailable-item requests" }, { id: "outcomes", label: "Outcome distribution chart" },
+      { id: "weekday", label: "Visits by weekday" }, { id: "branch-snapshot", label: "Branch snapshot" },
+      { id: "insights", label: "Quick insights" }, { id: "comparison", label: "Previous-period comparison" },
+    ],
+    branches: [
+      { id: "branch-kpis", label: "Branch summary metrics" }, { id: "branch-performance", label: "Branch performance breakdown" },
+      { id: "comparison", label: "Previous-period comparison" },
+    ],
+    trends: [
+      { id: "daily-trend", label: "Daily visit trend" }, { id: "weekday-conversion", label: "Purchase conversion by weekday" },
+      { id: "outcome-totals", label: "Outcome totals" }, { id: "hourly", label: "Busy hours and footfall patterns" },
+      { id: "daily-averages", label: "Daily averages and peak days" }, { id: "comparison", label: "Previous-period comparison" },
+    ],
+    reasons: [
+      { id: "reason-kpis", label: "Reason summary metrics" }, { id: "reason-breakdown", label: "No-purchase reasons" },
+      { id: "reason-branches", label: "Reasons by branch" }, { id: "comparison", label: "Previous-period comparison" },
+    ],
+  };
+  const isVisible = (id: string) => visibleData[id] !== false;
+  const selectAllCurrent = sectionOptions[activeTab].every((item) => isVisible(item.id));
+  const toggleData = (id: string, checked: boolean) => setVisibleData((current) => ({ ...current, [id]: checked }));
+  const setAllCurrent = (checked: boolean) => setVisibleData((current) => ({
+    ...current,
+    ...Object.fromEntries(sectionOptions[activeTab].map((item) => [item.id, checked])),
+  }));
   const [selectedBranchId, setSelectedBranchId] = useState("all");
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(false);
