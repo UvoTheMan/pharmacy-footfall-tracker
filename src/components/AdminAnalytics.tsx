@@ -66,7 +66,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       const result = await supabase
         .from("visits")
         .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested")
-        .gte("visit_date", shiftDate(startDate, -Math.max(0, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000))))
+        .gte("visit_date", shiftDate(startDate, -Math.max(1, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1)))
         .lte("visit_date", endDate)
         .order("visit_date", { ascending: true })
         .order("id", { ascending: true })
@@ -138,10 +138,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     });
     return hours;
   }, [analysisVisits]);
-  const activeDays = dailyStats.filter((day) => day.total > 0);
-  const averageDailyFootfall = activeDays.length ? analysisVisits.length / activeDays.length : 0;
-  const busiestDay = [...activeDays].sort((a, b) => b.total - a.total)[0];
-  const quietestRecordedDay = [...activeDays].sort((a, b) => a.total - b.total)[0];
   const peakHour = [...busyHourStats].filter((hour) => hour.total > 0).sort((a, b) => b.total - a.total)[0];
   const quietHour = [...busyHourStats].filter((hour) => hour.total > 0).sort((a, b) => a.total - b.total)[0];
 
@@ -158,6 +154,10 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     }
     return days;
   }, [analysisVisits, startDate, endDate]);
+  const activeDays = dailyStats.filter((day) => day.total > 0);
+  const averageDailyFootfall = activeDays.length ? analysisVisits.length / activeDays.length : 0;
+  const busiestDay = [...activeDays].sort((a, b) => b.total - a.total)[0];
+  const quietestRecordedDay = [...activeDays].sort((a, b) => a.total - b.total)[0];
 
   const reasonStats = useMemo(() => {
     const counts = new Map<string, number>();
