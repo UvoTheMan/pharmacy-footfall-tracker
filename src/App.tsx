@@ -373,6 +373,15 @@ export default function App() {
     setUnavailableItemPhotoPreview("");
   }
 
+  function deferUnavailablePrompt() {
+    setShowUnavailablePrompt(false);
+    setPendingUnavailableVisitId(null);
+    setPendingUnavailableVisitDate("");
+    setUnavailableItemName("");
+    clearUnavailablePhoto();
+    setError("");
+  }
+
   function selectUnavailablePhoto(file: File | null) {
     setError("");
     if (!file) return;
@@ -680,7 +689,7 @@ export default function App() {
       {showUnavailablePrompt && (
         <div className="modal-backdrop" role="presentation">
           <form className="modal" role="dialog" aria-modal="true" aria-labelledby="unavailable-prompt-title" onSubmit={(event) => { event.preventDefault(); void saveUnavailableItem(); }}>
-            <button className="modal-close" type="button" aria-label="Close product details prompt" disabled={busy} onClick={() => setShowUnavailablePrompt(false)}><X size={19} /></button>
+            <button className="modal-close" type="button" aria-label="Close product details prompt" disabled={busy} onClick={deferUnavailablePrompt}><X size={19} /></button>
             <p className="eyebrow">UNAVAILABLE ITEM REPORT</p>
             <h2 id="unavailable-prompt-title">Which item was unavailable?</h2>
             <p className="modal-description">{unavailableOutcome === "purchased" ? "Record the item the customer couldn't obtain, even though they purchased something else." : "Record the item that led to the customer leaving without a purchase."} This report will be shared with staff and admins.</p>
@@ -692,7 +701,7 @@ export default function App() {
             <p className="modal-footnote">JPG, PNG or WebP, up to 5 MB. Please do not photograph prescriptions or documents showing patient-identifying details.</p>
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="submit" disabled={busy || !unavailableItemName.trim()}>{busy ? "Saving report…" : "Save unavailable item"} <span>→</span></button>
-            <button className="text-button" type="button" disabled={busy} onClick={() => setShowUnavailablePrompt(false)}>Close for now</button>
+            <button className="text-button" type="button" disabled={busy} onClick={deferUnavailablePrompt}>Close for now</button>
             <p className="modal-footnote">The visit has already been saved. You can close this prompt and add the product details later from the highlighted visit in Recent visits.</p>
           </form>
         </div>
