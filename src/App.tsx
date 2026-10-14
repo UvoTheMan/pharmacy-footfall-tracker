@@ -333,7 +333,7 @@ export default function App() {
       recorded_at: now.toISOString(),
       outcome,
       reason: outcome === "not_purchased" ? visitReason ?? null : null,
-      unavailable_item_requested: outcome === "purchased" && unavailableItemRequested,
+      unavailable_item_requested: unavailableItemRequested,
       batch_id: batchId,
       created_by: session.user.id,
     }));
