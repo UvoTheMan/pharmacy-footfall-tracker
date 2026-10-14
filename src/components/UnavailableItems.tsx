@@ -54,6 +54,8 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
   const [editing, setEditing] = useState<UnavailableItem | null>(null);
   const [editName, setEditName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -146,6 +148,47 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     await loadItems();
   }
 
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleAllFiltered(checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      filteredItems.forEach((item) => checked ? next.add(item.id) : next.delete(item.id));
+      return next;
+    });
+  }
+
+  async function bulkUpdateStatus(status: "reviewed" | "resolved") {
+    if (!supabase || profile.role !== "admin" || selectedIds.size === 0) return;
+    const visibleSelected = filteredItems.filter((item) => selectedIds.has(item.id));
+    if (!visibleSelected.length) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setBulkSaving(true);
+    setError("");
+    setNotice("");
+    const result = await supabase.from("unavailable_items").update({ status }).in("id", visibleSelected.map((item) => item.id));
+    if (result.error) {
+      setError("Could not update selected reports: " + result.error.message);
+    } else {
+      setNotice(`${visibleSelected.length} report${visibleSelected.length === 1 ? "" : "s"} marked ${status}.`);
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        visibleSelected.forEach((item) => next.delete(item.id));
+        return next;
+      });
+      await loadItems();
+    }
+    setBulkSaving(false);
+  }
+
   async function updateStatus(item: UnavailableItem, status: UnavailableItem["status"]) {
     if (!supabase || profile.role !== "admin") return;
     setError("");
@@ -202,11 +245,17 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         <label className="history-date-field"><span>To date</span><input type="date" min={dateMinusDays(89)} max={todayKey()} value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
         <button className="primary-button unavailable-search-button" type="submit"><Search size={15} /> Search records</button>
       </form>
-      <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={exportCsv} disabled={loading || filteredItems.length === 0}><Download size={14} /> Export CSV</button><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); }}>Reset filters</button></div></div>
+      <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={exportCsv} disabled={loading || filteredItems.length === 0}><Download size={14} /> Export CSV</button><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); setSelectedIds(new Set()); }}>Reset filters</button></div></div>
+      {profile.role === "admin" && filteredItems.length > 0 && <div className="unavailable-bulk-toolbar">
+        <label className="unavailable-select-all"><input type="checkbox" checked={filteredItems.every((item) => selectedIds.has(item.id))} onChange={(event) => toggleAllFiltered(event.target.checked)} aria-label="Select all filtered unavailable-item reports" /> <span>Select all shown</span></label>
+        <span className="unavailable-selected-count">{filteredItems.filter((item) => selectedIds.has(item.id)).length} selected</span>
+        <div className="unavailable-bulk-actions"><button className="secondary-button" type="button" disabled={bulkSaving || !filteredItems.some((item) => selectedIds.has(item.id))} onClick={() => void bulkUpdateStatus("reviewed")}>{bulkSaving ? "Updating…" : "Mark reviewed"}</button><button className="secondary-button" type="button" disabled={bulkSaving || !filteredItems.some((item) => selectedIds.has(item.id))} onClick={() => void bulkUpdateStatus("resolved")}>{bulkSaving ? "Updating…" : "Mark resolved"}</button><button className="unavailable-clear-selection" type="button" disabled={bulkSaving || selectedIds.size === 0} onClick={() => setSelectedIds(new Set())}>Clear</button></div>
+      </div>}
       {filteredItems.length === 0 && !loading ? <div className="corrections-empty">No unavailable-item reports match these filters.</div> : (
         <div className="unavailable-record-list">
           {filteredItems.map((item) => (
-            <article className="unavailable-record" key={item.id}>
+            <article className={`unavailable-record${profile.role === "admin" && selectedIds.has(item.id) ? " selected" : ""}`} key={item.id}>
+              {profile.role === "admin" && <label className="unavailable-record-select"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={(event) => toggleSelected(item.id, event.target.checked)} aria-label={`Select ${item.item_name}`} /></label>}
               {item.photo_url && <a className="unavailable-record-photo" href={item.photo_url} target="_blank" rel="noreferrer"><img src={item.photo_url} alt={`Photo of ${item.item_name}`} loading="lazy" /></a>}
               <div className="unavailable-record-main">
                 <div className="unavailable-record-title"><strong>{item.item_name}</strong><span className={`unavailable-status ${item.status}`}>{item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved"}</span></div>
