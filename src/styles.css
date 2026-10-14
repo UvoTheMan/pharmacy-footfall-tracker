@@ -383,3 +383,7 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .unavailable-record-select{flex-shrink:0}
 .unavailable-record.selected{border-color:#86b99a;background:#f6fbf7}
 @media(max-width:520px){.unavailable-bulk-toolbar{gap:9px;padding:10px}.unavailable-bulk-actions{width:100%;margin-left:0}.unavailable-bulk-actions .secondary-button{flex:1;justify-content:center}.unavailable-record{gap:8px}}
+
+.branch-confirm-backdrop{z-index:20}
+.branch-confirm-cancel{width:100%;justify-content:center;margin-top:10px}
+.branch-switch-warning{background:#fff4e5;border:1px solid #f2c078;border-left:4px solid #c77812;border-radius:9px;color:#7a3e00;padding:12px 13px;margin:0 0 18px;font-size:12px;line-height:1.6}
