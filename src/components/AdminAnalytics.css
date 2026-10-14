@@ -204,3 +204,6 @@
 .analytics-operating-hours-grid strong{font-size:18px;color:#1d7048}
 .analytics-operating-hours-grid span{font-size:11px;color:#718276}
 @media(max-width:420px){.analytics-operating-hours-grid{grid-template-columns:1fr}}
+
+.analytics-hours-note{display:flex;align-items:flex-start;gap:6px;margin:8px 0 0;color:#819087;font-size:10px;line-height:1.5}
+.analytics-hours-note svg{flex:0 0 auto;margin-top:1px}
