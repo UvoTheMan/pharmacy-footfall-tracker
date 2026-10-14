@@ -142,3 +142,68 @@
 .analytics-customise-option span{overflow-wrap:anywhere}
 .analytics-kpis [hidden],.analytics-subpanel[hidden]{display:none!important}
 @media(max-width:480px){.analytics-customise-options{grid-template-columns:1fr}.analytics-customise-panel>summary{align-items:flex-start}.analytics-customise-count{font-size:9px}}
+
+
+/* Keep only the four core metrics permanent; make supporting breakdowns explicit and interactive. */
+.analytics-shared-kpis{margin:14px 0}
+.analytics-optional-kpi{margin:0 0 14px}
+.analytics-branch-summary{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px}
+.analytics-trends-stack{display:grid;gap:14px;min-width:0}
+.analytics-expand-button{display:inline-flex;align-items:center;margin-top:10px}
+.analytics-branch-detail{display:grid;gap:10px;margin-top:12px;padding:12px;border:1px solid #e5eee6;border-radius:10px;background:#fbfdfb}
+.analytics-branch-detail>.analytics-row-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px}
+.analytics-branch-detail>strong{font-size:11px;color:#2f5942}
+.analytics-comparison-period,.analytics-comparison-empty{grid-column:1/-1;margin:0;color:#6f8275;font-size:11px;line-height:1.5}
+.analytics-comparison-empty{padding:10px 12px;border:1px solid #e8eee8;border-radius:9px;background:#f9fbf9}
+@media(max-width:700px){.analytics-branch-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.analytics-branch-summary{grid-template-columns:1fr}}
+
+
+/* Permanent KPI cards include current values, previous-period baselines, and deltas. */
+.analytics-shared-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 16px}
+.analytics-shared-kpi{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;padding:13px;border:1px solid #e3ebe4;border-radius:12px;background:#fff}
+.analytics-shared-kpi-label{display:flex;align-items:center;gap:5px;color:#708175;font-size:10px;font-weight:750}
+.analytics-shared-kpi>strong{font-size:25px;line-height:1.2;letter-spacing:-.5px;color:#234c36}
+.analytics-shared-kpi>small{color:#7d8c81;font-size:10px;line-height:1.4}
+.analytics-shared-kpi>small.comparison-up{color:#1c8756;font-weight:800}
+.analytics-shared-kpi>small.comparison-down{color:#c3653b;font-weight:800}
+.analytics-period-label{margin-bottom:12px}
+.analytics-export-bottom{display:flex;justify-content:flex-end;margin:22px 0 12px;padding-top:14px;border-top:1px solid #e8eee8}
+@media(max-width:700px){.analytics-shared-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.analytics-shared-kpi{padding:11px}.analytics-shared-kpi>strong{font-size:23px}}
+@media(max-width:360px){.analytics-shared-kpis{grid-template-columns:1fr}}
+
+
+/* Additional period-comparison charts for branch and daily performance. */
+.analytics-period-branch{display:grid;gap:7px;margin-top:15px;padding:12px;border:1px solid #e7eee8;border-radius:10px;background:#fcfdfc}
+.analytics-period-metric-label{font-size:10px;color:#718276}
+.analytics-paired-bars{display:grid;gap:4px;min-height:7px}
+.analytics-paired-bars>span{display:block;height:7px;min-width:0;border-radius:999px;transition:width .2s ease}
+.analytics-period-current{background:#258657}
+.analytics-period-previous{background:#e7a04c}
+.analytics-period-legend{display:flex;align-items:center;gap:12px 18px;flex-wrap:wrap;margin-top:13px;color:#718276;font-size:10px}
+.analytics-period-legend>span{display:inline-flex;align-items:center;gap:6px}
+.analytics-period-legend i{display:inline-block;width:10px;height:10px;border-radius:3px}
+.analytics-period-legend i.analytics-period-current{background:#258657}
+.analytics-period-legend i.analytics-period-previous{background:#e7a04c}
+.analytics-period-legend i.analytics-stack-purchased{background:#23875b}
+.analytics-period-legend i.analytics-stack-no-purchase{background:#e27b48}
+.analytics-period-daily-chart{display:flex;align-items:stretch;gap:4px;min-height:126px;overflow-x:auto;margin-top:16px;padding:4px 0 0}
+.analytics-period-day{display:flex;flex:1 0 14px;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;min-width:14px;height:126px}
+.analytics-period-day-bars{display:flex;align-items:flex-end;justify-content:center;gap:2px;width:100%;height:105px}
+.analytics-period-day-bars>span{display:block;flex:0 0 42%;min-height:1px;max-width:10px;border-radius:4px 4px 1px 1px}
+.analytics-period-day>small{min-height:11px;color:#829287;font-size:8px}
+.analytics-weekday-outcomes{display:grid;gap:13px;margin-top:16px}
+.analytics-weekday-outcome{min-width:0}
+.analytics-weekday-outcome .analytics-stacked-bar{height:12px}
+@media(max-width:480px){.analytics-period-branch{padding:10px}.analytics-period-daily-chart{gap:3px}.analytics-period-day{flex-basis:13px;min-width:13px}}
+
+
+.analytics-operating-hours{border-color:#dbe9dd;background:#f7fbf7}
+.analytics-operating-hours-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.analytics-operating-hours-grid>div{display:flex;flex-direction:column;gap:5px;padding:13px;border:1px solid #e0ebe1;border-radius:10px;background:#fff}
+.analytics-operating-hours-grid strong{font-size:18px;color:#1d7048}
+.analytics-operating-hours-grid span{font-size:11px;color:#718276}
+@media(max-width:420px){.analytics-operating-hours-grid{grid-template-columns:1fr}}
+
+.analytics-hours-note{display:flex;align-items:flex-start;gap:6px;margin:8px 0 0;color:#819087;font-size:10px;line-height:1.5}
+.analytics-hours-note svg{flex:0 0 auto;margin-top:1px}
