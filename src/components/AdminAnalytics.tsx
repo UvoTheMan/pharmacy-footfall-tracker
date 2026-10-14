@@ -288,6 +288,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text((TABS.find(tab => tab.id === activeTab)?.label || "Analysis") + " report", margin, 30);
     doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(startDate + " to " + endDate + " | " + (selectedBranchId === "all" ? "All branches combined" : (analysisBranches[0]?.name || "Selected branch")), margin, 36);
     doc.setFontSize(8); doc.setTextColor(muted[0], muted[1], muted[2]); doc.text("Prepared from saved records. Comparisons are descriptive, not causal.", margin, y); y += 10;
+    line("Opening schedule", "Mon-Sat 8:00 AM · Sunday 2:00 PM");
+    line("Hourly analysis", "Pre-opening records excluded; closing time not configured");
     if (activeTab === "overview" && ["kpi-visits","kpi-purchases","kpi-no-purchase","kpi-conversion","kpi-unavailable"].some(isVisible)) {
       section("Performance at a glance");
       if (isVisible("kpi-visits")) line("Total visits", analysisVisits.length.toLocaleString());
