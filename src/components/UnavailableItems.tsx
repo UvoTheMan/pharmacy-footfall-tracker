@@ -56,29 +56,36 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
   const [saving, setSaving] = useState(false);
 
   const loadItems = useCallback(async () => {
-    if (!supabase) return;
     setLoading(true);
     setError("");
-    const earliest = dateMinusDays(89);
-    const latest = todayKey();
-    const safeFrom = fromDate < earliest ? earliest : fromDate;
-    const safeTo = toDate > latest ? latest : toDate;
-    if (safeFrom > safeTo) {
+    if (!supabase) {
+      setError("The database connection is unavailable. Please try opening the register again.");
       setItems([]);
-      setError("Choose a valid date range within the last 90 days.");
       setLoading(false);
       return;
     }
-    const result = await supabase
-      .from("unavailable_items")
-      .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
-      .gte("reported_on", safeFrom)
-      .lte("reported_on", safeTo)
-      .order("reported_on", { ascending: false })
-      .order("recorded_at", { ascending: false });
-    if (result.error) {
-      setError("Could not load unavailable items: " + result.error.message);
-    } else {
+    try {
+      const earliest = dateMinusDays(89);
+      const latest = todayKey();
+      const safeFrom = fromDate < earliest ? earliest : fromDate;
+      const safeTo = toDate > latest ? latest : toDate;
+      if (safeFrom > safeTo) {
+        setItems([]);
+        setError("Choose a valid date range within the last 90 days.");
+        return;
+      }
+      const result = await supabase
+        .from("unavailable_items")
+        .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
+        .gte("reported_on", safeFrom)
+        .lte("reported_on", safeTo)
+        .order("reported_on", { ascending: false })
+        .order("recorded_at", { ascending: false });
+      if (result.error) {
+        setItems([]);
+        setError("Could not load unavailable items: " + result.error.message);
+        return;
+      }
       const records = (result.data ?? []) as unknown as UnavailableItem[];
       const paths = records.flatMap((item) => item.image_path ? [item.image_path] : []);
       let photoUrls = new Map<string, string>();
@@ -88,11 +95,26 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         else photoUrls = new Map((signed.data ?? []).flatMap((entry) => entry.path && entry.signedUrl ? [[entry.path, entry.signedUrl] as [string, string]] : []));
       }
       setItems(records.map((item) => ({ ...item, photo_url: item.image_path ? photoUrls.get(item.image_path) : undefined })));
+    } catch (cause) {
+      setItems([]);
+      setError("The unavailable-items register could not be restored. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [fromDate, toDate]);
 
-  useEffect(() => { void loadItems(); }, [loadItems]);
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadItems();
+    };
+    void loadItems();
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [loadItems]);
 
   const filteredItems = useMemo(() => items.filter((item) => {
     const matchesName = !appliedSearch || item.item_name.toLowerCase().includes(appliedSearch.toLowerCase());
