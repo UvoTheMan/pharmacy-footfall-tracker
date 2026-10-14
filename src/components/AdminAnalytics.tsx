@@ -42,6 +42,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const [startDate, setStartDate] = useState(shiftDate(today, -29));
   const [endDate, setEndDate] = useState(today);
   const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
+  const [selectedBranchId, setSelectedBranchId] = useState("all");
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -85,8 +86,11 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const branchStats = useMemo(() => branches.map((branch) => {
-    const rows = visits.filter((visit) => visit.branch_id === branch.id);
+  const analysisVisits = useMemo(() => selectedBranchId === "all" ? visits : visits.filter((visit) => visit.branch_id === selectedBranchId), [visits, selectedBranchId]);
+  const analysisBranches = useMemo(() => selectedBranchId === "all" ? branches : branches.filter((branch) => branch.id === selectedBranchId), [branches, selectedBranchId]);
+
+  const branchStats = useMemo(() => analysisBranches.map((branch) => {
+    const rows = analysisVisits.filter((visit) => visit.branch_id === branch.id);
     const purchases = rows.filter((visit) => visit.outcome === "purchased").length;
     const noPurchase = rows.filter((visit) => visit.outcome === "not_purchased").length;
     const undecided = rows.filter((visit) => visit.outcome === "undecided").length;
@@ -101,20 +105,20 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       conversion: percent(purchases, resolved),
       unavailable: rows.filter((visit) => visit.unavailable_item_requested).length,
     };
-  }), [branches, visits]);
+  }), [analysisBranches, analysisVisits]);
 
-  const purchases = visits.filter((visit) => visit.outcome === "purchased").length;
-  const noPurchase = visits.filter((visit) => visit.outcome === "not_purchased").length;
-  const undecided = visits.filter((visit) => visit.outcome === "undecided").length;
+  const purchases = analysisVisits.filter((visit) => visit.outcome === "purchased").length;
+  const noPurchase = analysisVisits.filter((visit) => visit.outcome === "not_purchased").length;
+  const undecided = analysisVisits.filter((visit) => visit.outcome === "undecided").length;
   const resolved = purchases + noPurchase;
   const conversion = percent(purchases, resolved);
   const noPurchaseRate = percent(noPurchase, resolved);
-  const unavailableRequests = visits.filter((visit) => visit.unavailable_item_requested).length;
+  const unavailableRequests = analysisVisits.filter((visit) => visit.unavailable_item_requested).length;
 
   const dailyStats = useMemo(() => {
     const days: { date: string; total: number; purchases: number; noPurchase: number; undecided: number }[] = [];
     for (let cursor = startDate; cursor <= endDate; cursor = shiftDate(cursor, 1)) {
-      const rows = visits.filter((visit) => visit.visit_date === cursor);
+      const rows = analysisVisits.filter((visit) => visit.visit_date === cursor);
       days.push({
         date: cursor,
         total: rows.length,
@@ -124,26 +128,26 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       });
     }
     return days;
-  }, [visits, startDate, endDate]);
+  }, [analysisVisits, startDate, endDate]);
 
   const reasonStats = useMemo(() => {
     const counts = new Map<string, number>();
-    visits.filter((visit) => visit.outcome === "not_purchased").forEach((visit) => {
+    analysisVisits.filter((visit) => visit.outcome === "not_purchased").forEach((visit) => {
       const reason = visit.reason?.trim() || "Other / Unknown";
       counts.set(reason, (counts.get(reason) ?? 0) + 1);
     });
     return [...counts.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
-  }, [visits]);
+  }, [analysisVisits]);
 
-  const reasonBranchStats = useMemo(() => branches.map((branch) => {
-    const branchNoPurchase = visits.filter((visit) => visit.branch_id === branch.id && visit.outcome === "not_purchased");
+  const reasonBranchStats = useMemo(() => analysisBranches.map((branch) => {
+    const branchNoPurchase = analysisVisits.filter((visit) => visit.branch_id === branch.id && visit.outcome === "not_purchased");
     const counts = new Map<string, number>();
     branchNoPurchase.forEach((visit) => {
       const reason = visit.reason?.trim() || "Other / Unknown";
       counts.set(reason, (counts.get(reason) ?? 0) + 1);
     });
     return { ...branch, total: branchNoPurchase.length, reasons: [...counts.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count) };
-  }), [branches, visits]);
+  }), [analysisBranches, analysisVisits]);
 
   const weekdayStats = useMemo(() => {
     const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -169,11 +173,17 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     <section className="panel admin-analytics-panel" id="admin-analytics" aria-labelledby="admin-analytics-title">
       <div className="panel-heading">
         <div><p className="eyebrow">ADMIN WORKSPACE</p><h2 id="admin-analytics-title"><BarChart3 size={20} /> Analysis &amp; analytics</h2></div>
-        <span className="date-pill">All branches</span>
+        <span className="date-pill">{selectedBranchId === "all" ? "Combined analysis" : analysisBranches[0]?.name ?? "Single branch"}</span>
       </div>
-      <p className="panel-description">Explore pharmacy performance using saved visit records. Choose a reporting period, then switch between overview, branches, trends and reasons. This workspace is read-only.</p>
+      <p className="panel-description">Explore pharmacy performance using saved visit records. Choose one branch or combine all branches, adjust the reporting dates, and explore the interactive summaries. This workspace is read-only.</p>
 
       <div className="history-filters analytics-filters">
+        <label className="history-date-field analytics-branch-field" htmlFor="analytics-branch"><span><GitCompare size={15} /> Analyze</span>
+          <select id="analytics-branch" value={selectedBranchId} onChange={(event) => setSelectedBranchId(event.target.value)}>
+            <option value="all">All branches combined</option>
+            {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name} only</option>)}
+          </select>
+        </label>
         <label className="history-date-field" htmlFor="analytics-start"><span><CalendarDays size={15} /> Start date</span>
           <input id="analytics-start" type="date" min={earliest} max={endDate || today} value={startDate} onChange={(event) => setStartDate(event.target.value)} />
         </label>
@@ -182,10 +192,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         </label>
         <button type="button" className="secondary-button analytics-refresh" onClick={() => void load()} disabled={loading}><RefreshCw size={14} /> {loading ? "Refreshing…" : "Refresh analysis"}</button>
       </div>
+      <div className="analytics-date-presets" aria-label="Quick reporting periods">
+        <span>Quick range</span>
+        {[{ label: "7 days", days: 7 }, { label: "30 days", days: 30 }, { label: "90 days", days: 90 }].map((preset) => <button key={preset.days} type="button" className={startDate === shiftDate(endDate, -(preset.days - 1)) ? "analytics-preset active" : "analytics-preset"} onClick={() => { setEndDate(today); setStartDate(shiftDate(today, -(preset.days - 1))); }} disabled={loading}>{preset.label}</button>)}
+      </div>
       {error && <p className="error-message" role="alert">{error}</p>}
       <div className="analytics-range-row">
         <p className="analytics-range">{loadedRange ? `Reporting period: ${loadedRange}` : "Preparing reporting period…"} · Maximum window: 90 days</p>
-        <span className="analytics-record-count">{loading ? "Updating records…" : `${visits.length.toLocaleString()} visits loaded`}</span>
+        <span className="analytics-record-count">{loading ? "Updating records…" : `${analysisVisits.length.toLocaleString()} visits in view`}</span>
       </div>
 
       <nav className="analytics-tabs" aria-label="Analysis sections">
@@ -203,7 +217,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       {activeTab === "overview" && (
         <div className="analytics-tab-content">
           <div className="history-summary analytics-kpis">
-            <div><strong>{visits.length.toLocaleString()}</strong><span><Users size={13} /> Total visits</span></div>
+            <div><strong>{analysisVisits.length.toLocaleString()}</strong><span><Users size={13} /> Total visits</span></div>
             <div><strong>{purchases.toLocaleString()}</strong><span>Purchases</span></div>
             <div><strong>{noPurchase.toLocaleString()}</strong><span>No purchase</span></div>
             <div><strong>{conversion}%</strong><span>Conversion of resolved visits</span></div>
@@ -214,14 +228,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <section className="analytics-subpanel analytics-chart-card">
               <h3><BarChart3 size={16} /> Outcome distribution</h3>
               <p className="analytics-help">How recorded visits ended during this period.</p>
-              <div className="analytics-outcome-total"><strong>{visits.length.toLocaleString()}</strong><span>total visits</span></div>
+              <div className="analytics-outcome-total"><strong>{analysisVisits.length.toLocaleString()}</strong><span>total visits</span></div>
               <div className="analytics-outcome-bar" role="img" aria-label={outcomeStats.map((item) => `${item.label}: ${item.count}`).join(", ")}>
-                {outcomeStats.filter((item) => item.count > 0).map((item) => <span key={item.label} style={{ width: `${item.count / Math.max(1, visits.length) * 100}%`, background: item.color }} />)}
+                {outcomeStats.filter((item) => item.count > 0).map((item) => <span key={item.label} style={{ width: `${item.count / Math.max(1, analysisVisits.length) * 100}%`, background: item.color }} />)}
               </div>
               <div className="analytics-legend">
-                {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, visits.length)}%</small></div>)}
+                {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, analysisVisits.length)}%</small></div>)}
               </div>
-              <p className="analytics-help">Conversion is calculated separately using only resolved outcomes.</p>
+              <p className="analytics-help">Tap a section above to explore the details. Conversion uses resolved outcomes only.</p>
             </section>
             <section className="analytics-subpanel analytics-chart-card">
               <h3><CalendarDays size={16} /> Visits by weekday</h3>
@@ -254,7 +268,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </section>
             <section className="analytics-subpanel analytics-insight-panel">
               <h3><TrendingUp size={16} /> Quick insights</h3>
-              {visits.length === 0 ? <p className="corrections-empty">No visits were recorded in this reporting period.</p> : (
+              {analysisVisits.length === 0 ? <p className="corrections-empty">No visits were recorded in this reporting period.</p> : (
                 <ul className="analytics-insight-list">
                   <li><strong>{conversion}%</strong> purchase conversion among visits with a resolved outcome.</li>
                   <li><strong>{noPurchaseRate}%</strong> of resolved visits ended without a purchase.</li>
