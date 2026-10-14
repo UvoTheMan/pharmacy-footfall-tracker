@@ -602,7 +602,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                   <span className="analytics-day-stack" style={{ height: `${Math.max(day.total ? 8 : 2, day.total / peak * 100)}%` }}>
                     {day.purchases > 0 && <i className="analytics-stack-purchased" style={{ height: `${day.purchases / Math.max(1, day.total) * 100}%` }} />}
                     {day.noPurchase > 0 && <i className="analytics-stack-no-purchase" style={{ height: `${day.noPurchase / Math.max(1, day.total) * 100}%` }} />}
-                    {day.total - day.purchases - day.noPurchase > 0 && <i style={{ height: `${(day.total - day.purchases - day.noPurchase) / Math.max(1, day.total) * 100}%`, background: "#8b9a90" }} />
+                    {day.total - day.purchases - day.noPurchase > 0 && <i style={{ height: `${(day.total - day.purchases - day.noPurchase) / Math.max(1, day.total) * 100}%`, background: "#8b9a90" }} />}
                   </span>
                   <span className="analytics-day-label">{day.date.slice(5)}</span>
                 </div>
