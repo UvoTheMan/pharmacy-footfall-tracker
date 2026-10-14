@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarDays, GitCompare, RefreshCw, Search, TrendingUp, Users } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import "./AdminAnalytics.css";
 
 type Branch = { id: string; name: string; slug: string };
 type Visit = {
