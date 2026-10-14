@@ -18,14 +18,15 @@
 - Added `jspdf ^3.0.1` to `package.json`. There is no `package-lock.json` on `main`.
 - Adapted outcome typing and conversion denominators for undecided visits.
 - Ensured undecided visits appear in outcome distribution and daily stacked charts.
+- Lazy-loaded the PDF export dependency so PDF-generation code is requested when needed rather than on initial app load, addressing the large-bundle warning found during build review.
 - Clarified conversion labels to say that conversion is based on resolved visits (purchased or no purchase).
 - Corrected branch no-purchase-rate denominator to exclude undecided visits.
 - Kept unrelated global CSS, unavailable-item migrations, and other development-branch features out of this integration.
 
 ## Build verification
-- Vercel Preview build is **READY** for commit `9a834f78dfae938692d609da70a5fad7bd86c390`.
-- Preview URL: https://pharmacy-footfall-tracker-lqcav1x0y-uvothemans-projects.vercel.app
-- An intermediate build failed due to a missing closing JSX brace in the undecided chart segment. It was fixed in the verified commit above.
+- Vercel Preview build is **READY** for code commit `8805d63f6b5a81ff098946e511eb4d1bfbb8c436` (PDF export lazy-loaded).
+- Preview URL: https://pharmacy-footfall-tracker-pec4o1td0-uvothemans-projects.vercel.app
+- An intermediate build failed due to a missing closing JSX brace in the undecided chart segment. It was fixed in commit `9a834f78dfae938692d609da70a5fad7bd86c390`; the later build with lazy loading also passed.
 - The Vercel web page could not be inspected through the available browser/search view. Interactive Preview testing remains required.
 
 ## Remaining release checks
