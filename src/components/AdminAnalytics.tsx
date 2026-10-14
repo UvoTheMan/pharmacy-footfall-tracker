@@ -68,7 +68,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     ],
   };
   const isVisible = (id: string) => visibleData[id] !== false;
-  const selectAllCurrent = sectionOptions[activeTab].every((item) => isVisible(item.id));
   const toggleData = (id: string, checked: boolean) => setVisibleData((current) => ({ ...current, [id]: checked }));
   const setAllCurrent = (checked: boolean) => setVisibleData((current) => ({
     ...current,
