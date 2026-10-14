@@ -13,6 +13,8 @@ type UnavailableItem = {
   recorded_at: string;
   created_by: string;
   status: "pending" | "reviewed" | "resolved";
+  image_path: string | null;
+  photo_url?: string;
   branches?: { name: string } | null;
 };
 
@@ -69,13 +71,24 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     }
     const result = await supabase
       .from("unavailable_items")
-      .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,branches(name)")
+      .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
       .gte("reported_on", safeFrom)
       .lte("reported_on", safeTo)
       .order("reported_on", { ascending: false })
       .order("recorded_at", { ascending: false });
-    if (result.error) setError("Could not load unavailable items: " + result.error.message);
-    else setItems((result.data ?? []) as unknown as UnavailableItem[]);
+    if (result.error) {
+      setError("Could not load unavailable items: " + result.error.message);
+    } else {
+      const records = (result.data ?? []) as unknown as UnavailableItem[];
+      const paths = records.flatMap((item) => item.image_path ? [item.image_path] : []);
+      let photoUrls = new Map<string, string>();
+      if (paths.length) {
+        const signed = await supabase.storage.from("unavailable-item-photos").createSignedUrls(paths, 3600);
+        if (signed.error) setError("Reports loaded, but some photos could not be opened: " + signed.error.message);
+        else photoUrls = new Map((signed.data ?? []).flatMap((entry) => entry.path && entry.signedUrl ? [[entry.path, entry.signedUrl] as [string, string]] : []));
+      }
+      setItems(records.map((item) => ({ ...item, photo_url: item.image_path ? photoUrls.get(item.image_path) : undefined })));
+    }
     setLoading(false);
   }, [fromDate, toDate]);
 
@@ -145,6 +158,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         <div className="unavailable-record-list">
           {filteredItems.map((item) => (
             <article className="unavailable-record" key={item.id}>
+              {item.photo_url && <a className="unavailable-record-photo" href={item.photo_url} target="_blank" rel="noreferrer"><img src={item.photo_url} alt={`Photo of ${item.item_name}`} loading="lazy" /></a>}
               <div className="unavailable-record-main">
                 <div className="unavailable-record-title"><strong>{item.item_name}</strong><span className={`unavailable-status ${item.status}`}>{item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved"}</span></div>
                 <div className="unavailable-record-meta"><span>{item.branches?.name ?? branches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable"}</span><span>Unavailable on {displayDate(item.reported_on)}</span><span>Reported {new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" }).format(new Date(item.recorded_at))}</span></div>
