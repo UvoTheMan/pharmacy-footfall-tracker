@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, Search,
+  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, Footprints, Search,
   CircleHelp, Clock3, KeyRound, LogOut, ShoppingBag, Users, X,
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
@@ -74,6 +74,8 @@ export default function App() {
   const [showUnavailablePage, setShowUnavailablePage] = useState(false);
   const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
   const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
+  const [pendingUnavailableVisitId, setPendingUnavailableVisitId] = useState<string | null>(null);
+  const [pendingUnavailableVisitDate, setPendingUnavailableVisitDate] = useState("");
   const [unavailableItemName, setUnavailableItemName] = useState("");
   const [unavailableItemPhoto, setUnavailableItemPhoto] = useState<File | null>(null);
   const [unavailableItemPhotoPreview, setUnavailableItemPhotoPreview] = useState("");
@@ -313,15 +315,15 @@ export default function App() {
   async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false) {
     if (profile?.role === "admin") {
       setError("Admin accounts can review branch performance and correct existing records, but cannot add new visits.");
-      return;
+      return null;
     }
     if (pendingCorrection) {
       setError("Visit entry is paused while a branch correction is awaiting administrator review.");
-      return;
+      return null;
     }
     if (!supabase || !branch || !session) {
       setError("Sign in and select an assigned branch before recording visits.");
-      return;
+      return null;
     }
     setBusy(true);
     setError("");
@@ -333,7 +335,7 @@ export default function App() {
       recorded_at: now.toISOString(),
       outcome,
       reason: outcome === "not_purchased" ? visitReason ?? null : null,
-      unavailable_item_requested: outcome === "purchased" && unavailableItemRequested,
+      unavailable_item_requested: unavailableItemRequested,
       batch_id: batchId,
       created_by: session.user.id,
     }));
@@ -341,13 +343,27 @@ export default function App() {
     if (result.error) {
       setError(`Visit not saved: ${result.error.message}`);
       setBusy(false);
-      return;
+      return null;
     }
     setReason("");
     setShowBatch(false);
     await loadVisits();
     flash(count === 1 ? "Visit saved to the shared database." : `${count} visits saved to the shared database.`);
     setBusy(false);
+    return result.data?.[0]?.id ?? null;
+  }
+
+  async function startUnavailablePrompt(outcome: "purchased" | "not_purchased", reason?: Reason) {
+    setUnavailableOutcome(outcome);
+    setUnavailableItemName("");
+    clearUnavailablePhoto();
+    setError("");
+    const visitDate = lagosDateKey(new Date());
+    const visitId = await addVisits(outcome, 1, reason, true);
+    if (!visitId) return;
+    setPendingUnavailableVisitId(visitId);
+    setPendingUnavailableVisitDate(visitDate);
+    setShowUnavailablePrompt(true);
   }
 
   function clearUnavailablePhoto() {
@@ -374,7 +390,7 @@ export default function App() {
 
   async function saveUnavailableItem() {
     const itemName = unavailableItemName.trim();
-    if (!supabase || !branch || !session || !itemName) {
+    if (!supabase || !branch || !session || !itemName || !pendingUnavailableVisitId || !pendingUnavailableVisitDate) {
       setError("Enter the unavailable item name before saving.");
       return;
     }
@@ -394,12 +410,14 @@ export default function App() {
         return;
       }
     }
-    const result = await supabase.rpc("record_unavailable_item", {
-      p_branch_id: branch.id,
-      p_outcome: unavailableOutcome,
-      p_reason: unavailableOutcome === "not_purchased" ? "Item unavailable" : null,
-      p_item_name: itemName,
-      p_image_path: imagePath,
+    const result = await supabase.from("unavailable_items").insert({
+      visit_id: pendingUnavailableVisitId,
+      branch_id: branch.id,
+      item_name: itemName,
+      reported_on: pendingUnavailableVisitDate,
+      created_by: session.user.id,
+      updated_by: session.user.id,
+      image_path: imagePath,
     });
     if (result.error) {
       setError("Unavailable item was not saved: " + result.error.message);
@@ -407,6 +425,8 @@ export default function App() {
       return;
     }
     setShowUnavailablePrompt(false);
+    setPendingUnavailableVisitId(null);
+    setPendingUnavailableVisitDate("");
     setUnavailableItemName("");
     clearUnavailablePhoto();
     await loadVisits();
@@ -504,7 +524,7 @@ export default function App() {
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
           {profile?.role === "admin" && <button className="signout-button admin-page-switch" type="button" onClick={() => { setShowUnavailablePage(false); setAdminPage((page) => page === "dashboard" ? "analytics" : "dashboard"); }} aria-label={adminPage === "analytics" ? "Return to daily dashboard" : "Open analysis and analytics"}>{adminPage === "analytics" ? <><Activity size={15} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><BarChart3 size={15} /><span className="admin-page-switch-label">Analysis &amp; analytics</span></>}</button>}
-          <button className={`signout-button admin-page-switch unavailable-page-switch${showUnavailablePage ? " active" : ""}`} type="button" onClick={() => { setShowUnavailablePage((shown) => !shown); setAdminPage("dashboard"); setError(""); }} aria-label={showUnavailablePage ? "Return to daily dashboard" : "Open unavailable items register"}>{showUnavailablePage ? <><Activity size={15} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><Search size={15} /><span className="admin-page-switch-label">Unavailable items</span></>}</button>
+          <button className={`signout-button admin-page-switch unavailable-page-switch${showUnavailablePage ? " active" : ""}`} type="button" onClick={() => { setShowUnavailablePage((shown) => !shown); setAdminPage("dashboard"); setError(""); }} aria-label={showUnavailablePage ? "Return to daily dashboard" : "Open unavailable items register"}>{showUnavailablePage ? <><Footprints size={16} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><Search size={15} /><span className="admin-page-switch-label">Unavailable items</span></>}</button>
           <button className="signout-button" onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
           <button className="signout-button" onClick={() => void signOut()} aria-label="Sign out"><LogOut size={15} /> Sign out</button>
         </div>
@@ -576,7 +596,7 @@ export default function App() {
             <button className="outcome-button purchased" onClick={() => void addVisits("purchased")} disabled={!branch || busy || pendingCorrection}><span className="outcome-symbol"><Check size={21} /></span><span className="outcome-text"><strong>Made a purchase</strong><small>Customer bought an item</small></span><span className="outcome-plus">+</span></button>
             <button className="outcome-button not-purchased" onClick={() => { setReason(""); setError(""); setShowNoPurchaseReason(true); }} disabled={!branch || busy || pendingCorrection}><span className="outcome-symbol"><X size={21} /></span><span className="outcome-text"><strong>No purchase</strong><small>Customer left without buying</small></span><span className="outcome-plus">+</span></button>
           </div>
-          <button className="secondary-button" style={{ width: "100%", marginTop: 10 }} onClick={() => { setUnavailableOutcome("purchased"); setUnavailableItemName(""); setError(""); setShowUnavailablePrompt(true); }} disabled={!branch || busy || pendingCorrection}>Purchased, but requested item unavailable <span>↗</span></button>
+          <button className="secondary-button" style={{ width: "100%", marginTop: 10 }} onClick={() => void startUnavailablePrompt("purchased")} disabled={!branch || busy || pendingCorrection}>Purchased, but requested item unavailable <span>↗</span></button>
           <div className="counter-footer"><span /><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy || pendingCorrection}>Batch entry <span>+</span></button></div>
         </section>}
 
@@ -649,7 +669,7 @@ export default function App() {
             <p className="eyebrow">VISIT DETAILS</p>
             <h2 id="no-purchase-title">Why was there no purchase?</h2>
             <p className="modal-description">Tap a reason to record the visit immediately.</p>
-            <div className="branch-options">{REASONS.map((item) => <button key={item} type="button" className="branch-option" disabled={busy} onClick={() => { setReason(item); setShowNoPurchaseReason(false); if (item === "Item unavailable") { setUnavailableOutcome("not_purchased"); setUnavailableItemName(""); setShowUnavailablePrompt(true); } else { void addVisits("not_purchased", 1, item); } }}><span className="branch-option-icon"><X size={18} /></span><span><strong>{item}</strong></span><span className="outcome-plus">→</span></button>)}</div>
+            <div className="branch-options">{REASONS.map((item) => <button key={item} type="button" className="branch-option" disabled={busy} onClick={() => { setReason(item); setShowNoPurchaseReason(false); if (item === "Item unavailable") { void startUnavailablePrompt("not_purchased", item); } else { void addVisits("not_purchased", 1, item); } }}><span className="branch-option-icon"><X size={18} /></span><span><strong>{item}</strong></span><span className="outcome-plus">→</span></button>)}</div>
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="text-button" type="button" onClick={() => setShowNoPurchaseReason(false)} disabled={busy}>Cancel</button>
           </section>
@@ -672,7 +692,7 @@ export default function App() {
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="submit" disabled={busy || !unavailableItemName.trim()}>{busy ? "Saving report…" : "Save unavailable item"} <span>→</span></button>
             <button className="text-button" type="button" disabled={busy} onClick={() => { clearUnavailablePhoto(); setShowUnavailablePrompt(false); }}>Cancel</button>
-            <p className="modal-footnote">The visit and unavailable-item report are saved together.</p>
+            <p className="modal-footnote">The visit has already been saved. You can close this prompt and add the product details later from the highlighted visit in Recent visits.</p>
           </form>
         </div>
       )}
