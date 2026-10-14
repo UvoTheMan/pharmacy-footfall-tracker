@@ -329,7 +329,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         </div>
       )}
       <details className="admin-record-rollup unavailable-export-rollup">
-        <summary><span className="admin-record-rollup-title"><span className="eyebrow">CSV EXPORT</span><strong>Export unavailable-item reports</strong><small>Download the reports matching your current search, branch, and date filters.</small></span><span className="admin-record-rollup-meta">{loading ? "Loading…" : `${filteredItems.length} reports`} <Download size={15} /></span></summary>
+        <summary><span className="admin-record-rollup-title"><span className="eyebrow">CSV EXPORT</span><strong>Export unavailable-item reports</strong><small>Choose a separate date range for the CSV export.</small></span><span className="admin-record-rollup-meta">{exportFromDate && exportToDate ? `${exportFromDate} → ${exportToDate}` : "Choose dates"} <Download size={15} /></span></summary>
         <div className="admin-record-rollup-content">
           <p className="panel-description">Choose the reporting period for this export. The date range is independent of the records currently shown above, and can include older reports. Branch and item-name filters still apply.</p>
           <div className="unavailable-search">
