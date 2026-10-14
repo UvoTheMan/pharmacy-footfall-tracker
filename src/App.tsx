@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, Footprints, Search,
@@ -61,6 +61,9 @@ function FootlyticsMark() {
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
+  const authEventReceivedRef = useRef(false);
+  const sessionUserId = session?.user.id ?? null;
   const [authReady, setAuthReady] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -106,27 +109,48 @@ export default function App() {
     if (!supabase) { setAuthReady(true); return; }
     supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (sessionError) setError(sessionError.message);
-      setSession(data.session);
+      // An auth event can arrive before getSession() resolves. Do not let the
+      // slower initial lookup overwrite the newer session from that event.
+      if (!authEventReceivedRef.current) {
+        currentUserIdRef.current = data.session?.user.id ?? null;
+        setSession(data.session);
+      }
       setAuthReady(true);
     });
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      authEventReceivedRef.current = true;
       if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
+
+      const nextUserId = nextSession?.user.id ?? null;
+      const previousUserId = currentUserIdRef.current;
+      const userChanged = previousUserId !== nextUserId;
+      currentUserIdRef.current = nextUserId;
       setSession(nextSession);
-      setProfile(null);
-      setBranches([]);
-      setVisits([]);
-      setBranch(null);
+
+      // A same-user SIGNED_IN can occur when a backgrounded tab becomes
+      // visible. Preserve workspace state for that event and token refreshes.
+      // Clear it only on sign-out or when a different account signs in.
+      if (
+        event === "SIGNED_OUT" ||
+        (userChanged && previousUserId !== null) ||
+        (event === "SIGNED_IN" && previousUserId === null && nextUserId !== null)
+      ) {
+        setProfile(null);
+        setBranches([]);
+        setVisits([]);
+        setBranch(null);
+      }
     });
     return () => data.subscription.unsubscribe();
   }, []);
 
   const loadWorkspace = useCallback(async () => {
-    if (!supabase || !session?.user) return;
+    if (!supabase || !sessionUserId) return;
     setBusy(true);
     setError("");
     try {
       const [profileResult, branchResult] = await Promise.all([
-        supabase.from("profiles").select("user_id,display_name,role,active").eq("user_id", session.user.id).single(),
+        supabase.from("profiles").select("user_id,display_name,role,active").eq("user_id", sessionUserId).single(),
         supabase.from("branches").select("id,slug,name").order("name"),
       ]);
       if (profileResult.error) throw profileResult.error;
@@ -168,11 +192,11 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }, [session, today]);
+  }, [sessionUserId, today]);
 
   useEffect(() => {
-    if (session) void loadWorkspace();
-  }, [session, loadWorkspace]);
+    if (sessionUserId) void loadWorkspace();
+  }, [sessionUserId, loadWorkspace]);
 
   const loadVisits = useCallback(async () => {
     if (!supabase || !branch || !session) return;
@@ -596,7 +620,13 @@ export default function App() {
       {pendingCorrection && <div className="notice" role="status">A branch correction is pending. Visit entry is paused until an administrator approves or rejects the request.</div>}
 
       {showUnavailablePage ? (
-        <UnavailableItems branches={branches} profile={profile!} userId={session.user.id} />
+        profile ? (
+          <UnavailableItems branches={branches} profile={profile} userId={session.user.id} />
+        ) : (
+          <section className="panel" role="status">
+            <p className="panel-description">Loading your workspace. The unavailable-items register will open when your account details are ready.</p>
+          </section>
+        )
       ) : profile?.role === "admin" && adminPage === "analytics" ? (
         <section className="admin-analytics-page" aria-label="Admin analysis and analytics">
           <p className="panel-description">A dedicated workspace for reviewing performance across Gbagada, Akoka, and Sangotedo. More analysis tools can be added here without crowding daily operations.</p>
