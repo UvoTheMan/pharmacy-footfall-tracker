@@ -18,7 +18,7 @@
 - Added `jspdf ^3.0.1` to `package.json`. There is no `package-lock.json` on `main`.
 - Adapted outcome typing and conversion denominators for undecided visits.
 - Ensured undecided visits appear in outcome distribution and daily stacked charts.
-- Lazy-loaded the PDF export dependency so PDF-generation code is requested when needed rather than on initial app load, addressing the large-bundle warning found during build review.
+- Lazy-loaded the PDF export dependency so PDF-generation code is requested only when needed. The verified build's main JS chunk fell from 876.65 KB to 485.12 KB (391.53 KB, about 44.7% smaller); the 388.48 KB jsPDF chunk is now separate from the initial chunk.
 - Clarified conversion labels to say that conversion is based on resolved visits (purchased or no purchase).
 - Corrected branch no-purchase-rate denominator to exclude undecided visits.
 - Kept unrelated global CSS, unavailable-item migrations, and other development-branch features out of this integration.
