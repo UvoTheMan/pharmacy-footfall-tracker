@@ -312,7 +312,7 @@ export default function App() {
     flash("Today's branch is set to " + chosen.name + ".");
   }
 
-  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false) {
+  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false, waitForRefresh = true) {
     if (profile?.role === "admin") {
       setError("Admin accounts can review branch performance and correct existing records, but cannot add new visits.");
       return null;
@@ -347,7 +347,8 @@ export default function App() {
     }
     setReason("");
     setShowBatch(false);
-    await loadVisits();
+    if (waitForRefresh) await loadVisits();
+    else void loadVisits();
     flash(count === 1 ? "Visit saved to the shared database." : `${count} visits saved to the shared database.`);
     setBusy(false);
     return result.data?.[0]?.id ?? null;
@@ -359,7 +360,7 @@ export default function App() {
     clearUnavailablePhoto();
     setError("");
     const visitDate = lagosDateKey(new Date());
-    const visitId = await addVisits(outcome, 1, reason, true);
+    const visitId = await addVisits(outcome, 1, reason, true, false);
     if (!visitId) return;
     setPendingUnavailableVisitId(visitId);
     setPendingUnavailableVisitDate(visitDate);
@@ -679,7 +680,7 @@ export default function App() {
       {showUnavailablePrompt && (
         <div className="modal-backdrop" role="presentation">
           <form className="modal" role="dialog" aria-modal="true" aria-labelledby="unavailable-prompt-title" onSubmit={(event) => { event.preventDefault(); void saveUnavailableItem(); }}>
-            <button className="modal-close" type="button" aria-label="Cancel unavailable item report" disabled={busy} onClick={() => setShowUnavailablePrompt(false)}><X size={19} /></button>
+            <button className="modal-close" type="button" aria-label="Close product details prompt" disabled={busy} onClick={() => setShowUnavailablePrompt(false)}><X size={19} /></button>
             <p className="eyebrow">UNAVAILABLE ITEM REPORT</p>
             <h2 id="unavailable-prompt-title">Which item was unavailable?</h2>
             <p className="modal-description">{unavailableOutcome === "purchased" ? "Record the item the customer couldn't obtain, even though they purchased something else." : "Record the item that led to the customer leaving without a purchase."} This report will be shared with staff and admins.</p>
@@ -691,7 +692,7 @@ export default function App() {
             <p className="modal-footnote">JPG, PNG or WebP, up to 5 MB. Please do not photograph prescriptions or documents showing patient-identifying details.</p>
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="submit" disabled={busy || !unavailableItemName.trim()}>{busy ? "Saving report…" : "Save unavailable item"} <span>→</span></button>
-            <button className="text-button" type="button" disabled={busy} onClick={() => { clearUnavailablePhoto(); setShowUnavailablePrompt(false); }}>Cancel</button>
+            <button className="text-button" type="button" disabled={busy} onClick={() => setShowUnavailablePrompt(false)}>Close for now</button>
             <p className="modal-footnote">The visit has already been saved. You can close this prompt and add the product details later from the highlighted visit in Recent visits.</p>
           </form>
         </div>
