@@ -93,15 +93,15 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
     if (!supabase || !pendingVisit || !itemName.trim()) return;
     setSavingItem(true);
     setError("");
+    const auth = await supabase.auth.getUser();
+    const userId = auth.data.user?.id;
+    if (auth.error || !userId) {
+      setError("Your session could not be verified. Close this prompt and sign in again.");
+      setSavingItem(false);
+      return;
+    }
     let imagePath: string | null = null;
     if (itemPhoto) {
-      const auth = await supabase.auth.getUser();
-      const userId = auth.data.user?.id;
-      if (auth.error || !userId) {
-        setError("Your session could not be verified. Close this prompt and sign in again.");
-        setSavingItem(false);
-        return;
-      }
       const extension = itemPhoto.type === "image/png" ? "png" : itemPhoto.type === "image/webp" ? "webp" : "jpg";
       imagePath = `${userId}/${crypto.randomUUID()}.${extension}`;
       const upload = await supabase.storage.from("unavailable-item-photos").upload(imagePath, itemPhoto, { contentType: itemPhoto.type, upsert: false });
@@ -110,13 +110,6 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
         setSavingItem(false);
         return;
       }
-    }
-    const auth = await supabase.auth.getUser();
-    const userId = auth.data.user?.id;
-    if (auth.error || !userId) {
-      setError("Your session could not be verified. Close this prompt and sign in again.");
-      setSavingItem(false);
-      return;
     }
     const result = await supabase.from("unavailable_items").insert({
       visit_id: pendingVisit.id,
@@ -128,7 +121,15 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
       image_path: imagePath,
     });
     if (result.error) {
-      setError(result.error.code === "23505" ? "Product details have already been added for this visit. Close this prompt and refresh the list." : "Could not save product details: " + result.error.message);
+      if (imagePath) {
+        const cleanup = await supabase.storage.from("unavailable-item-photos").remove([imagePath]);
+        if (cleanup.error) {
+          setError("Product details were not saved: " + result.error.message + ". The uploaded photo could not be cleaned up; please notify the administrator.");
+          setSavingItem(false);
+          return;
+        }
+      }
+      setError(result.error.code === "23505" ? "Product details have already been added for this visit. The uploaded photo was cleaned up if one was selected. Refresh the list." : "Could not save product details: " + result.error.message);
       setSavingItem(false);
       return;
     }
