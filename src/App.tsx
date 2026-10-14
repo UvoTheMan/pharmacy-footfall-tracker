@@ -72,6 +72,7 @@ export default function App() {
   const [showBranchPicker, setShowBranchPicker] = useState(false);
   const [adminPage, setAdminPage] = useState<"dashboard" | "analytics">("dashboard");
   const [showUnavailablePage, setShowUnavailablePage] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
   const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
   const [pendingUnavailableVisitId, setPendingUnavailableVisitId] = useState<string | null>(null);
@@ -535,8 +536,13 @@ export default function App() {
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
           {profile?.role === "admin" && <button className="signout-button admin-page-switch" type="button" onClick={() => { setShowUnavailablePage(false); setAdminPage((page) => page === "dashboard" ? "analytics" : "dashboard"); }} aria-label={adminPage === "analytics" ? "Return to daily dashboard" : "Open analysis and analytics"}>{adminPage === "analytics" ? <><Activity size={15} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><BarChart3 size={15} /><span className="admin-page-switch-label">Analysis &amp; analytics</span></>}</button>}
           <button className={`signout-button admin-page-switch unavailable-page-switch${showUnavailablePage ? " active" : ""}`} type="button" onClick={() => { setShowUnavailablePage((shown) => !shown); setAdminPage("dashboard"); setError(""); }} aria-label={showUnavailablePage ? "Return to daily dashboard" : "Open unavailable items register"}>{showUnavailablePage ? <><Footprints size={16} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><Search size={15} /><span className="admin-page-switch-label">Unavailable items</span></>}</button>
-          <button className="signout-button" onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
-          <button className="signout-button" onClick={() => void signOut()} aria-label="Sign out"><LogOut size={15} /> Sign out</button>
+          <div className="account-menu-wrap">
+            <button className="signout-button account-menu-toggle" type="button" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => setShowAccountMenu((open) => !open)}><span className="account-menu-label">Account</span><ChevronDown size={15} /></button>
+            {showAccountMenu && <div className="account-menu" role="menu">
+              <button className="account-menu-item" role="menuitem" type="button" onClick={() => { setShowAccountMenu(false); setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
+              <button className="account-menu-item" role="menuitem" type="button" onClick={() => { setShowAccountMenu(false); void signOut(); }}><LogOut size={15} /> Sign out</button>
+            </div>}
+          </div>
         </div>
       </header>
 
