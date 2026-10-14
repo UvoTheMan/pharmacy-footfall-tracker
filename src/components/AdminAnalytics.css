@@ -196,3 +196,11 @@
 .analytics-weekday-outcome{min-width:0}
 .analytics-weekday-outcome .analytics-stacked-bar{height:12px}
 @media(max-width:480px){.analytics-period-branch{padding:10px}.analytics-period-daily-chart{gap:3px}.analytics-period-day{flex-basis:13px;min-width:13px}}
+
+
+.analytics-operating-hours{border-color:#dbe9dd;background:#f7fbf7}
+.analytics-operating-hours-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.analytics-operating-hours-grid>div{display:flex;flex-direction:column;gap:5px;padding:13px;border:1px solid #e0ebe1;border-radius:10px;background:#fff}
+.analytics-operating-hours-grid strong{font-size:18px;color:#1d7048}
+.analytics-operating-hours-grid span{font-size:11px;color:#718276}
+@media(max-width:420px){.analytics-operating-hours-grid{grid-template-columns:1fr}}
