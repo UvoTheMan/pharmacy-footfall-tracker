@@ -139,7 +139,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     const columns = ["Product name", "Branch", "Unavailable date", "Reported time", "Assessment status", "Photo attached"];
     const escapeCell = (value: string) => {
       // Prevent spreadsheet formulas from running when the CSV is opened.
-      const safe = /^[=+@\\-\\t\\r]/.test(value) ? "'" + value : value;
+      const safe = /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
       return '"' + safe.replace(/"/g, '""') + '"';
     };
     const rows = filteredItems.map((item) => [
@@ -150,7 +150,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
       item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved",
       item.image_path ? "Yes" : "No",
     ]);
-    const csv = "\\uFEFF" + [columns, ...rows].map((row) => row.map((cell) => escapeCell(String(cell ?? ""))).join(",")).join("\\r\\n");
+    const csv = "\uFEFF" + [columns, ...rows].map((row) => row.map((cell) => escapeCell(String(cell ?? ""))).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const link = document.createElement("a");
     link.href = url;
