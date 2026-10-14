@@ -51,20 +51,20 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       { id: "kpi-no-purchase", label: "No-purchase visits" }, { id: "kpi-conversion", label: "Purchase conversion" },
       { id: "kpi-unavailable", label: "Unavailable-item requests" }, { id: "outcomes", label: "Outcome distribution chart" },
       { id: "weekday", label: "Visits by weekday" }, { id: "branch-snapshot", label: "Branch snapshot" },
-      { id: "insights", label: "Quick insights" }, { id: "comparison", label: "Previous-period comparison" },
+      { id: "insights", label: "Quick insights" }, { id: "overview-comparison", label: "Previous-period comparison" },
     ],
     branches: [
       { id: "branch-kpis", label: "Branch summary metrics" }, { id: "branch-performance", label: "Branch performance breakdown" },
-      { id: "comparison", label: "Previous-period comparison" },
+      { id: "branches-comparison", label: "Previous-period comparison" },
     ],
     trends: [
       { id: "daily-trend", label: "Daily visit trend" }, { id: "weekday-conversion", label: "Purchase conversion by weekday" },
       { id: "outcome-totals", label: "Outcome totals" }, { id: "hourly", label: "Busy hours and footfall patterns" },
-      { id: "daily-averages", label: "Daily averages and peak days" }, { id: "comparison", label: "Previous-period comparison" },
+      { id: "daily-averages", label: "Daily averages and peak days" }, { id: "trends-comparison", label: "Previous-period comparison" },
     ],
     reasons: [
       { id: "reason-kpis", label: "Reason summary metrics" }, { id: "reason-breakdown", label: "No-purchase reasons" },
-      { id: "reason-branches", label: "Reasons by branch" }, { id: "comparison", label: "Previous-period comparison" },
+      { id: "reason-branches", label: "Reasons by branch" }, { id: "reasons-comparison", label: "Previous-period comparison" },
     ],
   };
   const isVisible = (id: string) => visibleData[id] !== false;
@@ -268,7 +268,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     doc.setFontSize(8); doc.setTextColor(muted[0], muted[1], muted[2]); doc.text("Prepared from saved records. Comparisons are descriptive, not causal.", margin, y); y += 10;
     if (activeTab === "overview" || activeTab === "branches" || activeTab === "reasons") section("Performance at a glance");
     if (activeTab !== "overview" || isVisible("kpi-visits")) line("Total visits", analysisVisits.length.toLocaleString()); if (activeTab !== "overview" || isVisible("kpi-purchases")) line("Purchases", purchases.toLocaleString()); if (activeTab !== "overview" || isVisible("kpi-no-purchase")) line("No-purchase visits", noPurchase.toLocaleString()); if (activeTab !== "overview" || isVisible("kpi-conversion")) line("Purchase conversion", conversion + "%"); if (activeTab === "overview" && isVisible("kpi-unavailable")) line("Unavailable-item requests", unavailableRequests.toLocaleString());
-    if (isVisible("comparison")) section("Previous-period comparison");
+    if (isVisible(activeTab + "-comparison")) section("Previous-period comparison");
     if (isVisible("comparison")) line("Comparison dates", previousStartDate + " to " + previousEndDate);
     if (isVisible("comparison")) comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " | " + (item.delta > 0 ? "+" : "") + item.delta + (item.percentagePoints ? " pp" : "") + (item.change === null ? " · no baseline" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)")));
     if (activeTab === "overview") {
