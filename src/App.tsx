@@ -13,7 +13,7 @@ import AdminAnalytics from "./components/AdminAnalytics";
 import UnavailableItems from "./components/UnavailableItems";
 
 type Branch = { id: string; slug: string; name: string };
-type Outcome = "purchased" | "not_purchased" | "undecided";
+type Outcome = "purchased" | "not_purchased";
 type Reason =
   | "Item unavailable" | "Price too high" | "Only enquiring"
   | "Preferred brand unavailable" | "Customer changed mind"
@@ -487,10 +487,9 @@ export default function App() {
   const todaysVisits = useMemo(() => visits.filter((visit) => visit.branch_id === branch?.id && visit.visit_date === today), [visits, branch, today]);
   const purchasers = todaysVisits.filter((visit) => visit.outcome === "purchased").length;
   const nonPurchasers = todaysVisits.filter((visit) => visit.outcome === "not_purchased").length;
-  const undecided = todaysVisits.filter((visit) => visit.outcome === "undecided").length;
   const unavailableDespitePurchase = todaysVisits.filter((visit) => visit.outcome === "purchased" && visit.unavailable_item_requested).length;
   const total = todaysVisits.length;
-  const conversion = total - undecided > 0 ? Math.round((purchasers / (total - undecided)) * 100) : null;
+  const conversion = total > 0 ? Math.round((purchasers / total) * 100) : null;
 
   if (!hasSupabaseConfig) return (
     <main className="setup-screen">
