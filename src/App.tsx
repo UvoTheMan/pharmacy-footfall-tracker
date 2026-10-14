@@ -436,6 +436,14 @@ export default function App() {
       p_image_path: imagePath,
     });
     if (result.error) {
+      if (imagePath) {
+        const cleanup = await supabase.storage.from("unavailable-item-photos").remove([imagePath]);
+        if (cleanup.error) {
+          setError("Visit and unavailable item were not saved: " + result.error.message + ". The uploaded photo could not be cleaned up; please notify the administrator.");
+          setBusy(false);
+          return;
+        }
+      }
       setError("Visit and unavailable item were not saved: " + result.error.message);
       setBusy(false);
       return;
