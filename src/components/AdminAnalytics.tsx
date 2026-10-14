@@ -135,6 +135,22 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     return [...counts.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
   }, [visits]);
 
+  const weekdayStats = useMemo(() => {
+    const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const totals = labels.map((label, index) => ({ label, index, total: 0, purchases: 0, noPurchase: 0 }));
+    dailyStats.forEach((day) => {
+      const weekday = new Date(`${day.date}T12:00:00Z`).getUTCDay();
+      totals[weekday].total += day.total;
+      totals[weekday].purchases += day.purchases;
+      totals[weekday].noPurchase += day.noPurchase;
+    });
+    return totals;
+  }, [dailyStats]);
+  const outcomeStats = [
+    { label: "Purchased", count: purchases, color: "#23875b" },
+    { label: "No purchase", count: noPurchase, color: "#e27b48" },
+    { label: "Undecided", count: undecided, color: "#7b83d8" },
+  ];
   const peak = Math.max(1, ...dailyStats.map((day) => day.total));
   const maxBranch = Math.max(1, ...branchStats.map((branch) => branch.total));
   const topBranch = [...branchStats].filter((item) => item.resolved > 0).sort((a, b) => b.conversion - a.conversion)[0];
@@ -185,6 +201,28 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <div><strong>{unavailableRequests.toLocaleString()}</strong><span>Unavailable-item requests</span></div>
           </div>
           <div className="analytics-grid">
+            <section className="analytics-subpanel analytics-chart-card">
+              <h3><BarChart3 size={16} /> Outcome distribution</h3>
+              <p className="analytics-help">How recorded visits ended during this period.</p>
+              <div className="analytics-outcome-total"><strong>{visits.length.toLocaleString()}</strong><span>total visits</span></div>
+              <div className="analytics-outcome-bar" role="img" aria-label={outcomeStats.map((item) => `${item.label}: ${item.count}`).join(", ")}>
+                {outcomeStats.filter((item) => item.count > 0).map((item) => <span key={item.label} style={{ width: `${item.count / Math.max(1, visits.length) * 100}%`, background: item.color }} />)}
+              </div>
+              <div className="analytics-legend">
+                {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, visits.length)}%</small></div>)}
+              </div>
+              <p className="analytics-help">Conversion is calculated separately using only resolved outcomes.</p>
+            </section>
+            <section className="analytics-subpanel analytics-chart-card">
+              <h3><CalendarDays size={16} /> Visits by weekday</h3>
+              <p className="analytics-help">Combined recorded visits by day of the week within the selected dates.</p>
+              <div className="analytics-weekday-chart">
+                {weekdayStats.map((day) => <div className="analytics-weekday" key={day.label} title={`${day.label}: ${day.total} visits`}>
+                  <strong>{day.total || ""}</strong><span className="analytics-weekday-track"><i style={{ height: `${Math.max(day.total ? 5 : 2, day.total / Math.max(1, ...weekdayStats.map((item) => item.total)) * 100)}%` }} /></span><small>{day.label}</small>
+                </div>)}
+              </div>
+              <p className="analytics-help">Patterns are descriptive. Different date coverage can affect comparisons.</p>
+            </section>
             <section className="analytics-subpanel">
               <h3><GitCompare size={16} /> Branch snapshot</h3>
               <p className="analytics-help">A quick view of recorded activity across all branches.</p>
@@ -192,7 +230,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <div className="analytics-branch-row" key={item.id}>
                   <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total} visits</span></div>
                   <div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${item.total / maxBranch * 100}%` }} /></div>
-                  <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span></div>
+                  <div className="analytics-stacked-bar" aria-label={`${item.name}: ${item.purchases} purchased, ${item.noPurchase} no purchase, ${item.undecided} undecided`}>
+                    {[
+                      { count: item.purchases, color: "#23875b" },
+                      { count: item.noPurchase, color: "#e27b48" },
+                      { count: item.undecided, color: "#7b83d8" },
+                    ].filter((part) => part.count > 0).map((part, index) => <span key={index} style={{ width: `${part.count / Math.max(1, item.total) * 100}%`, background: part.color }} />)}
+                  </div>
+                  <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span><span>{item.undecided} undecided</span></div>
                 </div>
               ))}
               {branchStats.length === 0 && <p className="corrections-empty">No branches are available for analysis.</p>}
@@ -243,14 +288,42 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           <section className="analytics-subpanel analytics-trend">
             <h3><CalendarDays size={16} /> Daily visit trend</h3>
             <p className="analytics-help">Each bar shows all recorded visits for that Lagos calendar date. Scroll horizontally on smaller screens to see the full period.</p>
-            <div className="analytics-daily-chart" role="img" aria-label="Daily visit counts for the selected reporting period">
+            <div className="analytics-daily-chart analytics-daily-chart-stacked" role="img" aria-label="Daily visit counts by outcome for the selected reporting period">
               {dailyStats.map((day) => (
                 <div className="analytics-day" key={day.date} title={`${day.date}: ${day.total} visits, ${day.purchases} purchases, ${day.noPurchase} no purchase, ${day.undecided} undecided`}>
                   <span className="analytics-day-count">{day.total || ""}</span>
-                  <span className="analytics-day-bar" style={{ height: `${Math.max(day.total ? 8 : 2, day.total / peak * 100)}%` }} />
+                  <span className="analytics-day-stack" style={{ height: `${Math.max(day.total ? 8 : 2, day.total / peak * 100)}%` }}>
+                    {day.purchases > 0 && <i className="analytics-stack-purchased" style={{ height: `${day.purchases / Math.max(1, day.total) * 100}%` }} />}
+                    {day.noPurchase > 0 && <i className="analytics-stack-no-purchase" style={{ height: `${day.noPurchase / Math.max(1, day.total) * 100}%` }} />}
+                    {day.undecided > 0 && <i className="analytics-stack-undecided" style={{ height: `${day.undecided / Math.max(1, day.total) * 100}%` }} />}
+                  </span>
                   <span className="analytics-day-label">{day.date.slice(5)}</span>
                 </div>
               ))}
+            </div>
+            <div className="analytics-legend analytics-trend-legend">
+              {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span></div>)}
+            </div>
+            <div className="analytics-grid analytics-secondary-trends">
+              <section className="analytics-subpanel analytics-chart-card">
+                <h3><TrendingUp size={16} /> Purchase conversion by weekday</h3>
+                <p className="analytics-help">Resolved purchases divided by resolved outcomes for each weekday.</p>
+                <div className="analytics-weekday-chart">
+                  {weekdayStats.map((day) => {
+                    const rate = percent(day.purchases, day.purchases + day.noPurchase);
+                    return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${day.purchases + day.noPurchase} resolved visits`}>
+                      <strong>{day.purchases + day.noPurchase ? `${rate}%` : "—"}</strong><span className="analytics-weekday-track conversion-track"><i style={{ height: `${Math.max(rate ? 5 : 2, rate)}%` }} /></span><small>{day.label}</small>
+                    </div>;
+                  })}
+                </div>
+              </section>
+              <section className="analytics-subpanel analytics-chart-card">
+                <h3><Users size={16} /> Outcome totals</h3>
+                <p className="analytics-help">Counts and share of all recorded visits.</p>
+                <div className="analytics-legend">
+                  {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, visits.length)}%</small></div>)}
+                </div>
+              </section>
             </div>
             <div className="analytics-trend-summary">
               <span>Visits <strong>{visits.length.toLocaleString()}</strong></span>
