@@ -73,6 +73,8 @@ export default function App() {
   const [branch, setBranch] = useState<Branch | null>(null);
   const [branchChoice, setBranchChoice] = useState("");
   const [showBranchPicker, setShowBranchPicker] = useState(false);
+  const [branchPickerIsChange, setBranchPickerIsChange] = useState(false);
+  const [showBranchChangeConfirm, setShowBranchChangeConfirm] = useState(false);
   const [adminPage, setAdminPage] = useState<"dashboard" | "analytics">("dashboard");
   const [showUnavailablePage, setShowUnavailablePage] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
@@ -606,7 +608,7 @@ export default function App() {
             </div>
           </nav>
         ) : profile?.role !== "admin" ? (
-          <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setShowBranchPicker(true); }}>
+          <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setBranchPickerIsChange(Boolean(branch)); setShowBranchPicker(true); }}>
             <span className="branch-icon"><Users size={17} /></span>
             <span><small>ACTIVE BRANCH</small><strong>{branch?.name ?? "Choose branch"}</strong></span>
             <ChevronDown size={16} />
@@ -758,13 +760,27 @@ export default function App() {
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-title">
             <div className="modal-brand"><span className="brand-mark"><FootlyticsMark /></span><span className="eyebrow">DAILY BRANCH SETUP</span></div>
-            <h2 id="branch-title">Which branch are you recording for?</h2>
-            <p className="modal-description">{todaysVisits.length > 0 ? "Choose the branch where today's visits should have been recorded. This submits a correction request and pauses new visit entry until an administrator resolves it." : "Only branches assigned to your account are available for recording. Choose today's branch; it remains selected through browser closure until the next Lagos calendar day."}</p>
-            <p className="branch-switch-warning" role="alert"><strong>IMPORTANT: Changing branches may briefly interrupt data entry while branch information reloads. Finish any entry in progress first, then confirm the active branch before recording more visits.</strong></p>
+            <h2 id="branch-title">{branchPickerIsChange ? "Change your active branch?" : "Select the branch where you're working"}</h2>
+            <p className="modal-description">{branchPickerIsChange ? (todaysVisits.length > 0 ? "Select the branch that today's visits should have been recorded under. Continuing will submit a correction request and pause new visit entry until an administrator reviews it." : "Select the branch you need to work in. You will be asked to confirm before the active branch changes.") : "Choose the branch where you're working today. Only branches assigned to your account are available. Your selection remains active until the next Lagos calendar day, including after closing your browser."}</p>
+            {branchPickerIsChange && <p className="branch-switch-warning" role="alert"><strong>IMPORTANT: Changing branches may briefly interrupt data entry while branch information reloads. Finish any entry in progress first, then confirm the active branch before recording more visits.</strong></p>}
             {pendingCorrection && <p className="modal-footnote">A correction is already pending. Close this window and wait for administrator review.</p>}
             <div className="branch-options">{(todaysVisits.length > 0 ? correctionTargets : branches).map((item) => <button key={item.id} disabled={pendingCorrection || busy} className={branchChoice === item.id ? "branch-option selected" : "branch-option"} onClick={() => setBranchChoice(item.id)}><span className="branch-option-icon"><Users size={18} /></span><span><strong>{item.name}</strong><small>{branches.some((branchItem) => branchItem.id === item.id) ? "Assigned pharmacy branch" : "Correction destination only"}</small></span><span className="radio-mark">{branchChoice === item.id && <span />}</span></button>)}</div>
-            <button className="primary-button" disabled={!branchChoice || busy || loadingVisits || pendingCorrection} onClick={() => void chooseBranch()}>{busy ? "Submitting…" : "Confirm branch"} <span>→</span></button>
+            <button className="primary-button" disabled={!branchChoice || busy || loadingVisits || pendingCorrection} onClick={() => { if (branchPickerIsChange && branch && branchChoice !== branch.id) setShowBranchChangeConfirm(true); else void chooseBranch(); }}>{busy ? "Submitting…" : branchPickerIsChange ? "Continue" : "Select branch"} <span>→</span></button>
             <p className="modal-footnote"><Clock3 size={13} /> Branch access is controlled by the database.</p>
+          </section>
+        </div>
+      )}
+
+      {showBranchChangeConfirm && branchPickerIsChange && branch && (
+        <div className="modal-backdrop branch-confirm-backdrop" role="presentation">
+          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-change-confirm-title">
+            <p className="eyebrow">CONFIRM BRANCH CHANGE</p>
+            <h2 id="branch-change-confirm-title">Are you sure you want to change branches?</h2>
+            <p className="modal-description">You're changing your active branch from <strong>{branch.name}</strong> to <strong>{branches.find((item) => item.id === branchChoice)?.name ?? "the selected branch"}</strong>.</p>
+            <p className="branch-switch-warning" role="alert"><strong>Before continuing, make sure you've finished any visit entry in progress. Check the active branch again after switching.</strong></p>
+            {todaysVisits.length > 0 && <p className="modal-description">Visits have already been recorded for today. Continuing will send a correction request to an administrator and pause new visit entry until it is reviewed.</p>}
+            <button className="primary-button" disabled={busy || loadingVisits || pendingCorrection} onClick={() => { setShowBranchChangeConfirm(false); void chooseBranch(); }}>Yes, change branch <span>→</span></button>
+            <button className="secondary-button branch-confirm-cancel" disabled={busy} onClick={() => setShowBranchChangeConfirm(false)}>Cancel, keep current branch</button>
           </section>
         </div>
       )}
