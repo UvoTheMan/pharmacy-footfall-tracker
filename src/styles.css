@@ -351,3 +351,10 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .unavailable-page-switch.active{border-color:#24794d;background:#24794d;color:#fff}
 .unavailable-page-switch.active:hover{border-color:#195f3b;background:#195f3b;color:#fff}
 @media(max-width:520px){.user-actions .unavailable-page-switch{padding:8px}}
+
+
+/* Pending unavailable-product details remain visible in the daily visit list. */
+.correction-row.pending-product-details{border:1px solid #e6b95b;background:#fffaf0;border-radius:12px;padding:12px}
+.pending-product-label{display:inline-flex;align-items:center;width:fit-content;margin-top:6px;padding:4px 8px;border-radius:999px;background:#fff0c2;color:#7a4b00;font-size:11px;font-weight:700}
+.pending-product-action{border-color:#d9a63b;background:#fff3cd;color:#704600}
+.pending-product-action:hover{background:#ffe8a3}
