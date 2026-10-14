@@ -266,8 +266,23 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text((TABS.find(tab => tab.id === activeTab)?.label || "Analysis") + " report", margin, 30);
     doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(startDate + " to " + endDate + " | " + (selectedBranchId === "all" ? "All branches combined" : (analysisBranches[0]?.name || "Selected branch")), margin, 36);
     doc.setFontSize(8); doc.setTextColor(muted[0], muted[1], muted[2]); doc.text("Prepared from saved records. Comparisons are descriptive, not causal.", margin, y); y += 10;
-    if (activeTab === "overview" || activeTab === "branches" || activeTab === "reasons") section("Performance at a glance");
-    if (activeTab !== "overview" || isVisible("kpi-visits")) line("Total visits", analysisVisits.length.toLocaleString()); if (activeTab !== "overview" || isVisible("kpi-purchases")) line("Purchases", purchases.toLocaleString()); if (activeTab !== "overview" || isVisible("kpi-no-purchase")) line("No-purchase visits", noPurchase.toLocaleString()); if (activeTab !== "overview" || isVisible("kpi-conversion")) line("Purchase conversion", conversion + "%"); if (activeTab === "overview" && isVisible("kpi-unavailable")) line("Unavailable-item requests", unavailableRequests.toLocaleString());
+    if (activeTab === "overview" && ["kpi-visits","kpi-purchases","kpi-no-purchase","kpi-conversion","kpi-unavailable"].some(isVisible)) {
+      section("Performance at a glance");
+      if (isVisible("kpi-visits")) line("Total visits", analysisVisits.length.toLocaleString());
+      if (isVisible("kpi-purchases")) line("Purchases", purchases.toLocaleString());
+      if (isVisible("kpi-no-purchase")) line("No-purchase visits", noPurchase.toLocaleString());
+      if (isVisible("kpi-conversion")) line("Purchase conversion", conversion + "%");
+      if (isVisible("kpi-unavailable")) line("Unavailable-item requests", unavailableRequests.toLocaleString());
+    }
+    if (activeTab === "branches" && isVisible("branch-kpis")) {
+      section("Branch summary metrics"); line("Branches included", String(branchStats.length));
+      line("Most visits at one branch", String(Math.max(0, ...branchStats.map(item => item.total))));
+      line("Highest branch conversion", (topBranch?.conversion ?? 0) + "%");
+    }
+    if (activeTab === "reasons" && isVisible("reason-kpis")) {
+      section("Reason summary metrics"); line("No-purchase visits", noPurchase.toLocaleString());
+      line("Reason categories", String(reasonStats.length)); line("Most frequent reason", String(reasonStats[0]?.count ?? 0));
+    }
     if (isVisible(activeTab + "-comparison")) section("Previous-period comparison");
     if (isVisible("comparison")) line("Comparison dates", previousStartDate + " to " + previousEndDate);
     if (isVisible("comparison")) comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " | " + (item.delta > 0 ? "+" : "") + item.delta + (item.percentagePoints ? " pp" : "") + (item.change === null ? " · no baseline" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)")));
@@ -279,9 +294,11 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       if (topBranch) line("Highest branch conversion", topBranch.name + " · " + topBranch.conversion + "%");
     } else if (activeTab === "branches") {
       if (isVisible("branch-performance")) { section("Branch performance"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total}))); }
-      branchStats.forEach(item => line(item.name + " · purchases / no purchase", item.purchases + " / " + item.noPurchase));
+      if (isVisible("branch-performance")) branchStats.forEach(item => line(item.name + " · purchases / no purchase", item.purchases + " / " + item.noPurchase));
     } else if (activeTab === "trends") {
       if (isVisible("daily-trend")) { section("Daily visits"); bars(dailyStats.filter(day => day.total > 0).map(day => ({label:day.date,value:day.total}))); }
+      if (isVisible("weekday-conversion")) { section("Purchase conversion by weekday"); bars(weekdayStats.map(day => ({label:day.label,value:percent(day.purchases,day.purchases+day.noPurchase)}))); }
+      if (isVisible("outcome-totals")) { section("Outcome totals"); bars(outcomeStats.map(item => ({label:item.label,value:item.count,color:item.color === "#23875b" ? [35,135,91] : [226,123,72]}))); }
       if (isVisible("daily-averages")) { section("Daily averages and peak days"); line("Average on recorded days", averageDailyFootfall.toFixed(1) + " visits");
       line("Busiest recorded day", busiestDay ? busiestDay.date + " · " + busiestDay.total + " visits" : "No data");
       line("Quietest recorded day", quietestRecordedDay ? quietestRecordedDay.date + " · " + quietestRecordedDay.total + " visits" : "No data");
@@ -293,7 +310,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       const colors: [number,number,number][] = [[226,123,72],[123,131,216],[35,149,168],[200,94,145],[123,155,69],[186,138,56]];
       if (isVisible("reason-breakdown")) bars(reasonStats.map((item,index) => ({label:item.reason + " · " + percent(item.count,noPurchase) + "%",value:item.count,color:colors[index % colors.length]})));
       if (isVisible("reason-branches")) section("Reasons by branch");
-      reasonBranchStats.forEach(branch => { line(branch.name, branch.total + " no-purchase visits"); bars(branch.reasons.slice(0,5).map((item,index) => ({label:item.reason,value:item.count,color:colors[index % colors.length]}))); });
+      if (isVisible("reason-branches")) reasonBranchStats.forEach(branch => { line(branch.name, branch.total + " no-purchase visits"); bars(branch.reasons.slice(0,5).map((item,index) => ({label:item.reason,value:item.count,color:colors[index % colors.length]}))); });
     }
     const pages = doc.getNumberOfPages();
     for (let page = 1; page <= pages; page++) {
