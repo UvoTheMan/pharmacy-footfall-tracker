@@ -95,7 +95,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         else photoUrls = new Map((signed.data ?? []).flatMap((entry) => entry.path && entry.signedUrl ? [[entry.path, entry.signedUrl] as [string, string]] : []));
       }
       setItems(records.map((item) => ({ ...item, photo_url: item.image_path ? photoUrls.get(item.image_path) : undefined })));
-    } catch (cause) {
+    } catch {
       setItems([]);
       setError("The unavailable-items register could not be restored. Please try again.");
     } finally {
