@@ -547,7 +547,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                   </button>
                   {expandedBranchDetails[item.id] && <div className="analytics-branch-detail">
                     <div className="analytics-row-meta"><span>Share of all visits</span><strong>{percent(item.total, analysisVisits.length)}%</strong><span>Share of all purchases</span><strong>{percent(item.purchases, purchases)}%</strong></div>
-                    <div className="analytics-row-meta"><span>No-purchase rate</span><strong>{percent(item.noPurchase, item.total)}%</strong><span>Unavailable request rate</span><strong>{percent(item.unavailable, item.total)}%</strong></div>
+                    <div className="analytics-row-meta"><span>No-purchase rate</span><strong>{percent(item.noPurchase, item.resolved)}%</strong><span>Unavailable request rate</span><strong>{percent(item.unavailable, item.total)}%</strong></div>
                     <strong>Reasons for no purchase</strong>
                     {(reasonBranchStats.find((entry) => entry.id === item.id)?.reasons ?? []).length === 0
                       ? <p className="corrections-empty">No no-purchase reasons recorded for this branch in this period.</p>
@@ -602,6 +602,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                   <span className="analytics-day-stack" style={{ height: `${Math.max(day.total ? 8 : 2, day.total / peak * 100)}%` }}>
                     {day.purchases > 0 && <i className="analytics-stack-purchased" style={{ height: `${day.purchases / Math.max(1, day.total) * 100}%` }} />}
                     {day.noPurchase > 0 && <i className="analytics-stack-no-purchase" style={{ height: `${day.noPurchase / Math.max(1, day.total) * 100}%` }} />}
+                    {day.total - day.purchases - day.noPurchase > 0 && <i style={{ height: `${(day.total - day.purchases - day.noPurchase) / Math.max(1, day.total) * 100}%`, background: "#8b9a90" }} />
                   </span>
                   <span className="analytics-day-label">{day.date.slice(5)}</span>
                 </div>
