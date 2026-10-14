@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays, GitCompare, RefreshCw, Search, TrendingUp, Users } from "lucide-react";
+import { BarChart3, CalendarDays, Clock3, Download, GitCompare, RefreshCw, Search, TrendingUp, Users } from "lucide-react";
+import { jsPDF } from "jspdf";
 import { supabase } from "../lib/supabase";
 import "./AdminAnalytics.css";
 
@@ -8,6 +9,7 @@ type Visit = {
   id: string;
   branch_id: string;
   visit_date: string;
+  recorded_at: string;
   outcome: "purchased" | "not_purchased";
   reason: string | null;
   unavailable_item_requested: boolean;
@@ -63,8 +65,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     for (let offset = 0; ; offset += 1000) {
       const result = await supabase
         .from("visits")
-        .select("id,branch_id,visit_date,outcome,reason,unavailable_item_requested")
-        .gte("visit_date", startDate)
+        .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested")
+        .gte("visit_date", shiftDate(startDate, -Math.max(0, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000))))
         .lte("visit_date", endDate)
         .order("visit_date", { ascending: true })
         .order("id", { ascending: true })
@@ -86,7 +88,13 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const analysisVisits = useMemo(() => selectedBranchId === "all" ? visits : visits.filter((visit) => visit.branch_id === selectedBranchId), [visits, selectedBranchId]);
+  const currentVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= startDate && visit.visit_date <= endDate), [visits, startDate, endDate]);
+  const rangeDays = Math.max(1, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1);
+  const previousStartDate = shiftDate(startDate, -rangeDays);
+  const previousEndDate = shiftDate(startDate, -1);
+  const scopedCurrentVisits = useMemo(() => selectedBranchId === "all" ? currentVisits : currentVisits.filter((visit) => visit.branch_id === selectedBranchId), [currentVisits, selectedBranchId]);
+  const previousVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= previousStartDate && visit.visit_date <= previousEndDate && (selectedBranchId === "all" || visit.branch_id === selectedBranchId)), [visits, previousStartDate, previousEndDate, selectedBranchId]);
+  const analysisVisits = scopedCurrentVisits;
   const analysisBranches = useMemo(() => selectedBranchId === "all" ? branches : branches.filter((branch) => branch.id === selectedBranchId), [branches, selectedBranchId]);
 
   const branchStats = useMemo(() => analysisBranches.map((branch) => {
@@ -111,6 +119,31 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const conversion = percent(purchases, resolved);
   const noPurchaseRate = percent(noPurchase, resolved);
   const unavailableRequests = analysisVisits.filter((visit) => visit.unavailable_item_requested).length;
+  const previousPurchases = previousVisits.filter((visit) => visit.outcome === "purchased").length;
+  const previousNoPurchase = previousVisits.filter((visit) => visit.outcome === "not_purchased").length;
+  const previousConversion = percent(previousPurchases, previousVisits.length);
+  const comparisonStats = [
+    { label: "Total visits", current: analysisVisits.length, previous: previousVisits.length },
+    { label: "Purchases", current: purchases, previous: previousPurchases },
+    { label: "No purchase", current: noPurchase, previous: previousNoPurchase },
+    { label: "Conversion", current: conversion, previous: previousConversion, percentagePoints: true },
+  ].map((item) => ({ ...item, delta: item.current - item.previous, change: item.previous ? Math.round((item.current - item.previous) / item.previous * 100) : null }));
+  const busyHourStats = useMemo(() => {
+    const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, label: new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "numeric", hour12: true }).format(new Date(Date.UTC(2026, 0, 1, hour))), total: 0 }));
+    analysisVisits.forEach((visit) => {
+      const date = new Date(visit.recorded_at);
+      if (Number.isNaN(date.getTime())) return;
+      const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", hourCycle: "h23" }).format(date));
+      if (hour >= 0 && hour < 24) hours[hour].total += 1;
+    });
+    return hours;
+  }, [analysisVisits]);
+  const activeDays = dailyStats.filter((day) => day.total > 0);
+  const averageDailyFootfall = activeDays.length ? analysisVisits.length / activeDays.length : 0;
+  const busiestDay = [...activeDays].sort((a, b) => b.total - a.total)[0];
+  const quietestRecordedDay = [...activeDays].sort((a, b) => a.total - b.total)[0];
+  const peakHour = [...busyHourStats].filter((hour) => hour.total > 0).sort((a, b) => b.total - a.total)[0];
+  const quietHour = [...busyHourStats].filter((hour) => hour.total > 0).sort((a, b) => a.total - b.total)[0];
 
   const dailyStats = useMemo(() => {
     const days: { date: string; total: number; purchases: number; noPurchase: number }[] = [];
@@ -161,6 +194,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     { label: "No purchase", count: noPurchase, color: "#e27b48" },
   ];
   const peak = Math.max(1, ...dailyStats.map((day) => day.total));
+  const maxHour = Math.max(1, ...busyHourStats.map((hour) => hour.total));
   const maxBranch = Math.max(1, ...branchStats.map((branch) => branch.total));
   const topBranch = [...branchStats].filter((item) => item.resolved > 0).sort((a, b) => b.conversion - a.conversion)[0];
 
