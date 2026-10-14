@@ -56,6 +56,9 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
   const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [exportFromDate, setExportFromDate] = useState(dateMinusDays(29));
+  const [exportToDate, setExportToDate] = useState(todayKey());
+  const [exporting, setExporting] = useState(false);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -208,31 +211,79 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     }
   }
 
-  function exportCsv() {
-    const columns = ["Product name", "Branch", "Unavailable date", "Reported time", "Assessment status", "Photo attached"];
-    const escapeCell = (value: string) => {
-      // Prevent spreadsheet formulas from running when the CSV is opened.
-      const safe = /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
-      return '"' + safe.replace(/"/g, '""') + '"';
-    };
-    const rows = filteredItems.map((item) => [
-      item.item_name,
-      item.branches?.name ?? branches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable",
-      item.reported_on,
-      new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(item.recorded_at)),
-      item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved",
-      item.image_path ? "Yes" : "No",
-    ]);
-    const csv = "\uFEFF" + [columns, ...rows].map((row) => row.map((cell) => escapeCell(String(cell ?? ""))).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `footlytics-unavailable-items-${todayKey()}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setNotice(`Exported ${filteredItems.length} unavailable-item report${filteredItems.length === 1 ? "" : "s"} as CSV.`);
+  async function exportCsv() {
+    if (!supabase || exporting) return;
+    if (!exportFromDate || !exportToDate || exportFromDate > exportToDate) {
+      setError("Choose a valid export date range. The From date must be on or before the To date.");
+      return;
+    }
+    if (exportToDate > todayKey()) {
+      setError("The export To date cannot be in the future.");
+      return;
+    }
+
+    setExporting(true);
+    setError("");
+    setNotice("");
+    try {
+      const exportRows: UnavailableItem[] = [];
+      const pageSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        let query = supabase
+          .from("unavailable_items")
+          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
+          .gte("reported_on", exportFromDate)
+          .lte("reported_on", exportToDate)
+          .order("reported_on", { ascending: false })
+          .order("recorded_at", { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (branchFilter !== "all") query = query.eq("branch_id", branchFilter);
+        if (appliedSearch) query = query.ilike("item_name", `%${appliedSearch.replace(/[\\%_]/g, "\\$&")}%`);
+        const result = await query;
+        if (result.error) throw result.error;
+        const page = (result.data ?? []) as unknown as UnavailableItem[];
+        exportRows.push(...page);
+        hasMore = page.length === pageSize;
+        offset += page.length;
+      }
+
+      if (exportRows.length === 0) {
+        setNotice("No unavailable-item reports were found for that export date range and the selected filters.");
+        return;
+      }
+
+      const columns = ["Product name", "Branch", "Unavailable date", "Reported time", "Assessment status", "Photo attached"];
+      const escapeCell = (value: string) => {
+        // Prevent spreadsheet formulas from running when the CSV is opened.
+        const safe = /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
+        return '"' + safe.replace(/"/g, '""') + '"';
+      };
+      const rows = exportRows.map((item) => [
+        item.item_name,
+        item.branches?.name ?? branches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable",
+        item.reported_on,
+        new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(item.recorded_at)),
+        item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved",
+        item.image_path ? "Yes" : "No",
+      ]);
+      const csv = "\uFEFF" + [columns, ...rows].map((row) => row.map((cell) => escapeCell(String(cell ?? ""))).join(",")).join("\r\n");
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `footlytics-unavailable-items-${exportFromDate}-to-${exportToDate}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setNotice(`Exported ${exportRows.length} unavailable-item report${exportRows.length === 1 ? "" : "s"} for ${exportFromDate} to ${exportToDate} as CSV.`);
+    } catch (exportError) {
+      setError("Could not export unavailable-item reports: " + (exportError instanceof Error ? exportError.message : "Please try again."));
+    } finally {
+      setExporting(false);
+    }
   }
 
   const ownReport = (item: UnavailableItem) => item.created_by === userId;
@@ -280,8 +331,16 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
       <details className="admin-record-rollup unavailable-export-rollup">
         <summary><span className="admin-record-rollup-title"><span className="eyebrow">CSV EXPORT</span><strong>Export unavailable-item reports</strong><small>Download the reports matching your current search, branch, and date filters.</small></span><span className="admin-record-rollup-meta">{loading ? "Loading…" : `${filteredItems.length} reports`} <Download size={15} /></span></summary>
         <div className="admin-record-rollup-content">
-          <p className="panel-description">The CSV includes product name, branch, unavailable date, reported time, assessment status, and whether a photo is attached.</p>
-          <button className="secondary-button" type="button" onClick={exportCsv} disabled={loading || filteredItems.length === 0}><Download size={14} /> Export CSV</button>
+          <p className="panel-description">Choose the reporting period for this export. The date range is independent of the records currently shown above, and can include older reports. Branch and item-name filters still apply.</p>
+          <div className="unavailable-search">
+            <label className="history-date-field"><span><CalendarDays size={14} /> Export from</span><input type="date" max={todayKey()} value={exportFromDate} onChange={(event) => setExportFromDate(event.target.value)} /></label>
+            <label className="history-date-field"><span>Export to</span><input type="date" max={todayKey()} value={exportToDate} onChange={(event) => setExportToDate(event.target.value)} /></label>
+          </div>
+          <div className="history-toolbar">
+            <span>{exportFromDate && exportToDate && exportFromDate <= exportToDate ? `Export period: ${exportFromDate} to ${exportToDate}` : "Choose a valid date range"}</span>
+            <button className="secondary-button" type="button" onClick={() => { setExportFromDate(dateMinusDays(29)); setExportToDate(todayKey()); }} disabled={exporting}>Last 30 days</button>
+          </div>
+          <button className="secondary-button" type="button" onClick={() => void exportCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey()}><Download size={14} /> {exporting ? "Preparing CSV…" : "Export CSV"}</button>
         </div>
       </details>
       <p className="history-footnote">The list shows up to 90 days of records, including today. Older reports remain stored for future analysis and aren't deleted by this filter.</p>
