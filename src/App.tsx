@@ -167,6 +167,8 @@ export default function App() {
       setBranches(availableBranches);
       const correctionTargetsResult = await supabase.rpc("get_active_correction_branches");
       setCorrectionTargets(correctionTargetsResult.error ? availableBranches : ((correctionTargetsResult.data ?? []) as Branch[]));
+      setBranchPickerIsChange(false);
+      setShowBranchChangeConfirm(false);
       const savedDate = localStorage.getItem("pft.selected-day");
       const savedBranchId = localStorage.getItem("pft.selected-branch-id");
       const savedBranch = savedDate === today
