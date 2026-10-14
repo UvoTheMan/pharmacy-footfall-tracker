@@ -1,8 +1,8 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, Footprints,
-  CircleHelp, Clock3, KeyRound, LogOut, Search, ShoppingBag, Users, X,
+  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, Footprints, Search,
+  CircleHelp, Clock3, KeyRound, LogOut, ShoppingBag, Users, X,
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import VisitCorrections from "./components/VisitCorrections";
@@ -13,7 +13,7 @@ import AdminAnalytics from "./components/AdminAnalytics";
 import UnavailableItems from "./components/UnavailableItems";
 
 type Branch = { id: string; slug: string; name: string };
-type Outcome = "purchased" | "not_purchased" | "undecided";
+type Outcome = "purchased" | "not_purchased";
 type Reason =
   | "Item unavailable" | "Price too high" | "Only enquiring"
   | "Preferred brand unavailable" | "Customer changed mind"
@@ -23,7 +23,7 @@ type Visit = {
   branch_id: string;
   visit_date: string;
   recorded_at: string;
-  outcome: Outcome;
+  outcome: Outcome | "undecided";
   reason: Reason | null;
   unavailable_item_requested: boolean;
   batch_id: string | null;
@@ -61,6 +61,9 @@ function FootlyticsMark() {
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
+  const authEventReceivedRef = useRef(false);
+  const sessionUserId = session?.user.id ?? null;
   const [authReady, setAuthReady] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -70,8 +73,11 @@ export default function App() {
   const [branch, setBranch] = useState<Branch | null>(null);
   const [branchChoice, setBranchChoice] = useState("");
   const [showBranchPicker, setShowBranchPicker] = useState(false);
+  const [branchPickerIsChange, setBranchPickerIsChange] = useState(false);
+  const [showBranchChangeConfirm, setShowBranchChangeConfirm] = useState(false);
   const [adminPage, setAdminPage] = useState<"dashboard" | "analytics">("dashboard");
   const [showUnavailablePage, setShowUnavailablePage] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
   const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
   const [unavailableItemName, setUnavailableItemName] = useState("");
@@ -105,27 +111,48 @@ export default function App() {
     if (!supabase) { setAuthReady(true); return; }
     supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (sessionError) setError(sessionError.message);
-      setSession(data.session);
+      // An auth event can arrive before getSession() resolves. Do not let the
+      // slower initial lookup overwrite the newer session from that event.
+      if (!authEventReceivedRef.current) {
+        currentUserIdRef.current = data.session?.user.id ?? null;
+        setSession(data.session);
+      }
       setAuthReady(true);
     });
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      authEventReceivedRef.current = true;
       if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
+
+      const nextUserId = nextSession?.user.id ?? null;
+      const previousUserId = currentUserIdRef.current;
+      const userChanged = previousUserId !== nextUserId;
+      currentUserIdRef.current = nextUserId;
       setSession(nextSession);
-      setProfile(null);
-      setBranches([]);
-      setVisits([]);
-      setBranch(null);
+
+      // A same-user SIGNED_IN can occur when a backgrounded tab becomes
+      // visible. Preserve workspace state for that event and token refreshes.
+      // Clear it only on sign-out or when a different account signs in.
+      if (
+        event === "SIGNED_OUT" ||
+        (userChanged && previousUserId !== null) ||
+        (event === "SIGNED_IN" && previousUserId === null && nextUserId !== null)
+      ) {
+        setProfile(null);
+        setBranches([]);
+        setVisits([]);
+        setBranch(null);
+      }
     });
     return () => data.subscription.unsubscribe();
   }, []);
 
   const loadWorkspace = useCallback(async () => {
-    if (!supabase || !session?.user) return;
+    if (!supabase || !sessionUserId) return;
     setBusy(true);
     setError("");
     try {
       const [profileResult, branchResult] = await Promise.all([
-        supabase.from("profiles").select("user_id,display_name,role,active").eq("user_id", session.user.id).single(),
+        supabase.from("profiles").select("user_id,display_name,role,active").eq("user_id", sessionUserId).single(),
         supabase.from("branches").select("id,slug,name").order("name"),
       ]);
       if (profileResult.error) throw profileResult.error;
@@ -140,6 +167,8 @@ export default function App() {
       setBranches(availableBranches);
       const correctionTargetsResult = await supabase.rpc("get_active_correction_branches");
       setCorrectionTargets(correctionTargetsResult.error ? availableBranches : ((correctionTargetsResult.data ?? []) as Branch[]));
+      setBranchPickerIsChange(false);
+      setShowBranchChangeConfirm(false);
       const savedDate = localStorage.getItem("pft.selected-day");
       const savedBranchId = localStorage.getItem("pft.selected-branch-id");
       const savedBranch = savedDate === today
@@ -167,11 +196,11 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }, [session, today]);
+  }, [sessionUserId, today]);
 
   useEffect(() => {
-    if (session) void loadWorkspace();
-  }, [session, loadWorkspace]);
+    if (sessionUserId) void loadWorkspace();
+  }, [sessionUserId, loadWorkspace]);
 
   const loadVisits = useCallback(async () => {
     if (!supabase || !branch || !session) return;
@@ -310,7 +339,7 @@ export default function App() {
     flash("Today's branch is set to " + chosen.name + ".");
   }
 
-  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false): Promise<string | null> {
+  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false, waitForRefresh = true) {
     if (profile?.role === "admin") {
       setError("Admin accounts can review branch performance and correct existing records, but cannot add new visits.");
       return null;
@@ -345,7 +374,8 @@ export default function App() {
     }
     setReason("");
     setShowBatch(false);
-    await loadVisits();
+    if (waitForRefresh) await loadVisits();
+    else void loadVisits();
     flash(count === 1 ? "Visit saved to the shared database." : `${count} visits saved to the shared database.`);
     setBusy(false);
     return result.data?.[0]?.id ?? null;
@@ -457,10 +487,11 @@ export default function App() {
   const todaysVisits = useMemo(() => visits.filter((visit) => visit.branch_id === branch?.id && visit.visit_date === today), [visits, branch, today]);
   const purchasers = todaysVisits.filter((visit) => visit.outcome === "purchased").length;
   const nonPurchasers = todaysVisits.filter((visit) => visit.outcome === "not_purchased").length;
-  const undecided = todaysVisits.filter((visit) => visit.outcome === "undecided").length;
   const unavailableDespitePurchase = todaysVisits.filter((visit) => visit.outcome === "purchased" && visit.unavailable_item_requested).length;
+  const undecided = todaysVisits.filter((visit) => visit.outcome === "undecided").length;
   const total = todaysVisits.length;
-  const conversion = total - undecided > 0 ? Math.round((purchasers / (total - undecided)) * 100) : null;
+  const resolvedVisits = total - undecided;
+  const conversion = resolvedVisits > 0 ? Math.round((purchasers / resolvedVisits) * 100) : null;
 
   if (!hasSupabaseConfig) return (
     <main className="setup-screen">
@@ -543,10 +574,15 @@ export default function App() {
         </a>
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
-          {profile?.role === "admin" && <button className="signout-button admin-page-switch" type="button" onClick={() => { setShowUnavailablePage(false); setAdminPage((page) => page === "dashboard" ? "analytics" : "dashboard"); }} aria-label={adminPage === "analytics" ? "Return to daily dashboard" : "Open analysis and analytics"}>{adminPage === "analytics" ? <><Activity size={15} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><BarChart3 size={15} /><span className="admin-page-switch-label">Analysis &amp; analytics</span></>}</button>}
-          <button className={`signout-button admin-page-switch unavailable-page-switch${showUnavailablePage ? " active" : ""}`} type="button" onClick={() => { setShowUnavailablePage((shown) => !shown); setAdminPage("dashboard"); setError(""); }} aria-label={showUnavailablePage ? "Return to daily dashboard" : "Open unavailable items register"}>{showUnavailablePage ? <><Footprints size={15} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><Search size={15} /><span className="admin-page-switch-label">Unavailable items</span></>}</button>
-          <button className="signout-button" onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
-          <button className="signout-button" onClick={() => void signOut()} aria-label="Sign out"><LogOut size={15} /> Sign out</button>
+          {profile?.role === "admin" && <button className="signout-button admin-page-switch" type="button" onClick={() => { setShowUnavailablePage(false); setAdminPage((page) => page === "dashboard" ? "analytics" : "dashboard"); }} aria-label={adminPage === "analytics" ? "Return to daily dashboard" : "Open analysis and analytics"}>{adminPage === "analytics" ? <><Footprints size={15} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><BarChart3 size={15} /><span className="admin-page-switch-label">Analysis &amp; analytics</span></>}</button>}
+          <button className={`signout-button admin-page-switch unavailable-page-switch${showUnavailablePage ? " active" : ""}`} type="button" onClick={() => { setShowUnavailablePage((shown) => !shown); setAdminPage("dashboard"); setError(""); }} aria-label={showUnavailablePage ? "Return to daily dashboard" : "Open unavailable items register"}>{showUnavailablePage ? <><Footprints size={16} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><Search size={15} /><span className="admin-page-switch-label">Unavailable items</span></>}</button>
+          <div className="account-menu-wrap">
+            <button className="signout-button account-menu-toggle" type="button" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => setShowAccountMenu((open) => !open)}><span className="account-menu-label">Account</span><ChevronDown size={15} /></button>
+            {showAccountMenu && <div className="account-menu" role="menu">
+              <button className="account-menu-item" role="menuitem" type="button" onClick={() => { setShowAccountMenu(false); setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
+              <button className="account-menu-item" role="menuitem" type="button" onClick={() => { setShowAccountMenu(false); void signOut(); }}><LogOut size={15} /> Sign out</button>
+            </div>}
+          </div>
         </div>
       </header>
 
@@ -575,7 +611,7 @@ export default function App() {
             </div>
           </nav>
         ) : profile?.role !== "admin" ? (
-          <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setShowBranchPicker(true); }}>
+          <button className="branch-switch" onClick={() => { setBranchChoice(branch?.id ?? ""); setBranchPickerIsChange(Boolean(branch)); setShowBranchPicker(true); }}>
             <span className="branch-icon"><Users size={17} /></span>
             <span><small>ACTIVE BRANCH</small><strong>{branch?.name ?? "Choose branch"}</strong></span>
             <ChevronDown size={16} />
@@ -589,7 +625,13 @@ export default function App() {
       {pendingCorrection && <div className="notice" role="status">A branch correction is pending. Visit entry is paused until an administrator approves or rejects the request.</div>}
 
       {showUnavailablePage ? (
-        profile ? <UnavailableItems branches={branches} profile={profile} userId={session.user.id} /> : <section className="panel" role="status"><p className="panel-description">Loading your workspace. The unavailable-items register will open when your account details are ready.</p></section>
+        profile ? (
+          <UnavailableItems branches={branches} profile={profile} userId={session.user.id} />
+        ) : (
+          <section className="panel" role="status">
+            <p className="panel-description">Loading your workspace. The unavailable-items register will open when your account details are ready.</p>
+          </section>
+        )
       ) : profile?.role === "admin" && adminPage === "analytics" ? (
         <section className="admin-analytics-page" aria-label="Admin analysis and analytics">
           <p className="panel-description">A dedicated workspace for reviewing performance across Gbagada, Akoka, and Sangotedo. More analysis tools can be added here without crowding daily operations.</p>
@@ -650,11 +692,11 @@ export default function App() {
       )}
 
       {/* Manual backup stays collapsed and directly above the testing warning. */}
-      {profile && <ManualBackup role={profile.role} />}
+      {profile && <ManualBackup role={profile.role} branchSlug={branch?.slug} />}
 
       <details className="testing-cutoff">
         <summary><CalendarDays size={16} /> Testing cutoff and historical records</summary>
-        <div className="testing-cutoff-content"><strong>Testing ended: Sunday, 11 October 2026</strong><p>From Monday, 12 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
+        <div className="testing-cutoff-content"><strong>Testing ended: Tuesday, 13 October 2026</strong><p>From Wednesday, 14 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
       </details>
       </>
       )}
@@ -721,12 +763,27 @@ export default function App() {
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-title">
             <div className="modal-brand"><span className="brand-mark"><FootlyticsMark /></span><span className="eyebrow">DAILY BRANCH SETUP</span></div>
-            <h2 id="branch-title">Which branch are you recording for?</h2>
-            <p className="modal-description">{todaysVisits.length > 0 ? "Choose the branch where today's visits should have been recorded. This submits a correction request and pauses new visit entry until an administrator resolves it." : "Only branches assigned to your account are available for recording. Choose today's branch; it remains selected through browser closure until the next Lagos calendar day."}</p>
+            <h2 id="branch-title">{branchPickerIsChange ? "Change your active branch?" : "Select the branch where you're working"}</h2>
+            <p className="modal-description">{branchPickerIsChange ? (todaysVisits.length > 0 ? "Select the branch that today's visits should have been recorded under. Continuing will submit a correction request and pause new visit entry until an administrator reviews it." : "Select the branch you need to work in. You will be asked to confirm before the active branch changes.") : "Choose the branch where you're working today. Only branches assigned to your account are available. Your selection remains active until the next Lagos calendar day, including after closing your browser."}</p>
+            {branchPickerIsChange && <p className="branch-switch-warning" role="alert"><strong>IMPORTANT: Changing branches may briefly interrupt data entry while branch information reloads. Finish any entry in progress first, then confirm the active branch before recording more visits.</strong></p>}
             {pendingCorrection && <p className="modal-footnote">A correction is already pending. Close this window and wait for administrator review.</p>}
             <div className="branch-options">{(todaysVisits.length > 0 ? correctionTargets : branches).map((item) => <button key={item.id} disabled={pendingCorrection || busy} className={branchChoice === item.id ? "branch-option selected" : "branch-option"} onClick={() => setBranchChoice(item.id)}><span className="branch-option-icon"><Users size={18} /></span><span><strong>{item.name}</strong><small>{branches.some((branchItem) => branchItem.id === item.id) ? "Assigned pharmacy branch" : "Correction destination only"}</small></span><span className="radio-mark">{branchChoice === item.id && <span />}</span></button>)}</div>
-            <button className="primary-button" disabled={!branchChoice || busy || loadingVisits || pendingCorrection} onClick={() => void chooseBranch()}>{busy ? "Submitting…" : "Confirm branch"} <span>→</span></button>
+            <button className="primary-button" disabled={!branchChoice || busy || loadingVisits || pendingCorrection} onClick={() => { if (branchPickerIsChange && branch && branchChoice !== branch.id) setShowBranchChangeConfirm(true); else void chooseBranch(); }}>{busy ? "Submitting…" : branchPickerIsChange ? "Continue" : "Select branch"} <span>→</span></button>
             <p className="modal-footnote"><Clock3 size={13} /> Branch access is controlled by the database.</p>
+          </section>
+        </div>
+      )}
+
+      {showBranchChangeConfirm && branchPickerIsChange && branch && (
+        <div className="modal-backdrop branch-confirm-backdrop" role="presentation">
+          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-change-confirm-title">
+            <p className="eyebrow">CONFIRM BRANCH CHANGE</p>
+            <h2 id="branch-change-confirm-title">Are you sure you want to change branches?</h2>
+            <p className="modal-description">You're changing your active branch from <strong>{branch.name}</strong> to <strong>{branches.find((item) => item.id === branchChoice)?.name ?? "the selected branch"}</strong>.</p>
+            <p className="branch-switch-warning" role="alert"><strong>Before continuing, make sure you've finished any visit entry in progress. Check the active branch again after switching.</strong></p>
+            {todaysVisits.length > 0 && <p className="modal-description">Visits have already been recorded for today. Continuing will send a correction request to an administrator and pause new visit entry until it is reviewed.</p>}
+            <button className="primary-button" disabled={busy || loadingVisits || pendingCorrection} onClick={() => { setShowBranchChangeConfirm(false); void chooseBranch(); }}>Yes, change branch <span>→</span></button>
+            <button className="secondary-button branch-confirm-cancel" disabled={busy} onClick={() => setShowBranchChangeConfirm(false)}>Cancel, keep current branch</button>
           </section>
         </div>
       )}
