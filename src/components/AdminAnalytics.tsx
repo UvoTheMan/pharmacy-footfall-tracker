@@ -375,15 +375,15 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       {activeTab === "overview" && (
         <div className="analytics-tab-content">
           <div className="history-summary analytics-kpis">
-            <div><strong>{analysisVisits.length.toLocaleString()}</strong><span><Users size={13} /> Total visits</span></div>
-            <div><strong>{purchases.toLocaleString()}</strong><span>Purchases</span></div>
-            <div><strong>{noPurchase.toLocaleString()}</strong><span>No purchase</span></div>
-            <div><strong>{conversion}%</strong><span>Purchase conversion</span></div>
+            <div hidden={!isVisible("kpi-visits")}><strong>{analysisVisits.length.toLocaleString()}</strong><span><Users size={13} /> Total visits</span></div>
+            <div hidden={!isVisible("kpi-purchases")}><strong>{purchases.toLocaleString()}</strong><span>Purchases</span></div>
+            <div hidden={!isVisible("kpi-no-purchase")}><strong>{noPurchase.toLocaleString()}</strong><span>No purchase</span></div>
+            <div hidden={!isVisible("kpi-conversion")}><strong>{conversion}%</strong><span>Purchase conversion</span></div>
 
-            <div><strong>{unavailableRequests.toLocaleString()}</strong><span>Unavailable-item requests</span></div>
+            <div hidden={!isVisible("kpi-unavailable")}><strong>{unavailableRequests.toLocaleString()}</strong><span>Unavailable-item requests</span></div>
           </div>
           <div className="analytics-grid">
-            <section className="analytics-subpanel analytics-chart-card">
+            <section hidden={!isVisible("outcomes")} className="analytics-subpanel analytics-chart-card">
               <h3><BarChart3 size={16} /> Outcome distribution</h3>
               <p className="analytics-help">How recorded visits ended during this period.</p>
               <div className="analytics-outcome-total"><strong>{analysisVisits.length.toLocaleString()}</strong><span>total visits</span></div>
@@ -395,7 +395,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               </div>
               <p className="analytics-help">Conversion is purchases divided by all recorded visits.</p>
             </section>
-            <section className="analytics-subpanel analytics-chart-card">
+            <section hidden={!isVisible("weekday")} className="analytics-subpanel analytics-chart-card">
               <h3><CalendarDays size={16} /> Visits by weekday</h3>
               <p className="analytics-help">Combined recorded visits by day of the week within the selected dates.</p>
               <div className="analytics-weekday-chart">
@@ -405,7 +405,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               </div>
               <p className="analytics-help">Patterns are descriptive. Different date coverage can affect comparisons.</p>
             </section>
-            <section className="analytics-subpanel">
+            <section hidden={!isVisible("branch-snapshot")} className="analytics-subpanel">
               <h3><GitCompare size={16} /> Branch snapshot</h3>
               <p className="analytics-help">A quick view of recorded activity for the selected branch scope.</p>
               {branchStats.map((item) => (
@@ -423,7 +423,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               ))}
               {branchStats.length === 0 && <p className="corrections-empty">No branches are available for analysis.</p>}
             </section>
-            <section className="analytics-subpanel analytics-insight-panel">
+            <section hidden={!isVisible("insights")} className="analytics-subpanel analytics-insight-panel">
               <h3><TrendingUp size={16} /> Quick insights</h3>
               {analysisVisits.length === 0 ? <p className="corrections-empty">No visits were recorded in this reporting period.</p> : (
                 <ul className="analytics-insight-list">
@@ -441,13 +441,13 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
       {activeTab === "branches" && (
         <div className="analytics-tab-content">
-          <div className="history-summary analytics-kpis">
+          <div hidden={!isVisible("branch-kpis")} className="history-summary analytics-kpis">
             <div><strong>{branchStats.length}</strong><span>Branches included</span></div>
             <div><strong>{Math.max(0, ...branchStats.map((item) => item.total)).toLocaleString()}</strong><span>Most visits at one branch</span></div>
             <div><strong>{topBranch?.conversion ?? 0}%</strong><span>Highest branch conversion</span></div>
           </div>
           <div className="analytics-grid">
-            <section className="analytics-subpanel analytics-wide-subpanel">
+            <section hidden={!isVisible("branch-performance")} className="analytics-subpanel analytics-wide-subpanel">
               <h3><GitCompare size={16} /> {selectedBranchId === "all" ? "Branch performance comparison" : "Selected branch performance"}</h3>
               <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion is purchases divided by all recorded visits.</p>
               {branchStats.map((item) => (
@@ -466,7 +466,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
       {activeTab === "trends" && (
         <div className="analytics-tab-content">
-          <section className="analytics-subpanel analytics-trend">
+          <section hidden={!isVisible("daily-trend")} className="analytics-subpanel analytics-trend">
             <h3><CalendarDays size={16} /> Daily visit trend</h3>
             <p className="analytics-help">Each bar shows all recorded visits for that Lagos calendar date. Scroll horizontally on smaller screens to see the full period.</p>
             <div className="analytics-daily-chart analytics-daily-chart-stacked" role="img" aria-label="Daily visit counts by outcome for the selected reporting period">
@@ -485,7 +485,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span></div>)}
             </div>
             <div className="analytics-grid analytics-secondary-trends">
-              <section className="analytics-subpanel analytics-chart-card">
+              <section hidden={!isVisible("weekday-conversion")} className="analytics-subpanel analytics-chart-card">
                 <h3><TrendingUp size={16} /> Purchase conversion by weekday</h3>
                 <p className="analytics-help">Purchases divided by all recorded visits for each weekday.</p>
                 <div className="analytics-weekday-chart">
@@ -497,7 +497,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                   })}
                 </div>
               </section>
-              <section className="analytics-subpanel analytics-chart-card">
+              <section hidden={!isVisible("outcome-totals")} className="analytics-subpanel analytics-chart-card">
                 <h3><Users size={16} /> Outcome totals</h3>
                 <p className="analytics-help">Counts and share of all recorded visits.</p>
                 <div className="analytics-legend">
@@ -510,7 +510,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               <span>Purchases <strong>{purchases.toLocaleString()}</strong></span>
               <span>No purchase <strong>{noPurchase.toLocaleString()}</strong></span>
             </div>
-            <section className="analytics-subpanel analytics-pattern-panel">
+            <section hidden={!isVisible("hourly")} className="analytics-subpanel analytics-pattern-panel">
               <h3><Clock3 size={16} /> Busy hours &amp; footfall patterns</h3>
               <p className="analytics-help">Visit recording times converted to Lagos local time. Hours with no visits are shown as empty bars.</p>
               <div className="analytics-hour-chart" role="img" aria-label="Visits by hour of day in Lagos time">
@@ -523,7 +523,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <div><span>Quietest active hour</span><strong>{quietHour?.label ?? "No data"}</strong><small>{quietHour ? quietHour.total + " visits" : "No timestamped visits"}</small></div>
               </div>
             </section>
-            <section className="analytics-subpanel analytics-daily-summary">
+            <section hidden={!isVisible("daily-averages")} className="analytics-subpanel analytics-daily-summary">
               <h3><TrendingUp size={16} /> Daily averages &amp; peak days</h3>
               <p className="analytics-help">The average uses days with at least one recorded visit. Dates with no records are not assumed to be closed or zero-footfall days.</p>
               <div className="analytics-pattern-highlights">
@@ -541,12 +541,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
       {activeTab === "reasons" && (
         <div className="analytics-tab-content">
-          <div className="history-summary analytics-kpis">
+          <div hidden={!isVisible("reason-kpis")} className="history-summary analytics-kpis">
             <div><strong>{noPurchase.toLocaleString()}</strong><span>No-purchase visits</span></div>
             <div><strong>{reasonStats.length}</strong><span>Reason categories</span></div>
             <div><strong>{reasonStats[0]?.count ?? 0}</strong><span>Most frequent reason</span></div>
           </div>
-          <section className="analytics-subpanel analytics-reasons-panel">
+          <section hidden={!isVisible("reason-breakdown")} className="analytics-subpanel analytics-reasons-panel">
             <h3><Search size={16} /> No-purchase reasons</h3>
             <p className="analytics-help">Counts and percentages are based on no-purchase visits in the selected period. Blank reasons are grouped as Other / Unknown.</p>
             {reasonStats.length === 0 ? <p className="corrections-empty">No no-purchase reasons recorded in this period.</p> : reasonStats.map((item, index) => {
@@ -557,7 +557,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               </div>;
             })}
           </section>
-          <section className="analytics-subpanel analytics-reason-branch-panel">
+          <section hidden={!isVisible("reason-branches")} className="analytics-subpanel analytics-reason-branch-panel">
             <h3><GitCompare size={16} /> Reasons by branch</h3>
             <p className="analytics-help">See which reasons are being recorded at each branch. Counts reflect no-purchase visits within the selected date range.</p>
             <div className="analytics-reason-branch-grid">
