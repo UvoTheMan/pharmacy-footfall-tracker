@@ -7,27 +7,34 @@
 - Do not merge to `main`, alter Production Supabase, or deploy Production without explicit approval.
 
 ## Analytics integration findings
-- PR #28 changes only `src/components/AdminAnalytics.tsx`, `src/components/AdminAnalytics.css`, and its checkpoint note relative to `feature/admin-analysis-dashboard`.
-- The current `main` already has an `AdminAnalytics` component wired into `App.tsx`, but it is a simpler implementation and does not have the dedicated `src/components/AdminAnalytics.css` file.
-- The enhanced analytics component imports `jspdf`; `main/package.json` does not currently include it. The feature branch adds `jspdf ^3.0.1`.
-- The enhanced component currently types outcomes as only `purchased | not_purchased` and calculates conversion using all rows as the denominator. The current `main` application supports an `undecided` outcome. Porting the component unchanged could count undecided visits incorrectly in conversion metrics and weekday outcomes.
-- The feature branch also contains wider UI/CSS work in `src/styles.css`; do not copy that whole file into the integration branch because it includes unrelated application changes.
-- The unavailable-items migrations are not part of the analytics PR diff and must not be pulled in merely to get the analytics dashboard.
+- The current `main` already has an `AdminAnalytics` component wired into `App.tsx`, but it is a simpler implementation and does not have the dedicated analytics stylesheet.
+- The enhanced component requires `jspdf` for PDF export; `main/package.json` did not include it.
+- The current application supports `purchased`, `not_purchased`, and `undecided`. Conversion metrics must exclude undecided visits from the denominator, while outcome distribution and footfall totals must still include them.
+- Do not copy the development branch's entire global stylesheet or unrelated feature work into this release.
+- Unavailable-item migrations are not required for the analytics component and have not been included.
 
-## Changes applied on the integration branch
-- Ported the enhanced `AdminAnalytics.tsx` and its dedicated `AdminAnalytics.css` only; no global stylesheet or unrelated feature files were copied.
-- Added `jspdf ^3.0.1` to `package.json` for report export. This repository has no `package-lock.json` on `main`.
-- Updated analytics outcome typing to support `undecided` visits.
-- Updated current and previous conversion calculations to exclude `undecided` visits from the conversion denominator, matching the current `main` implementation.
-- Added `Undecided` to the outcome distribution so visit outcomes are not silently omitted.
-- Did not copy the unavailable-item migrations or unrelated global CSS.
+## Changes on the integration branch
+- Ported only `src/components/AdminAnalytics.tsx` and the dedicated `src/components/AdminAnalytics.css`.
+- Added `jspdf ^3.0.1` to `package.json`. There is no `package-lock.json` on `main`.
+- Adapted outcome typing and conversion denominators for undecided visits.
+- Ensured undecided visits appear in outcome distribution and daily stacked charts.
+- Clarified conversion labels to say that conversion is based on resolved visits (purchased or no purchase).
+- Corrected branch no-purchase-rate denominator to exclude undecided visits.
+- Kept unrelated global CSS, unavailable-item migrations, and other development-branch features out of this integration.
 
-## Verification still required
-1. Confirm the latest Vercel Preview build completes successfully. An earlier intermediate commit failed because the component was committed before the PDF dependency; the later commit includes the dependency and is still building as of this audit update.
-2. Check analytics sections, date ranges, previous-period comparisons, PDF export, reason breakdowns, and branch filters in Preview.
-3. Verify the reason summary against real saved records.
-4. Keep the known manual-backup blocker visible and resolve it separately; this audit does not resolve it.
+## Build verification
+- Vercel Preview build is **READY** for commit `9a834f78dfae938692d609da70a5fad7bd86c390`.
+- Preview URL: https://pharmacy-footfall-tracker-lqcav1x0y-uvothemans-projects.vercel.app
+- An intermediate build failed due to a missing closing JSX brace in the undecided chart segment. It was fixed in the verified commit above.
+- The Vercel web page could not be inspected through the available browser/search view. Interactive Preview testing remains required.
+
+## Remaining release checks
+1. In Preview, test all four analytics tabs, 7/30/90-day presets, custom date ranges, branch filtering, previous-period comparisons, chart visibility controls, and PDF export.
+2. Compare reason breakdowns with actual saved no-purchase records and confirm the charts remain legible on mobile.
+3. Verify the manual backup flow separately before treating it as production-ready. The `manual-footfall-backup` Edge Function is active in **staging**; the Production Supabase project currently has no function with that name. The manual-backup UI therefore remains a known Production blocker until the Production function and its required GitHub workflow token/secrets are deliberately configured and tested.
+4. Confirm the existing daily scheduled CSV email continues working; do not alter its schedule as part of analytics integration.
 
 ## Current status
-- Application changes are isolated to the integration branch and are not merged to `main`.
+- Integration is isolated to this release branch and is not merged into `main`.
 - No Production database, environment, or deployment has been changed.
+- Do not merge or deploy until interactive Preview testing is complete and the manual-backup release decision is made.
