@@ -171,3 +171,28 @@
 .analytics-export-bottom{display:flex;justify-content:flex-end;margin:22px 0 12px;padding-top:14px;border-top:1px solid #e8eee8}
 @media(max-width:700px){.analytics-shared-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.analytics-shared-kpi{padding:11px}.analytics-shared-kpi>strong{font-size:23px}}
 @media(max-width:360px){.analytics-shared-kpis{grid-template-columns:1fr}}
+
+
+/* Additional period-comparison charts for branch and daily performance. */
+.analytics-period-branch{display:grid;gap:7px;margin-top:15px;padding:12px;border:1px solid #e7eee8;border-radius:10px;background:#fcfdfc}
+.analytics-period-metric-label{font-size:10px;color:#718276}
+.analytics-paired-bars{display:grid;gap:4px;min-height:7px}
+.analytics-paired-bars>span{display:block;height:7px;min-width:0;border-radius:999px;transition:width .2s ease}
+.analytics-period-current{background:#258657}
+.analytics-period-previous{background:#e7a04c}
+.analytics-period-legend{display:flex;align-items:center;gap:12px 18px;flex-wrap:wrap;margin-top:13px;color:#718276;font-size:10px}
+.analytics-period-legend>span{display:inline-flex;align-items:center;gap:6px}
+.analytics-period-legend i{display:inline-block;width:10px;height:10px;border-radius:3px}
+.analytics-period-legend i.analytics-period-current{background:#258657}
+.analytics-period-legend i.analytics-period-previous{background:#e7a04c}
+.analytics-period-legend i.analytics-stack-purchased{background:#23875b}
+.analytics-period-legend i.analytics-stack-no-purchase{background:#e27b48}
+.analytics-period-daily-chart{display:flex;align-items:stretch;gap:4px;min-height:126px;overflow-x:auto;margin-top:16px;padding:4px 0 0}
+.analytics-period-day{display:flex;flex:1 0 14px;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;min-width:14px;height:126px}
+.analytics-period-day-bars{display:flex;align-items:flex-end;justify-content:center;gap:2px;width:100%;height:105px}
+.analytics-period-day-bars>span{display:block;flex:0 0 42%;min-height:1px;max-width:10px;border-radius:4px 4px 1px 1px}
+.analytics-period-day>small{min-height:11px;color:#829287;font-size:8px}
+.analytics-weekday-outcomes{display:grid;gap:13px;margin-top:16px}
+.analytics-weekday-outcome{min-width:0}
+.analytics-weekday-outcome .analytics-stacked-bar{height:12px}
+@media(max-width:480px){.analytics-period-branch{padding:10px}.analytics-period-daily-chart{gap:3px}.analytics-period-day{flex-basis:13px;min-width:13px}}
