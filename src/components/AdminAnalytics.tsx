@@ -129,7 +129,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     { label: "Conversion", current: conversion, previous: previousConversion, percentagePoints: true },
   ].map((item) => ({ ...item, delta: item.current - item.previous, change: item.previous ? Math.round((item.current - item.previous) / item.previous * 100) : null }));
   const busyHourStats = useMemo(() => {
-    const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, label: new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "numeric", hour12: true }).format(new Date(Date.UTC(2026, 0, 1, hour))), total: 0 }));
+    const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, label: new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "numeric", hour12: true }).format(new Date(Date.UTC(2026, 0, 1, hour - 1))), total: 0 }));
     analysisVisits.forEach((visit) => {
       const date = new Date(visit.recorded_at);
       if (Number.isNaN(date.getTime())) return;
