@@ -377,10 +377,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       <p className="analytics-tab-description">{TABS.find((tab) => tab.id === activeTab)?.description}</p>
 
       <div className="history-summary analytics-kpis analytics-shared-kpis" aria-label="Key performance metrics">
-        <div><strong>{analysisVisits.length.toLocaleString()}</strong><span><Users size={13} /> Total visits</span></div>
-        <div><strong>{purchases.toLocaleString()}</strong><span>Purchases</span></div>
-        <div><strong>{noPurchase.toLocaleString()}</strong><span>No purchase</span></div>
-        <div><strong>{conversion}%</strong><span>Purchase conversion</span></div>
+        {comparisonStats.map((item) => <article className="analytics-shared-kpi" key={item.label}>
+          <span className="analytics-shared-kpi-label">{item.label === "Total visits" ? <><Users size={13} /> Total visits</> : item.label}</span>
+          <strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
+          <small>Previous: {item.previous}{item.percentagePoints ? "%" : ""}</small>
+          <small className={item.delta > 0 ? "comparison-up" : item.delta < 0 ? "comparison-down" : ""}>
+            {item.delta > 0 ? "+" : ""}{item.delta}{item.percentagePoints ? " pp" : ""} change {item.change === null ? "no baseline" : "(" + (item.change > 0 ? "+" : "") + item.change + "%)"}
+          </small>
+        </article>)}
       </div>
 
       <details className="analytics-customise-panel">
@@ -396,9 +400,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           </label>)}
         </div>
       </details>
-      <div className="analytics-action-row">
+      <div className="analytics-action-row analytics-period-label">
         <span><strong>Period comparison</strong><small>{previousStartDate} to {previousEndDate} vs {startDate} to {endDate}</small></span>
-        <button type="button" className="analytics-export-button" onClick={downloadAnalysisPdf} disabled={loading || Boolean(error)}><Download size={15} /> Export current view to PDF</button>
       </div>
       {isVisible(activeTab + "-comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
         <p className="analytics-comparison-period">Previous period: {previousStartDate} to {previousEndDate}. Current period: {startDate} to {endDate}.</p>
@@ -630,6 +633,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           </section>
         </div>
       )}
+      <div className="analytics-export-bottom">
+        <button type="button" className="analytics-export-button" onClick={downloadAnalysisPdf} disabled={loading || Boolean(error)}><Download size={15} /> Export current view to PDF</button>
+      </div>
       <p className="history-footnote">Analytics use saved visit records only. This view does not edit, move, or delete data.</p>
     </section>
   );
