@@ -53,13 +53,13 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     ],
     branches: [
       { id: "branch-kpis", label: "Branch summary metrics" }, { id: "branch-performance", label: "Branch performance breakdown" },
-      { id: "branches-comparison", label: "Previous-period comparison" },
+      { id: "branches-comparison", label: "Previous-period comparison" }, { id: "branch-period-chart", label: "Branch current vs previous comparison chart" },
     ],
     trends: [
       { id: "daily-trend", label: "Daily visit trend" }, { id: "weekday-conversion", label: "Purchase conversion by weekday" },
       { id: "outcome-totals", label: "Outcome totals" }, { id: "hourly", label: "Busy hours and footfall patterns" },
       { id: "daily-averages", label: "Daily averages and peak days" }, { id: "trend-summary", label: "Trend summary totals" },
-      { id: "trends-comparison", label: "Previous-period comparison" },
+      { id: "trends-comparison", label: "Previous-period comparison" }, { id: "period-daily-chart", label: "Daily visits: current vs previous period" }, { id: "weekday-outcomes", label: "Purchase outcomes by weekday" },
     ],
     reasons: [
       { id: "reason-kpis", label: "Reason summary metrics" }, { id: "reason-breakdown", label: "No-purchase reasons" },
@@ -143,6 +143,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     };
   }), [analysisBranches, analysisVisits]);
 
+  const previousBranchStats = useMemo(() => analysisBranches.map((branch) => {
+    const rows = previousVisits.filter((visit) => visit.branch_id === branch.id);
+    const purchases = rows.filter((visit) => visit.outcome === "purchased").length;
+    return { id: branch.id, name: branch.name, total: rows.length, purchases, conversion: percent(purchases, rows.length) };
+  }), [analysisBranches, previousVisits]);
+
   const purchases = analysisVisits.filter((visit) => visit.outcome === "purchased").length;
   const noPurchase = analysisVisits.filter((visit) => visit.outcome === "not_purchased").length;
   const resolved = analysisVisits.length;
@@ -184,6 +190,16 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     }
     return days;
   }, [analysisVisits, startDate, endDate]);
+  const periodDailyComparison = useMemo(() => Array.from({ length: rangeDays }, (_, index) => {
+    const currentDate = shiftDate(startDate, index);
+    const previousDate = shiftDate(previousStartDate, index);
+    return {
+      index: index + 1,
+      current: analysisVisits.filter((visit) => visit.visit_date === currentDate).length,
+      previous: previousVisits.filter((visit) => visit.visit_date === previousDate).length,
+    };
+  }), [rangeDays, startDate, previousStartDate, analysisVisits, previousVisits]);
+  const maxPeriodDaily = Math.max(1, ...periodDailyComparison.flatMap((day) => [day.current, day.previous]));
   const activeDays = dailyStats.filter((day) => day.total > 0);
   const averageDailyFootfall = activeDays.length ? analysisVisits.length / activeDays.length : 0;
   const busiestDay = [...activeDays].sort((a, b) => b.total - a.total)[0];
@@ -487,6 +503,28 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <div><strong>{mostUnavailableBranch ? mostUnavailableBranch.name + " · " + mostUnavailableBranch.unavailable : "No data"}</strong><span>Most unavailable-item requests</span></div>
           </div>
           <div className="analytics-grid">
+            <section hidden={!isVisible("branch-period-chart")} className="analytics-subpanel analytics-wide-subpanel">
+              <h3><GitCompare size={16} /> Branch performance: current vs previous period</h3>
+              <p className="analytics-help">Compare each branch with the same-length period immediately before the selected dates. Visit bars use counts; conversion bars use percentages.</p>
+              {branchStats.map((item) => {
+                const previous = previousBranchStats.find((row) => row.id === item.id);
+                const maxVisits = Math.max(1, ...branchStats.map((row) => row.total), ...previousBranchStats.map((row) => row.total));
+                return <article className="analytics-period-branch" key={item.id}>
+                  <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total} visits now · {previous?.total ?? 0} previously</span></div>
+                  <span className="analytics-period-metric-label">Visits</span>
+                  <div className="analytics-paired-bars" aria-label={`${item.name} visits: current ${item.total}, previous ${previous?.total ?? 0}`}>
+                    <span className="analytics-period-current" style={{ width: `${item.total / maxVisits * 100}%` }} />
+                    <span className="analytics-period-previous" style={{ width: `${(previous?.total ?? 0) / maxVisits * 100}%` }} />
+                  </div>
+                  <span className="analytics-period-metric-label">Conversion: {item.conversion}% now · {previous?.conversion ?? 0}% previously</span>
+                  <div className="analytics-paired-bars" aria-label={`${item.name} conversion: current ${item.conversion} percent, previous ${previous?.conversion ?? 0} percent`}>
+                    <span className="analytics-period-current" style={{ width: `${item.conversion}%` }} />
+                    <span className="analytics-period-previous" style={{ width: `${previous?.conversion ?? 0}%` }} />
+                  </div>
+                </article>;
+              })}
+              <div className="analytics-period-legend"><span><i className="analytics-period-current" /> Current period</span><span><i className="analytics-period-previous" /> Previous period</span></div>
+            </section>
             <section hidden={!isVisible("branch-performance")} className="analytics-subpanel analytics-wide-subpanel">
               <h3><GitCompare size={16} /> {selectedBranchId === "all" ? "Branch performance comparison" : "Selected branch performance"}</h3>
               <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion is purchases divided by all recorded visits.</p>
@@ -520,6 +558,31 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
       {activeTab === "trends" && (
         <div className="analytics-tab-content">
+          <section hidden={!isVisible("period-daily-chart")} className="analytics-subpanel analytics-wide-subpanel">
+            <h3><TrendingUp size={16} /> Daily visits: current vs previous period</h3>
+            <p className="analytics-help">Each pair compares the same position in two equal-length periods. Scroll horizontally on mobile for longer ranges.</p>
+            <div className="analytics-period-daily-chart" role="img" aria-label="Daily visits comparison, current period versus previous period">
+              {periodDailyComparison.map((day) => <div className="analytics-period-day" key={day.index} title={`Day ${day.index}: current ${day.current} visits; previous ${day.previous} visits`}>
+                <div className="analytics-period-day-bars"><span className="analytics-period-current" style={{ height: `${day.current / maxPeriodDaily * 100}%` }} /><span className="analytics-period-previous" style={{ height: `${day.previous / maxPeriodDaily * 100}%` }} /></div>
+                <small>{day.index % 5 === 1 || day.index === 1 || day.index === rangeDays ? day.index : ""}</small>
+              </div>)}
+            </div>
+            <div className="analytics-period-legend"><span><i className="analytics-period-current" /> Current period</span><span><i className="analytics-period-previous" /> Previous period</span></div>
+          </section>
+          <section hidden={!isVisible("weekday-outcomes")} className="analytics-subpanel analytics-wide-subpanel">
+            <h3><BarChart3 size={16} /> Purchase outcomes by weekday</h3>
+            <p className="analytics-help">See whether visits on each weekday more often result in purchases or no purchase.</p>
+            <div className="analytics-weekday-outcomes">
+              {weekdayStats.map((day) => { const total = day.purchases + day.noPurchase; return <div className="analytics-weekday-outcome" key={day.label}>
+                <div className="analytics-row-label"><strong>{day.label}</strong><span>{total} visits · {percent(day.purchases, total)}% conversion</span></div>
+                <div className="analytics-stacked-bar" aria-label={`${day.label}: ${day.purchases} purchases, ${day.noPurchase} no purchase`}>
+                  <span className="analytics-stack-purchased" style={{ width: `${day.purchases / Math.max(1, total) * 100}%` }} />
+                  <span className="analytics-stack-no-purchase" style={{ width: `${day.noPurchase / Math.max(1, total) * 100}%` }} />
+                </div>
+              </div>; })}
+            </div>
+            <div className="analytics-period-legend"><span><i className="analytics-stack-purchased" /> Purchased</span><span><i className="analytics-stack-no-purchase" /> No purchase</span></div>
+          </section>
           <div className="analytics-trends-stack">
           <section hidden={!isVisible("daily-trend")} className="analytics-subpanel analytics-trend">
             <h3><CalendarDays size={16} /> Daily visit trend</h3>
