@@ -390,8 +390,32 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               <span>Visits <strong>{analysisVisits.length.toLocaleString()}</strong></span>
               <span>Purchases <strong>{purchases.toLocaleString()}</strong></span>
               <span>No purchase <strong>{noPurchase.toLocaleString()}</strong></span>
-
             </div>
+            <section className="analytics-subpanel analytics-pattern-panel">
+              <h3><Clock3 size={16} /> Busy hours &amp; footfall patterns</h3>
+              <p className="analytics-help">Visit recording times converted to Lagos local time. Hours with no visits are shown as empty bars.</p>
+              <div className="analytics-hour-chart" role="img" aria-label="Visits by hour of day in Lagos time">
+                {busyHourStats.map((hour) => <div className="analytics-hour" key={hour.hour} title={hour.label + ": " + hour.total + " visits"}>
+                  <strong>{hour.total || ""}</strong><span className="analytics-hour-track"><i style={{ height: (hour.total ? Math.max(5, hour.total / maxHour * 100) : 2) + "%" }} /></span><small>{hour.hour % 3 === 0 ? hour.label.replace(" AM","a").replace(" PM","p") : ""}</small>
+                </div>)}
+              </div>
+              <div className="analytics-pattern-highlights">
+                <div><span>Peak recorded hour</span><strong>{peakHour?.label ?? "No data"}</strong><small>{peakHour ? peakHour.total + " visits" : "No timestamped visits"}</small></div>
+                <div><span>Quietest active hour</span><strong>{quietHour?.label ?? "No data"}</strong><small>{quietHour ? quietHour.total + " visits" : "No timestamped visits"}</small></div>
+              </div>
+            </section>
+            <section className="analytics-subpanel analytics-daily-summary">
+              <h3><TrendingUp size={16} /> Daily averages &amp; peak days</h3>
+              <p className="analytics-help">The average uses days with at least one recorded visit. Dates with no records are not assumed to be closed or zero-footfall days.</p>
+              <div className="analytics-pattern-highlights">
+                <div><span>Average on recorded days</span><strong>{averageDailyFootfall.toFixed(1)}</strong><small>visits per active recorded day</small></div>
+                <div><span>Busiest recorded day</span><strong>{busiestDay?.date ?? "No data"}</strong><small>{busiestDay ? busiestDay.total + " visits" : "No visits in range"}</small></div>
+                <div><span>Quietest recorded day</span><strong>{quietestRecordedDay?.date ?? "No data"}</strong><small>{quietestRecordedDay ? quietestRecordedDay.total + " visits" : "No visits in range"}</small></div>
+              </div>
+              <div className="analytics-daily-average-chart">
+                {dailyStats.map(day => <div key={day.date} title={day.date + ": " + day.total + " visits"}><span style={{height: Math.max(day.total ? 4 : 1, day.total / Math.max(1,...dailyStats.map(item=>item.total))*100) + "%" }} /><small>{day.date.slice(8)}</small></div>)}
+              </div>
+            </section>
           </section>
         </div>
       )}
