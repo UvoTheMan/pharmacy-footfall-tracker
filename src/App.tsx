@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, Search,
+  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, ImagePlus, Search,
   CircleHelp, Clock3, KeyRound, LogOut, ShoppingBag, Users, X,
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
@@ -75,6 +75,8 @@ export default function App() {
   const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
   const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
   const [unavailableItemName, setUnavailableItemName] = useState("");
+  const [unavailableItemPhoto, setUnavailableItemPhoto] = useState<File | null>(null);
+  const [unavailableItemPhotoPreview, setUnavailableItemPhotoPreview] = useState("");
   const [showBatch, setShowBatch] = useState(false);
   const [showNoPurchaseReason, setShowNoPurchaseReason] = useState(false);
   const [batchCount, setBatchCount] = useState("5");
@@ -348,6 +350,28 @@ export default function App() {
     setBusy(false);
   }
 
+  function clearUnavailablePhoto() {
+    if (unavailableItemPhotoPreview) URL.revokeObjectURL(unavailableItemPhotoPreview);
+    setUnavailableItemPhoto(null);
+    setUnavailableItemPhotoPreview("");
+  }
+
+  function selectUnavailablePhoto(file: File | null) {
+    setError("");
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Choose a JPG, PNG or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("The picture must be 5 MB or smaller.");
+      return;
+    }
+    if (unavailableItemPhotoPreview) URL.revokeObjectURL(unavailableItemPhotoPreview);
+    setUnavailableItemPhoto(file);
+    setUnavailableItemPhotoPreview(URL.createObjectURL(file));
+  }
+
   async function saveUnavailableItem() {
     const itemName = unavailableItemName.trim();
     if (!supabase || !branch || !session || !itemName) {
@@ -356,11 +380,26 @@ export default function App() {
     }
     setBusy(true);
     setError("");
+    let imagePath: string | null = null;
+    if (unavailableItemPhoto) {
+      const extension = unavailableItemPhoto.type === "image/png" ? "png" : unavailableItemPhoto.type === "image/webp" ? "webp" : "jpg";
+      imagePath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
+      const upload = await supabase.storage.from("unavailable-item-photos").upload(imagePath, unavailableItemPhoto, {
+        contentType: unavailableItemPhoto.type,
+        upsert: false,
+      });
+      if (upload.error) {
+        setError("The report was not saved because the photo upload failed: " + upload.error.message);
+        setBusy(false);
+        return;
+      }
+    }
     const result = await supabase.rpc("record_unavailable_item", {
       p_branch_id: branch.id,
       p_outcome: unavailableOutcome,
       p_reason: unavailableOutcome === "not_purchased" ? "Item unavailable" : null,
       p_item_name: itemName,
+      p_image_path: imagePath,
     });
     if (result.error) {
       setError("Unavailable item was not saved: " + result.error.message);
@@ -369,6 +408,7 @@ export default function App() {
     }
     setShowUnavailablePrompt(false);
     setUnavailableItemName("");
+    clearUnavailablePhoto();
     await loadVisits();
     flash("Visit and unavailable item saved to the shared register.");
     setBusy(false);
@@ -625,9 +665,13 @@ export default function App() {
             <p className="modal-description">{unavailableOutcome === "purchased" ? "Record the item the customer couldn't obtain, even though they purchased something else." : "Record the item that led to the customer leaving without a purchase."} This report will be shared with staff and admins.</p>
             <label className="field-label" htmlFor="unavailable-item-name">Product name, strength and form <span>Required</span></label>
             <textarea className="unavailable-item-input" id="unavailable-item-name" maxLength={180} autoFocus required value={unavailableItemName} onChange={(event) => setUnavailableItemName(event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
+            <label className="field-label" htmlFor="unavailable-item-photo">Add a picture <span>Optional</span></label>
+            <input className="unavailable-photo-input" id="unavailable-item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(event) => selectUnavailablePhoto(event.target.files?.[0] ?? null)} />
+            {unavailableItemPhotoPreview && <div className="unavailable-photo-preview"><img src={unavailableItemPhotoPreview} alt="Selected unavailable item preview" /><div><strong>{unavailableItemPhoto?.name}</strong><small>Photo ready to attach</small><button className="text-button" type="button" disabled={busy} onClick={clearUnavailablePhoto}>Remove picture</button></div></div>}
+            <p className="modal-footnote">JPG, PNG or WebP, up to 5 MB. Please do not photograph prescriptions or documents showing patient-identifying details.</p>
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="submit" disabled={busy || !unavailableItemName.trim()}>{busy ? "Saving report…" : "Save unavailable item"} <span>→</span></button>
-            <button className="text-button" type="button" disabled={busy} onClick={() => setShowUnavailablePrompt(false)}>Cancel</button>
+            <button className="text-button" type="button" disabled={busy} onClick={() => { clearUnavailablePhoto(); setShowUnavailablePrompt(false); }}>Cancel</button>
             <p className="modal-footnote">The visit and unavailable-item report are saved together.</p>
           </form>
         </div>
