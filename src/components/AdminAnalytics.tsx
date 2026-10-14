@@ -345,12 +345,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <h3><Users size={16} /> Outcome totals</h3>
                 <p className="analytics-help">Counts and share of all recorded visits.</p>
                 <div className="analytics-legend">
-                  {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, visits.length)}%</small></div>)}
+                  {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, analysisVisits.length)}%</small></div>)}
                 </div>
               </section>
             </div>
             <div className="analytics-trend-summary">
-              <span>Visits <strong>{visits.length.toLocaleString()}</strong></span>
+              <span>Visits <strong>{analysisVisits.length.toLocaleString()}</strong></span>
               <span>Purchases <strong>{purchases.toLocaleString()}</strong></span>
               <span>No purchase <strong>{noPurchase.toLocaleString()}</strong></span>
               <span>Undecided <strong>{undecided.toLocaleString()}</strong></span>
