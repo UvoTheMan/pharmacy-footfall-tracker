@@ -331,7 +331,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     } else if (activeTab === "trends") {
       if (isVisible("daily-trend")) { section("Daily visits"); bars(dailyStats.filter(day => day.total > 0).map(day => ({label:day.date,value:day.total}))); }
       if (isVisible("weekday-conversion")) { section("Purchase conversion by weekday"); bars(weekdayStats.map(day => ({label:day.label,value:percent(day.purchases,day.purchases+day.noPurchase)}))); }
-      if (isVisible("outcome-totals")) { section("Outcome totals"); bars(outcomeStats.map(item => ({label:item.label,value:item.count,color:item.label === "Purchased" ? [35,135,91] : item.label === "No purchase" ? [226,123,72] : [139,154,144]}))); }
+      if (isVisible("outcome-totals")) { section("Outcome totals"); bars(outcomeStats.map(item => ({label:item.label,value:item.count,color:(item.label === "Purchased" ? [35,135,91] : item.label === "No purchase" ? [226,123,72] : [139,154,144]) as [number,number,number]}))); }
       if (isVisible("daily-averages")) { section("Daily averages and peak days"); line("Average on recorded days", averageDailyFootfall.toFixed(1) + " visits");
       line("Busiest recorded day", busiestDay ? busiestDay.date + " · " + busiestDay.total + " visits" : "No data");
       line("Quietest recorded day", quietestRecordedDay ? quietestRecordedDay.date + " · " + quietestRecordedDay.total + " visits" : "No data");
