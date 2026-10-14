@@ -254,13 +254,6 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         <button className="primary-button unavailable-search-button" type="submit"><Search size={15} /> Search records</button>
       </form>
       <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); setSelectedIds(new Set()); }}>Reset filters</button></div></div>
-      <details className="admin-record-rollup unavailable-export-rollup">
-        <summary><span className="admin-record-rollup-title"><span className="eyebrow">CSV EXPORT</span><strong>Export unavailable-item reports</strong><small>Download the reports matching your current search, branch, and date filters.</small></span><span className="admin-record-rollup-meta">{loading ? "Loading…" : `${filteredItems.length} reports`} <Download size={15} /></span></summary>
-        <div className="admin-record-rollup-content">
-          <p className="panel-description">The CSV includes product name, branch, unavailable date, reported time, assessment status, and whether a photo is attached.</p>
-          <button className="secondary-button" type="button" onClick={exportCsv} disabled={loading || filteredItems.length === 0}><Download size={14} /> Export CSV</button>
-        </div>
-      </details>
       {profile.role === "admin" && filteredItems.length > 0 && <div className="unavailable-bulk-toolbar">
         <label className="unavailable-select-all"><input type="checkbox" checked={filteredItems.every((item) => selectedIds.has(item.id))} onChange={(event) => toggleAllFiltered(event.target.checked)} aria-label="Select all filtered unavailable-item reports" /> <span>Select all shown</span></label>
         <span className="unavailable-selected-count">{filteredItems.filter((item) => selectedIds.has(item.id)).length} selected</span>
@@ -284,6 +277,13 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
           ))}
         </div>
       )}
+      <details className="admin-record-rollup unavailable-export-rollup">
+        <summary><span className="admin-record-rollup-title"><span className="eyebrow">CSV EXPORT</span><strong>Export unavailable-item reports</strong><small>Download the reports matching your current search, branch, and date filters.</small></span><span className="admin-record-rollup-meta">{loading ? "Loading…" : `${filteredItems.length} reports`} <Download size={15} /></span></summary>
+        <div className="admin-record-rollup-content">
+          <p className="panel-description">The CSV includes product name, branch, unavailable date, reported time, assessment status, and whether a photo is attached.</p>
+          <button className="secondary-button" type="button" onClick={exportCsv} disabled={loading || filteredItems.length === 0}><Download size={14} /> Export CSV</button>
+        </div>
+      </details>
       <p className="history-footnote">The list shows up to 90 days of records, including today. Older reports remain stored for future analysis and aren't deleted by this filter.</p>
       {editing && (
         <div className="modal-backdrop" role="presentation">
