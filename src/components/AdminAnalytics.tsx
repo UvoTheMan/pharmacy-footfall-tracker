@@ -198,6 +198,82 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const maxBranch = Math.max(1, ...branchStats.map((branch) => branch.total));
   const topBranch = [...branchStats].filter((item) => item.resolved > 0).sort((a, b) => b.conversion - a.conversion)[0];
 
+  const downloadAnalysisPdf = () => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pageWidth - margin * 2;
+    let y = 48;
+    const green: [number, number, number] = [23, 77, 59];
+    const muted: [number, number, number] = [105, 123, 111];
+    const ensure = (space: number) => { if (y + space > pageHeight - 16) { doc.addPage(); y = 18; } };
+    const section = (label: string) => {
+      ensure(13); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(green[0], green[1], green[2]);
+      doc.text(label, margin, y); y += 3; doc.setDrawColor(216, 230, 219); doc.line(margin, y, pageWidth - margin, y); y += 7;
+    };
+    const line = (label: string, value: string) => {
+      ensure(8); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(muted[0], muted[1], muted[2]); doc.text(label, margin, y);
+      doc.setFont("helvetica", "bold"); doc.setTextColor(39, 66, 49); doc.text(value, pageWidth - margin, y, { align: "right" }); y += 7;
+    };
+    const bars = (items: {label:string;value:number;color?:[number,number,number]}[]) => {
+      const max = Math.max(1, ...items.map(item => item.value));
+      items.forEach(item => {
+        ensure(10); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(53, 76, 61);
+        const label = doc.splitTextToSize(item.label, contentWidth * 0.48)[0] || item.label;
+        doc.text(label, margin, y + 2.5);
+        const x = margin + contentWidth * 0.51; const track = contentWidth * 0.35;
+        doc.setFillColor(238, 243, 239); doc.roundedRect(x, y - 1, track, 4, 1.5, 1.5, "F");
+        const color = item.color || [43, 139, 91]; doc.setFillColor(color[0], color[1], color[2]);
+        if (item.value > 0) doc.roundedRect(x, y - 1, Math.max(1, track * item.value / max), 4, 1.5, 1.5, "F");
+        doc.setFont("helvetica", "bold"); doc.setTextColor(39, 66, 49); doc.text(String(item.value), pageWidth - margin, y + 2.5, { align: "right" }); y += 9;
+      });
+      y += 2;
+    };
+    doc.setFillColor(23, 77, 59); doc.rect(0, 0, pageWidth, 40, "F");
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("FOOTLYTICS", margin, 15);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text("PHARMACY FOOTFALL INTELLIGENCE", margin, 22);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text((TABS.find(tab => tab.id === activeTab)?.label || "Analysis") + " report", margin, 30);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(startDate + " to " + endDate + " | " + (selectedBranchId === "all" ? "All branches combined" : (analysisBranches[0]?.name || "Selected branch")), margin, 36);
+    doc.setFontSize(8); doc.setTextColor(muted[0], muted[1], muted[2]); doc.text("Prepared from saved records. Comparisons are descriptive, not causal.", margin, y); y += 10;
+    section("Performance at a glance");
+    line("Total visits", analysisVisits.length.toLocaleString()); line("Purchases", purchases.toLocaleString()); line("No-purchase visits", noPurchase.toLocaleString()); line("Purchase conversion", conversion + "%");
+    section("Previous-period comparison");
+    line("Comparison dates", previousStartDate + " to " + previousEndDate);
+    comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " | " + (item.delta > 0 ? "+" : "") + item.delta + (item.percentagePoints ? " pp" : "") + (item.change === null ? " · no baseline" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)")));
+    if (activeTab === "overview") {
+      section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]);
+      section("Visits by weekday"); bars(weekdayStats.map(day => ({label:day.label,value:day.total})));
+      section("Branch snapshot"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total})));
+      section("Quick insights"); line("Purchase conversion", conversion + "%"); line("No-purchase rate", noPurchaseRate + "%");
+      if (topBranch) line("Highest branch conversion", topBranch.name + " · " + topBranch.conversion + "%");
+    } else if (activeTab === "branches") {
+      section("Branch performance"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total})));
+      branchStats.forEach(item => line(item.name + " · purchases / no purchase", item.purchases + " / " + item.noPurchase));
+    } else if (activeTab === "trends") {
+      section("Daily visits"); bars(dailyStats.filter(day => day.total > 0).map(day => ({label:day.date,value:day.total})));
+      section("Daily averages and peak days"); line("Average on recorded days", averageDailyFootfall.toFixed(1) + " visits");
+      line("Busiest recorded day", busiestDay ? busiestDay.date + " · " + busiestDay.total + " visits" : "No data");
+      line("Quietest recorded day", quietestRecordedDay ? quietestRecordedDay.date + " · " + quietestRecordedDay.total + " visits" : "No data");
+      line("Days with visits", String(activeDays.length)); section("Busy hours · Lagos time");
+      bars(busyHourStats.filter(hour => hour.total > 0).map(hour => ({label:hour.label,value:hour.total,color:[226,123,72]})));
+      line("Peak hour", peakHour ? peakHour.label + " · " + peakHour.total + " visits" : "No timestamped visits");
+    } else {
+      section("No-purchase reasons");
+      const colors: [number,number,number][] = [[226,123,72],[123,131,216],[35,149,168],[200,94,145],[123,155,69],[186,138,56]];
+      bars(reasonStats.map((item,index) => ({label:item.reason + " · " + percent(item.count,noPurchase) + "%",value:item.count,color:colors[index % colors.length]})));
+      section("Reasons by branch");
+      reasonBranchStats.forEach(branch => { line(branch.name, branch.total + " no-purchase visits"); bars(branch.reasons.slice(0,5).map((item,index) => ({label:item.reason,value:item.count,color:colors[index % colors.length]}))); });
+    }
+    const pages = doc.getNumberOfPages();
+    for (let page = 1; page <= pages; page++) {
+      doc.setPage(page); doc.setDrawColor(222, 232, 224); doc.line(margin, pageHeight - 11, pageWidth - margin, pageHeight - 11);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(muted[0], muted[1], muted[2]);
+      doc.text("FOOTLYTICS · INTERNAL MANAGEMENT REPORT", margin, pageHeight - 6); doc.text("Page " + page + " of " + pages, pageWidth - margin, pageHeight - 6, { align: "right" });
+    }
+    doc.save("Footlytics-" + activeTab + "-" + startDate + "-to-" + endDate + ".pdf");
+  };
+
   return (
     <section className="panel admin-analytics-panel" id="admin-analytics" aria-labelledby="admin-analytics-title">
       <div className="panel-heading">
