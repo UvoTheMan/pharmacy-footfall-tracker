@@ -18,16 +18,19 @@ type UnavailableItem = {
 
 type Props = { branches: Branch[]; profile: Profile; userId: string };
 
-const todayKey = () => new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
-}).format(new Date());
+const dateKey = (date: Date) => {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+};
+const todayKey = () => dateKey(new Date());
 
 function dateMinusDays(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(date);
+  const today = todayKey().split("-").map(Number);
+  const date = new Date(Date.UTC(today[0], today[1] - 1, today[2] - days, 12));
+  return dateKey(date);
 }
 
 function displayDate(value: string) {
