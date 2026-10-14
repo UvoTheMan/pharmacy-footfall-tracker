@@ -228,6 +228,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const maxBranch = Math.max(1, ...branchStats.map((branch) => branch.total));
   const topBranch = [...branchStats].filter((item) => item.resolved > 0).sort((a, b) => b.conversion - a.conversion)[0];
   const busiestBranch = [...branchStats].filter((item) => item.total > 0).sort((a, b) => b.total - a.total)[0];
+  const lowestConversionBranch = [...branchStats].filter((item) => item.resolved > 0).sort((a, b) => a.conversion - b.conversion)[0];
+  const mostNoPurchaseBranch = [...branchStats].filter((item) => item.noPurchase > 0).sort((a, b) => b.noPurchase - a.noPurchase)[0];
+  const mostUnavailableBranch = [...branchStats].filter((item) => item.unavailable > 0).sort((a, b) => b.unavailable - a.unavailable)[0];
 
   const downloadAnalysisPdf = () => {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -277,8 +280,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     }
     if (activeTab === "branches" && isVisible("branch-kpis")) {
       section("Branch summary metrics"); line("Branches included", String(branchStats.length));
-      line("Most visits at one branch", String(Math.max(0, ...branchStats.map(item => item.total))));
-      line("Highest branch conversion", (topBranch?.conversion ?? 0) + "%");
+      line("Branches with visits", String(branchStats.filter(item => item.total > 0).length));
+      line("Highest footfall branch", busiestBranch ? busiestBranch.name + " · " + busiestBranch.total + " visits" : "No data");
+      line("Highest branch conversion", topBranch ? topBranch.name + " · " + topBranch.conversion + "%" : "No data");
+      line("Lowest active branch conversion", lowestConversionBranch ? lowestConversionBranch.name + " · " + lowestConversionBranch.conversion + "%" : "No data");
+      line("Most no-purchase visits", mostNoPurchaseBranch ? mostNoPurchaseBranch.name + " · " + mostNoPurchaseBranch.noPurchase : "No data");
+      line("Most unavailable-item requests", mostUnavailableBranch ? mostUnavailableBranch.name + " · " + mostUnavailableBranch.unavailable : "No data");
     }
     if (activeTab === "reasons" && isVisible("reason-kpis")) {
       section("Reason summary metrics"); line("No-purchase visits", noPurchase.toLocaleString());
@@ -470,13 +477,11 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           <div hidden={!isVisible("branch-kpis")} className="history-summary analytics-kpis analytics-branch-summary">
             <div><strong>{branchStats.length}</strong><span>Branches included</span></div>
             <div><strong>{branchStats.filter((item) => item.total > 0).length}</strong><span>Branches with visits</span></div>
-            <div><strong>{analysisVisits.length.toLocaleString()}</strong><span>Total visits across scope</span></div>
-            <div><strong>{purchases.toLocaleString()}</strong><span>Total purchases</span></div>
-            <div><strong>{noPurchase.toLocaleString()}</strong><span>No-purchase visits</span></div>
-            <div><strong>{conversion}%</strong><span>Overall conversion</span></div>
-            <div><strong>{unavailableRequests.toLocaleString()}</strong><span>Unavailable-item requests</span></div>
-            <div><strong>{busiestBranch?.name ?? "No data"}</strong><span>Highest footfall branch</span></div>
-            <div><strong>{topBranch ? topBranch.name + " · " + topBranch.conversion + "%" : "No data"}</strong><span>Highest branch conversion</span></div>
+            <div><strong>{busiestBranch ? busiestBranch.name + " · " + busiestBranch.total : "No data"}</strong><span>Highest footfall branch (visits)</span></div>
+            <div><strong>{topBranch ? topBranch.name + " · " + topBranch.conversion + "%" : "No data"}</strong><span>Highest conversion</span></div>
+            <div><strong>{lowestConversionBranch ? lowestConversionBranch.name + " · " + lowestConversionBranch.conversion + "%" : "No data"}</strong><span>Lowest active conversion</span></div>
+            <div><strong>{mostNoPurchaseBranch ? mostNoPurchaseBranch.name + " · " + mostNoPurchaseBranch.noPurchase : "No data"}</strong><span>Most no-purchase visits</span></div>
+            <div><strong>{mostUnavailableBranch ? mostUnavailableBranch.name + " · " + mostUnavailableBranch.unavailable : "No data"}</strong><span>Most unavailable-item requests</span></div>
           </div>
           <div className="analytics-grid">
             <section hidden={!isVisible("branch-performance")} className="analytics-subpanel analytics-wide-subpanel">
