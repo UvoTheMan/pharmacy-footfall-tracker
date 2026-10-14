@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarDays, Clock3, Download, GitCompare, RefreshCw, Search, TrendingUp, Users } from "lucide-react";
-import { jsPDF } from "jspdf";
 import { supabase } from "../lib/supabase";
 import "./AdminAnalytics.css";
 
@@ -253,7 +252,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const mostNoPurchaseBranch = [...branchStats].filter((item) => item.noPurchase > 0).sort((a, b) => b.noPurchase - a.noPurchase)[0];
   const mostUnavailableBranch = [...branchStats].filter((item) => item.unavailable > 0).sort((a, b) => b.unavailable - a.unavailable)[0];
 
-  const downloadAnalysisPdf = () => {
+  const downloadAnalysisPdf = async () => {
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
