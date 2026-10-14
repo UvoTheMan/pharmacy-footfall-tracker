@@ -135,6 +135,16 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     return [...counts.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
   }, [visits]);
 
+  const reasonBranchStats = useMemo(() => branches.map((branch) => {
+    const branchNoPurchase = visits.filter((visit) => visit.branch_id === branch.id && visit.outcome === "not_purchased");
+    const counts = new Map<string, number>();
+    branchNoPurchase.forEach((visit) => {
+      const reason = visit.reason?.trim() || "Other / Unknown";
+      counts.set(reason, (counts.get(reason) ?? 0) + 1);
+    });
+    return { ...branch, total: branchNoPurchase.length, reasons: [...counts.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count) };
+  }), [branches, visits]);
+
   const weekdayStats = useMemo(() => {
     const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const totals = labels.map((label, index) => ({ label, index, total: 0, purchases: 0, noPurchase: 0 }));
@@ -345,12 +355,29 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           <section className="analytics-subpanel analytics-reasons-panel">
             <h3><Search size={16} /> No-purchase reasons</h3>
             <p className="analytics-help">Counts and percentages are based on no-purchase visits in the selected period. Blank reasons are grouped as Other / Unknown.</p>
-            {reasonStats.length === 0 ? <p className="corrections-empty">No no-purchase reasons recorded in this period.</p> : reasonStats.map((item) => (
-              <div className="analytics-reason-row" key={item.reason}>
+            {reasonStats.length === 0 ? <p className="corrections-empty">No no-purchase reasons recorded in this period.</p> : reasonStats.map((item, index) => {
+              const colors = ["#e27b48", "#7b83d8", "#2395a8", "#c85e91", "#7b9b45", "#ba8a38"];
+              return <div className="analytics-reason-row" key={item.reason}>
                 <div className="analytics-row-label"><strong>{item.reason}</strong><span>{item.count.toLocaleString()} · {percent(item.count, noPurchase)}%</span></div>
-                <div className="progress-track"><span className="progress-fill no-purchase-fill" style={{ width: `${item.count / Math.max(1, noPurchase) * 100}%` }} /></div>
-              </div>
-            ))}
+                <div className="progress-track"><span className="analytics-reason-fill" style={{ width: `${item.count / Math.max(1, noPurchase) * 100}%`, background: colors[index % colors.length] }} /></div>
+              </div>;
+            })}
+          </section>
+          <section className="analytics-subpanel analytics-reason-branch-panel">
+            <h3><GitCompare size={16} /> Reasons by branch</h3>
+            <p className="analytics-help">See which reasons are being recorded at each branch. Counts reflect no-purchase visits within the selected date range.</p>
+            <div className="analytics-reason-branch-grid">
+              {reasonBranchStats.map((branch) => <article className="analytics-reason-branch-card" key={branch.id}>
+                <div className="analytics-row-label"><strong>{branch.name}</strong><span>{branch.total} no-purchase visits</span></div>
+                {branch.reasons.length === 0 ? <p className="corrections-empty">No reasons recorded.</p> : branch.reasons.slice(0, 5).map((item, index) => {
+                  const colors = ["#e27b48", "#7b83d8", "#2395a8", "#c85e91", "#7b9b45", "#ba8a38"];
+                  return <div className="analytics-reason-branch-row" key={item.reason}>
+                    <div className="analytics-row-label"><span>{item.reason}</span><strong>{item.count}</strong></div>
+                    <div className="progress-track"><span style={{ width: `${item.count / Math.max(1, branch.total) * 100}%`, background: colors[index % colors.length] }} /></div>
+                  </div>;
+                })}
+              </article>)}
+            </div>
           </section>
         </div>
       )}
