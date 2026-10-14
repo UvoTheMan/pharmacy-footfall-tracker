@@ -242,6 +242,16 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         ))}
       </nav>
       <p className="analytics-tab-description">{TABS.find((tab) => tab.id === activeTab)?.description}</p>
+      <div className="analytics-action-row">
+        <span><strong>Period comparison</strong><small>{previousStartDate} to {previousEndDate} vs {startDate} to {endDate}</small></span>
+        <button type="button" className="analytics-export-button" onClick={downloadAnalysisPdf} disabled={loading || Boolean(error)}><Download size={15} /> Export current view to PDF</button>
+      </div>
+      <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
+        {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
+          <span>{item.label}</span><strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
+          <small className={item.delta > 0 ? "comparison-up" : item.delta < 0 ? "comparison-down" : ""}>{item.delta > 0 ? "+" : ""}{item.delta}{item.percentagePoints ? " pp" : ""} vs previous {item.change === null ? "· no baseline" : "(" + (item.change > 0 ? "+" : "") + item.change + "%)"}</small>
+        </article>)}
+      </section>
 
       {activeTab === "overview" && (
         <div className="analytics-tab-content">
