@@ -264,9 +264,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               <h3><TrendingUp size={16} /> Quick insights</h3>
               {analysisVisits.length === 0 ? <p className="corrections-empty">No visits were recorded in this reporting period.</p> : (
                 <ul className="analytics-insight-list">
-                  <li><strong>{conversion}%</strong> purchase conversion among visits with a resolved outcome.</li>
-                  <li><strong>{noPurchaseRate}%</strong> of resolved visits ended without a purchase.</li>
-                  <li>{topBranch ? selectedBranchId === "all" ? <><strong>{topBranch.name}</strong> has the highest conversion among branches with resolved visits.</> : <>The selected branch, <strong>{topBranch.name}</strong>, has a conversion rate of <strong>{topBranch.conversion}%</strong>.</> : "There are not yet enough resolved visits to compare branch conversion."}</li>
+                  <li><strong>{conversion}%</strong> purchase conversion across all recorded visits.</li>
+                  <li><strong>{noPurchaseRate}%</strong> of recorded visits ended without a purchase.</li>
+                  <li>{topBranch ? selectedBranchId === "all" ? <><strong>{topBranch.name}</strong> has the highest conversion among branches with recorded visits.</> : <>The selected branch, <strong>{topBranch.name}</strong>, has a conversion rate of <strong>{topBranch.conversion}%</strong>.</> : "There are not yet enough recorded visits to compare branch conversion."}</li>
 
                 </ul>
               )}
@@ -328,7 +328,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <div className="analytics-weekday-chart">
                   {weekdayStats.map((day) => {
                     const rate = percent(day.purchases, day.purchases + day.noPurchase);
-                    return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${day.purchases + day.noPurchase} resolved visits`}>
+                    return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${day.purchases + day.noPurchase} visits`}>
                       <strong>{day.purchases + day.noPurchase ? `${rate}%` : "—"}</strong><span className="analytics-weekday-track conversion-track"><i style={{ height: `${Math.max(rate ? 5 : 2, rate)}%` }} /></span><small>{day.label}</small>
                     </div>;
                   })}
