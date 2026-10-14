@@ -109,12 +109,20 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") void loadItems();
     };
+    const recoverFromBrowserRestore = (event: PageTransitionEvent) => {
+      // Mobile Chrome can restore a frozen page from its back-forward cache
+      // with stale component state. Reload only when the browser confirms that
+      // this document was restored from that cache.
+      if (event.persisted) window.location.reload();
+    };
     void loadItems();
     window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("pageshow", recoverFromBrowserRestore);
     return () => {
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("pageshow", recoverFromBrowserRestore);
     };
   }, [loadItems]);
 
