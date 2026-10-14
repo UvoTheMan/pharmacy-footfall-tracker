@@ -489,7 +489,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <ul className="analytics-insight-list">
                   <li><strong>{conversion}%</strong> purchase conversion among resolved visits (purchased or no purchase).</li>
                   <li><strong>{noPurchaseRate}%</strong> of recorded visits ended without a purchase.</li>
-                  <li>{topBranch ? selectedBranchId === "all" ? <><strong>{topBranch.name}</strong> has the highest conversion among branches with recorded visits.</> : <>The selected branch, <strong>{topBranch.name}</strong>, has a conversion rate of <strong>{topBranch.conversion}%</strong>.</> : "There are not yet enough recorded visits to compare branch conversion."}</li>
+                  <li>{topBranch ? selectedBranchId === "all" ? <><strong>{topBranch.name}</strong> has the highest conversion among branches with resolved visits.</> : <>The selected branch, <strong>{topBranch.name}</strong>, has a conversion rate of <strong>{topBranch.conversion}%</strong>.</> : "There are not yet enough recorded visits to compare branch conversion."}</li>
 
                 </ul>
               )}
@@ -535,7 +535,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </section>
             <section hidden={!isVisible("branch-performance")} className="analytics-subpanel analytics-wide-subpanel">
               <h3><GitCompare size={16} /> {selectedBranchId === "all" ? "Branch performance comparison" : "Selected branch performance"}</h3>
-              <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion is purchases divided by all recorded visits.</p>
+              <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion is purchases divided by resolved visits (purchased or no purchase); undecided visits are excluded.</p>
               {branchStats.map((item) => (
                 <div className="analytics-branch-row" key={item.id}>
                   <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.conversion}% conversion</span></div>
@@ -582,7 +582,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <p className="analytics-help">See whether visits on each weekday more often result in purchases or no purchase.</p>
             <div className="analytics-weekday-outcomes">
               {weekdayStats.map((day) => { const total = day.purchases + day.noPurchase; return <div className="analytics-weekday-outcome" key={day.label}>
-                <div className="analytics-row-label"><strong>{day.label}</strong><span>{total} visits · {percent(day.purchases, total)}% conversion</span></div>
+                <div className="analytics-row-label"><strong>{day.label}</strong><span>{total} resolved visits · {percent(day.purchases, total)}% conversion</span></div>
                 <div className="analytics-stacked-bar" aria-label={`${day.label}: ${day.purchases} purchases, ${day.noPurchase} no purchase`}>
                   <span className="analytics-stack-purchased" style={{ width: `${day.purchases / Math.max(1, total) * 100}%` }} />
                   <span className="analytics-stack-no-purchase" style={{ width: `${day.noPurchase / Math.max(1, total) * 100}%` }} />
@@ -618,7 +618,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <div className="analytics-weekday-chart">
                   {weekdayStats.map((day) => {
                     const rate = percent(day.purchases, day.purchases + day.noPurchase);
-                    return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${day.purchases + day.noPurchase} visits`}>
+                    return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${day.purchases + day.noPurchase} resolved visits`}>
                       <strong>{day.purchases + day.noPurchase ? `${rate}%` : "—"}</strong><span className="analytics-weekday-track conversion-track"><i style={{ height: `${Math.max(rate ? 5 : 2, rate)}%` }} /></span><small>{day.label}</small>
                     </div>;
                   })}
@@ -626,7 +626,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               </section>
               <section hidden={!isVisible("outcome-totals")} className="analytics-subpanel analytics-chart-card">
                 <h3><Users size={16} /> Outcome totals</h3>
-                <p className="analytics-help">Counts and share of all recorded visits.</p>
+                <p className="analytics-help">Counts and share of all recorded visits, including undecided visits.</p>
                 <div className="analytics-legend">
                   {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, analysisVisits.length)}%</small></div>)}
                 </div>
