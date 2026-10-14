@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, Edit3, Search, X } from "lucide-react";
+import { CalendarDays, Check, Download, Edit3, Search, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type Branch = { id: string; name: string };
@@ -135,6 +135,33 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     }
   }
 
+  function exportCsv() {
+    const columns = ["Product name", "Branch", "Unavailable date", "Reported time", "Assessment status", "Photo attached"];
+    const escapeCell = (value: string) => {
+      // Prevent spreadsheet formulas from running when the CSV is opened.
+      const safe = /^[=+@\\-\\t\\r]/.test(value) ? "'" + value : value;
+      return '"' + safe.replace(/"/g, '""') + '"';
+    };
+    const rows = filteredItems.map((item) => [
+      item.item_name,
+      item.branches?.name ?? branches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable",
+      item.reported_on,
+      new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(item.recorded_at)),
+      item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved",
+      item.image_path ? "Yes" : "No",
+    ]);
+    const csv = "\\uFEFF" + [columns, ...rows].map((row) => row.map((cell) => escapeCell(String(cell ?? ""))).join(",")).join("\\r\\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `footlytics-unavailable-items-${todayKey()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setNotice(`Exported ${filteredItems.length} unavailable-item report${filteredItems.length === 1 ? "" : "s"} as CSV.`);
+  }
+
   const ownReport = (item: UnavailableItem) => item.created_by === userId;
 
   return (
@@ -153,7 +180,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         <label className="history-date-field"><span>To date</span><input type="date" min={dateMinusDays(89)} max={todayKey()} value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
         <button className="primary-button unavailable-search-button" type="submit"><Search size={15} /> Search records</button>
       </form>
-      <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); }}>Reset filters</button></div>
+      <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={exportCsv} disabled={loading || filteredItems.length === 0}><Download size={14} /> Export CSV</button><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); }}>Reset filters</button></div></div>
       {filteredItems.length === 0 && !loading ? <div className="corrections-empty">No unavailable-item reports match these filters.</div> : (
         <div className="unavailable-record-list">
           {filteredItems.map((item) => (
