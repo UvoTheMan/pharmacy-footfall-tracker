@@ -277,7 +277,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setNotice(`Exported ${exportRows.length} unavailable-item report${exportRows.length === 1 ? "" : "s"} for ${exportFromDate} to ${exportToDate} as CSV.`);
     } catch (exportError) {
       setError("Could not export unavailable-item reports: " + (exportError instanceof Error ? exportError.message : "Please try again."));
