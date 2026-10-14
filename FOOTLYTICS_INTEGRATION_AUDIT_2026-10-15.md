@@ -14,13 +14,20 @@
 - The feature branch also contains wider UI/CSS work in `src/styles.css`; do not copy that whole file into the integration branch because it includes unrelated application changes.
 - The unavailable-items migrations are not part of the analytics PR diff and must not be pulled in merely to get the analytics dashboard.
 
-## Required before implementation
-1. Adapt the enhanced analytics calculations to handle `undecided` visits consistently with the current app and agree on the conversion denominator.
-2. Port only the analytics component and its dedicated CSS, adding the required PDF dependency in isolation.
-3. Check CSS selectors against `main` and avoid copying unrelated global styles.
-4. Run the project's build/checks on the integration branch and inspect the resulting Preview before considering any release.
-5. Keep the known manual-backup blocker visible and resolve it separately; do not imply that this audit resolves it.
+## Changes applied on the integration branch
+- Ported the enhanced `AdminAnalytics.tsx` and its dedicated `AdminAnalytics.css` only; no global stylesheet or unrelated feature files were copied.
+- Added `jspdf ^3.0.1` to `package.json` for report export. This repository has no `package-lock.json` on `main`.
+- Updated analytics outcome typing to support `undecided` visits.
+- Updated current and previous conversion calculations to exclude `undecided` visits from the conversion denominator, matching the current `main` implementation.
+- Added `Undecided` to the outcome distribution so visit outcomes are not silently omitted.
+- Did not copy the unavailable-item migrations or unrelated global CSS.
+
+## Verification still required
+1. Confirm the latest Vercel Preview build completes successfully. An earlier intermediate commit failed because the component was committed before the PDF dependency; the later commit includes the dependency and is still building as of this audit update.
+2. Check analytics sections, date ranges, previous-period comparisons, PDF export, reason breakdowns, and branch filters in Preview.
+3. Verify the reason summary against real saved records.
+4. Keep the known manual-backup blocker visible and resolve it separately; this audit does not resolve it.
 
 ## Current status
-- No application code has been changed on this integration branch.
-- No Production resources have been changed.
+- Application changes are isolated to the integration branch and are not merged to `main`.
+- No Production database, environment, or deployment has been changed.
