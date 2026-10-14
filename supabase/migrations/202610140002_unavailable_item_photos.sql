@@ -50,6 +50,23 @@ USING (
   )
 );
 
+-- Permit cleanup of an uploaded photo only while it is not referenced by a report.
+DROP POLICY IF EXISTS "Owners can remove unlinked unavailable-item photos" ON storage.objects;
+CREATE POLICY "Owners can remove unlinked unavailable-item photos"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+  bucket_id = 'unavailable-item-photos'
+  AND split_part(name, '/', 1) = (SELECT auth.uid())::text
+  AND EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.user_id = (SELECT auth.uid()) AND p.active = true
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM public.unavailable_items ui
+    WHERE ui.image_path = storage.objects.name
+  )
+);
+
 DROP FUNCTION IF EXISTS public.record_unavailable_item(uuid, text, text, text);
 CREATE OR REPLACE FUNCTION public.record_unavailable_item(
   p_branch_id uuid,

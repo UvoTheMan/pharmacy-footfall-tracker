@@ -59,11 +59,6 @@ def main():
             date = datetime.now(ZoneInfo("Africa/Lagos")).date().isoformat()
         start_date = start_date or date
         end_date = end_date or date
-
-    report_scope = os.environ.get("BACKUP_REPORT_SCOPE", "all").strip().lower() or "all"
-    valid_scopes = {"all", *(slug for slug, _ in BRANCHES)}
-    if report_scope not in valid_scopes:
-        raise RuntimeError("Report scope must be all or one valid branch slug.")
     try:
         for value in (start_date, end_date):
             parsed = datetime.strptime(value, "%Y-%m-%d")
@@ -74,6 +69,11 @@ def main():
     except ValueError as exc:
         raise RuntimeError("Backup start/end dates must be valid YYYY-MM-DD dates, with start no later than end.") from exc
     period_label = start_date if start_date == end_date else f"{start_date}_to_{end_date}"
+
+    report_scope = os.environ.get("BACKUP_REPORT_SCOPE", "all").strip().lower() or "all"
+    valid_scopes = {"all", *(slug for slug, _ in BRANCHES)}
+    if report_scope not in valid_scopes:
+        raise RuntimeError("Report scope must be all or one valid branch slug.")
 
     branches = get_json(f"{base}/rest/v1/branches?select=id,slug,name", key)
     by_id = {item["id"]: item for item in branches}
@@ -131,55 +131,72 @@ def main():
         print("Dry run: no email sent.")
         return
 
-    resend_key = env("RESEND_API_KEY")
-    from_email = env("BACKUP_FROM_EMAIL")
     recipients = list(dict.fromkeys(a.strip() for a in env("BACKUP_RECIPIENTS").split(",") if a.strip()))
     if not recipients or any("@" not in address for address in recipients):
         raise RuntimeError("Configure valid comma-separated recipient email addresses.")
 
-    scope_label = "all branches and combined report" if report_scope == "all" else f"{report_scope.title()} branch only"
+    provider = os.environ.get("BACKUP_EMAIL_PROVIDER", "smtp").strip().lower()
+    if provider == "smtp":
+        # Keep the existing scheduled email delivery path unchanged.
+        sender = env("SMTP_USERNAME")
+        password = env("SMTP_APP_PASSWORD").replace(" ", "")
+        msg = EmailMessage()
+        msg["From"] = sender
+        msg["To"] = ", ".join(recipients)
+        scope_label = "all three branch reports plus the combined report" if report_scope == "all" else f"{report_scope.title()} branch report only"
+        msg["Subject"] = f"Footlytics CSV backup - {period_label}"
+        msg.set_content(f"Attached are the Footlytics CSV report(s) for {scope_label}, covering Lagos dates {start_date} through {end_date}. Total visits in this scope: {len(visits)}.")
+        for filename, content in attachments:
+            msg.add_attachment(content, maintype="text", subtype="csv", filename=filename)
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context(), timeout=45) as smtp:
+            smtp.login(sender, password)
+            smtp.send_message(msg)
+        print("Backup email sent successfully via existing SMTP delivery.")
+    elif provider == "resend":
+        resend_key = env("RESEND_API_KEY")
+        from_email = env("BACKUP_FROM_EMAIL")
+        scope_label = "all branches and combined report" if report_scope == "all" else f"{report_scope.title()} branch only"
+        import base64
+        import urllib.error
 
-    # Use the same Resend delivery service as the automatic backup. Do not retry
-    # failed sends automatically because delivery can be uncertain after a timeout.
-    import base64
-    import urllib.error
-
-    payload = {
-        "from": from_email,
-        "to": recipients,
-        "subject": f"Footlytics CSV backup - {period_label}",
-        "text": (
-            f"Attached are the Footlytics CSV report(s) for {scope_label}, "
-            f"covering Lagos dates {start_date} through {end_date}. "
-            f"Total visits in this scope: {len(visits)}."
-        ),
-        "attachments": [
-            {"filename": filename, "content": base64.b64encode(content).decode("ascii")}
-            for filename, content in attachments
-        ],
-    }
-    request = Request(
-        "https://api.resend.com/emails",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {resend_key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urlopen(request, timeout=45) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            print(f"Backup email accepted by Resend. Email ID: {result.get('id', 'not returned')}")
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")[:1000]
-        raise RuntimeError(f"Resend rejected the backup email (HTTP {error.code}): {detail}") from error
-    except Exception as error:
-        raise RuntimeError(
-            f"Could not confirm Resend email submission ({type(error).__name__}). "
-            "Check the recipient inbox before retrying."
-        ) from error
+        payload = {
+            "from": from_email,
+            "to": recipients,
+            "subject": f"Footlytics CSV backup - {period_label}",
+            "text": (
+                f"Attached are the Footlytics CSV report(s) for {scope_label}, "
+                f"covering Lagos dates {start_date} through {end_date}. "
+                f"Total visits in this scope: {len(visits)}."
+            ),
+            "attachments": [
+                {"filename": filename, "content": base64.b64encode(content).decode("ascii")}
+                for filename, content in attachments
+            ],
+        }
+        request = Request(
+            "https://api.resend.com/emails",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=45) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                print(f"Backup email accepted by Resend. Email ID: {result.get('id', 'not returned')}")
+        except urllib.error.HTTPError as error:
+            detail = error.read().decode("utf-8", errors="replace")[:1000]
+            raise RuntimeError(f"Resend rejected the backup email (HTTP {error.code}): {detail}") from error
+        except Exception as error:
+            raise RuntimeError(
+                f"Could not confirm Resend email submission ({type(error).__name__}). "
+                "Check the recipient inbox before retrying."
+            ) from error
+    else:
+        raise RuntimeError("BACKUP_EMAIL_PROVIDER must be smtp or resend.")
 
 
 
