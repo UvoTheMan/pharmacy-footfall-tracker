@@ -30,13 +30,13 @@
 - If staff closes the prompt for later, the visit is still recorded with an outstanding product-details marker. Recent visits lets staff add the product details later.
 - Added the shared unavailable-items register for staff and admins, with search, branch/date filters, optional photo viewing, name correction, and CSV export. Admins can update assessment status and bulk-mark reports reviewed/resolved.
 - Added the three unavailable-items SQL migrations to this release branch. These are code files only; no database migration was applied by this work.
-- Read-only inspection confirms the staging database already has `public.unavailable_items` (11 rows) and migration records for the register and photo protections. Production has not been modified.
+- Read-only inspection confirms staging already has `public.unavailable_items` (11 rows), the `record_unavailable_item` RPC with the photo-path parameter, and migration records for the register/photo protections. Production currently has no `public.unavailable_items` table, so this feature will not function in Production until the three reviewed migrations are deliberately applied there. No database migration was applied by this work.
 - The feature was restored to the release scope after it was incorrectly omitted in the first integration pass.
 
 ## Build verification
 - Vercel Preview build is **READY** for the current integration branch, including analytics and unavailable-item entry/register.
-- Latest Preview URL: https://pharmacy-footfall-tracker-qsht2bsbd-uvothemans-projects.vercel.app
-- Verified code build commit: `c21a9c1869e5a50c2791a46cf43a72c5370ce991` (unavailable-item feature wired into the app and both outcomes correctly flagged). The subsequent audit-document commit also built successfully.
+- Latest Preview URL: https://pharmacy-footfall-tracker-99tw3gbbx-uvothemans-projects.vercel.app
+- Latest successful deployment is for audit commit `08e517cea1f653f01c8d2f14d277af9b061269ee`; the application code commit `c21a9c1869e5a50c2791a46cf43a72c5370ce991` also built successfully.
 - An earlier intermediate build failed due to a missing closing JSX brace in the undecided chart segment. That was fixed before the successful build.
 - The Vercel web page could not be inspected through the available browser/search view. Interactive Preview testing remains required.
 
