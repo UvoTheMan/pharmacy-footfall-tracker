@@ -330,3 +330,16 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .unavailable-item-input:focus{border-color:#7fb39a;box-shadow:0 0 0 3px #e8f4ec}
 @media(max-width:760px){.unavailable-search{grid-template-columns:1fr 1fr}.unavailable-search-name{grid-column:1/-1}.unavailable-record{align-items:flex-start;flex-direction:column}.unavailable-record-actions{width:100%}.unavailable-search-button{max-width:none}}
 @media(max-width:520px){.unavailable-search{grid-template-columns:1fr}.unavailable-search-name{grid-column:auto}.unavailable-record-meta{flex-direction:column;gap:5px}}
+
+
+/* Optional photos for unavailable-item reports */
+.unavailable-photo-input{display:block;width:100%;padding:11px;border:1px dashed #cddbd0;border-radius:9px;background:#f8fbf8;color:#53635a;font-size:11px}
+.unavailable-photo-preview{display:flex;align-items:center;gap:12px;margin-top:12px;padding:10px;border:1px solid #e3e9e4;border-radius:10px;background:#fbfcfb;min-width:0}
+.unavailable-photo-preview img{width:76px;height:76px;object-fit:cover;border-radius:8px;background:#edf2ed;flex-shrink:0}
+.unavailable-photo-preview>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.unavailable-photo-preview strong{font-size:11px;overflow-wrap:anywhere;color:#344a3d}
+.unavailable-photo-preview small{font-size:10px;color:#87958b}
+.unavailable-photo-preview .text-button{align-self:flex-start}
+.unavailable-record-photo{display:block;flex-shrink:0;width:70px;height:70px;border-radius:9px;overflow:hidden;border:1px solid #e2e9e3}
+.unavailable-record-photo img{display:block;width:100%;height:100%;object-fit:cover}
+@media(max-width:760px){.unavailable-record-photo{width:82px;height:82px}}
