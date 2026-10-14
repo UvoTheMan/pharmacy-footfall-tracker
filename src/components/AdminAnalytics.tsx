@@ -266,33 +266,33 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text((TABS.find(tab => tab.id === activeTab)?.label || "Analysis") + " report", margin, 30);
     doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(startDate + " to " + endDate + " | " + (selectedBranchId === "all" ? "All branches combined" : (analysisBranches[0]?.name || "Selected branch")), margin, 36);
     doc.setFontSize(8); doc.setTextColor(muted[0], muted[1], muted[2]); doc.text("Prepared from saved records. Comparisons are descriptive, not causal.", margin, y); y += 10;
-    section("Performance at a glance");
-    line("Total visits", analysisVisits.length.toLocaleString()); line("Purchases", purchases.toLocaleString()); line("No-purchase visits", noPurchase.toLocaleString()); line("Purchase conversion", conversion + "%");
-    section("Previous-period comparison");
-    line("Comparison dates", previousStartDate + " to " + previousEndDate);
-    comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " | " + (item.delta > 0 ? "+" : "") + item.delta + (item.percentagePoints ? " pp" : "") + (item.change === null ? " · no baseline" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)")));
+    if (activeTab === "overview" || activeTab === "branches" || activeTab === "reasons") section("Performance at a glance");
+    if (activeTab !== "overview" || isVisible("kpi-visits")) line("Total visits", analysisVisits.length.toLocaleString()); if (activeTab !== "overview" || isVisible("kpi-purchases")) line("Purchases", purchases.toLocaleString()); if (activeTab !== "overview" || isVisible("kpi-no-purchase")) line("No-purchase visits", noPurchase.toLocaleString()); if (activeTab !== "overview" || isVisible("kpi-conversion")) line("Purchase conversion", conversion + "%"); if (activeTab === "overview" && isVisible("kpi-unavailable")) line("Unavailable-item requests", unavailableRequests.toLocaleString());
+    if (isVisible("comparison")) section("Previous-period comparison");
+    if (isVisible("comparison")) line("Comparison dates", previousStartDate + " to " + previousEndDate);
+    if (isVisible("comparison")) comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " | " + (item.delta > 0 ? "+" : "") + item.delta + (item.percentagePoints ? " pp" : "") + (item.change === null ? " · no baseline" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)")));
     if (activeTab === "overview") {
-      section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]);
-      section("Visits by weekday"); bars(weekdayStats.map(day => ({label:day.label,value:day.total})));
-      section("Branch snapshot"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total})));
-      section("Quick insights"); line("Purchase conversion", conversion + "%"); line("No-purchase rate", noPurchaseRate + "%");
+      if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]); }
+      if (isVisible("weekday")) { section("Visits by weekday"); bars(weekdayStats.map(day => ({label:day.label,value:day.total}))); }
+      if (isVisible("branch-snapshot")) { section("Branch snapshot"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total}))); }
+      if (isVisible("insights")) { section("Quick insights"); line("Purchase conversion", conversion + "%"); line("No-purchase rate", noPurchaseRate + "%"); }
       if (topBranch) line("Highest branch conversion", topBranch.name + " · " + topBranch.conversion + "%");
     } else if (activeTab === "branches") {
-      section("Branch performance"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total})));
+      if (isVisible("branch-performance")) { section("Branch performance"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total}))); }
       branchStats.forEach(item => line(item.name + " · purchases / no purchase", item.purchases + " / " + item.noPurchase));
     } else if (activeTab === "trends") {
-      section("Daily visits"); bars(dailyStats.filter(day => day.total > 0).map(day => ({label:day.date,value:day.total})));
-      section("Daily averages and peak days"); line("Average on recorded days", averageDailyFootfall.toFixed(1) + " visits");
+      if (isVisible("daily-trend")) { section("Daily visits"); bars(dailyStats.filter(day => day.total > 0).map(day => ({label:day.date,value:day.total}))); }
+      if (isVisible("daily-averages")) { section("Daily averages and peak days"); line("Average on recorded days", averageDailyFootfall.toFixed(1) + " visits");
       line("Busiest recorded day", busiestDay ? busiestDay.date + " · " + busiestDay.total + " visits" : "No data");
       line("Quietest recorded day", quietestRecordedDay ? quietestRecordedDay.date + " · " + quietestRecordedDay.total + " visits" : "No data");
-      line("Days with visits", String(activeDays.length)); section("Busy hours · Lagos time");
-      bars(busyHourStats.filter(hour => hour.total > 0).map(hour => ({label:hour.label,value:hour.total,color:[226,123,72]})));
+      line("Days with visits", String(activeDays.length)); } if (isVisible("hourly")) section("Busy hours · Lagos time");
+      if (isVisible("hourly")) bars(busyHourStats.filter(hour => hour.total > 0).map(hour => ({label:hour.label,value:hour.total,color:[226,123,72]})));
       line("Peak hour", peakHour ? peakHour.label + " · " + peakHour.total + " visits" : "No timestamped visits");
     } else {
-      section("No-purchase reasons");
+      if (isVisible("reason-breakdown")) section("No-purchase reasons");
       const colors: [number,number,number][] = [[226,123,72],[123,131,216],[35,149,168],[200,94,145],[123,155,69],[186,138,56]];
-      bars(reasonStats.map((item,index) => ({label:item.reason + " · " + percent(item.count,noPurchase) + "%",value:item.count,color:colors[index % colors.length]})));
-      section("Reasons by branch");
+      if (isVisible("reason-breakdown")) bars(reasonStats.map((item,index) => ({label:item.reason + " · " + percent(item.count,noPurchase) + "%",value:item.count,color:colors[index % colors.length]})));
+      if (isVisible("reason-branches")) section("Reasons by branch");
       reasonBranchStats.forEach(branch => { line(branch.name, branch.total + " no-purchase visits"); bars(branch.reasons.slice(0,5).map((item,index) => ({label:item.reason,value:item.count,color:colors[index % colors.length]}))); });
     }
     const pages = doc.getNumberOfPages();
