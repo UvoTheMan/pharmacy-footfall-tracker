@@ -147,9 +147,11 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     setError("");
     const result = await supabase.from("unavailable_items")
       .update({ item_name: cleanName })
-      .eq("id", editing.id);
-    if (result.error) {
-      setError("Could not correct this report: " + result.error.message);
+      .eq("id", editing.id)
+      .select("id")
+      .maybeSingle();
+    if (result.error || !result.data) {
+      setError("Could not correct this report: " + (result.error?.message ?? "The report was not updated. Check your access and refresh the register."));
       setSaving(false);
       return;
     }
@@ -185,9 +187,15 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     setBulkSaving(true);
     setError("");
     setNotice("");
-    const result = await supabase.from("unavailable_items").update({ status }).in("id", visibleSelected.map((item) => item.id));
+    const result = await supabase.from("unavailable_items")
+      .update({ status })
+      .in("id", visibleSelected.map((item) => item.id))
+      .select("id");
     if (result.error) {
       setError("Could not update selected reports: " + result.error.message);
+    } else if ((result.data ?? []).length !== visibleSelected.length) {
+      setError("Not all selected reports were updated. Refresh the register and check your permissions.");
+      await loadItems();
     } else {
       setNotice(`${visibleSelected.length} report${visibleSelected.length === 1 ? "" : "s"} marked ${status}.`);
       setSelectedIds((current) => {
@@ -203,9 +211,14 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
   async function updateStatus(item: UnavailableItem, status: UnavailableItem["status"]) {
     if (!supabase || profile.role !== "admin") return;
     setError("");
-    const result = await supabase.from("unavailable_items").update({ status }).eq("id", item.id);
-    if (result.error) setError("Could not update assessment status: " + result.error.message);
-    else {
+    const result = await supabase.from("unavailable_items")
+      .update({ status })
+      .eq("id", item.id)
+      .select("id")
+      .maybeSingle();
+    if (result.error || !result.data) {
+      setError("Could not update assessment status: " + (result.error?.message ?? "The report was not updated. Refresh the register and check your permissions."));
+    } else {
       setNotice("Assessment status updated.");
       await loadItems();
     }
