@@ -23,6 +23,16 @@
 - Corrected branch no-purchase-rate denominator to exclude undecided visits.
 - Kept unrelated global CSS, unavailable-item migrations, and other development-branch features out of this integration.
 
+## Unavailable-items feature now included
+- Added the staff entry prompt for recording the unavailable product name and an optional JPG/PNG/WebP photo (up to 5 MB).
+- When staff chooses the "Item unavailable" no-purchase reason, the product details prompt opens; "Purchased, but requested item unavailable" also opens it.
+- Visit and product details are saved together through the `record_unavailable_item` database function when details are provided.
+- If staff closes the prompt for later, the visit is still recorded with an outstanding product-details marker. Recent visits lets staff add the product details later.
+- Added the shared unavailable-items register for staff and admins, with search, branch/date filters, optional photo viewing, name correction, and CSV export. Admins can update assessment status and bulk-mark reports reviewed/resolved.
+- Added the three unavailable-items SQL migrations to this release branch. These are code files only; no database migration was applied by this work.
+- Read-only inspection confirms the staging database already has `public.unavailable_items` (11 rows) and migration records for the register and photo protections. Production has not been modified.
+- The feature was restored to the release scope after it was incorrectly omitted in the first integration pass.
+
 ## Build verification
 - Vercel Preview build is **READY** for code commit `8805d63f6b5a81ff098946e511eb4d1bfbb8c436` (PDF export lazy-loaded).
 - Preview URL: https://pharmacy-footfall-tracker-pec4o1td0-uvothemans-projects.vercel.app
@@ -38,4 +48,4 @@
 ## Current status
 - Integration is isolated to this release branch and is not merged into `main`.
 - No Production database, environment, or deployment has been changed.
-- Do not merge or deploy until interactive Preview testing is complete and the manual-backup release decision is made.
+- Do not merge or deploy until interactive Preview testing covers analytics and unavailable-item entry/register, and the manual-backup release decision is made.
