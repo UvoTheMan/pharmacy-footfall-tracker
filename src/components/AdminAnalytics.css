@@ -1,0 +1,32 @@
+/* Dedicated navigation and responsive layout for the admin analytics sections. */
+.analytics-range-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:-3px 0 14px}
+.analytics-range-row .analytics-range{margin:0}
+.analytics-record-count{font-size:10px;color:#6f8275;font-weight:700}
+.analytics-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:16px 0 0;padding:6px;border:1px solid #e3ebe4;border-radius:13px;background:#f7faf7}
+.analytics-tab{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;min-height:43px;padding:10px 12px;border:1px solid transparent;border-radius:9px;background:transparent;color:#607568;font-size:12px;font-weight:700;transition:background .15s,border-color .15s,color .15s}
+.analytics-tab:hover{background:#edf5ef;color:#24573c}
+.analytics-tab.active{background:#fff;border-color:#dce8de;color:#174d3b;box-shadow:0 2px 7px #173b300b}
+.analytics-tab.active svg{color:#278456}
+.analytics-tab-description{margin:12px 0 15px;color:#7e8e83;font-size:11px;line-height:1.6}
+.analytics-tab-content{min-width:0;animation:analytics-tab-enter .16s ease-out}
+@keyframes analytics-tab-enter{from{opacity:.65;transform:translateY(2px)}to{opacity:1;transform:translateY(0)}}
+.analytics-insight-panel{background:linear-gradient(180deg,#fbfdfb 0%,#fff 100%)}
+.analytics-insight-list{display:grid;gap:13px;margin:15px 0 8px;padding-left:18px;color:#617468;font-size:12px;line-height:1.65}
+.analytics-insight-list li::marker{color:#3c9366}
+.analytics-insight-list strong{color:#214b37}
+.analytics-wide-subpanel{grid-column:1/-1}
+.analytics-reasons-panel{margin-top:0}
+.analytics-trend-summary{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid #edf1ed;color:#7d8b82;font-size:11px}
+.analytics-trend-summary span{display:flex;align-items:center;gap:6px}
+.analytics-trend-summary strong{color:#2f5942}
+@media(max-width:700px){
+  .analytics-tabs{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:5px}
+  .analytics-tab{justify-content:flex-start;padding:10px;font-size:11px}
+  .analytics-tab-description{margin-bottom:12px}
+  .analytics-range-row{align-items:flex-start;flex-direction:column;gap:5px}
+  .analytics-wide-subpanel{grid-column:auto}
+}
+@media(max-width:380px){
+  .analytics-tab{gap:6px;padding:9px 7px;font-size:10px}
+  .analytics-tab svg{width:14px;height:14px;flex-shrink:0}
+}
