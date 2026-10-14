@@ -83,3 +83,16 @@
 .analytics-reason-branch-row .progress-track{height:6px;margin-top:6px}
 .analytics-reason-branch-row .progress-track>span{display:block;height:100%;border-radius:999px}
 @media(max-width:700px){.analytics-reason-branch-grid{grid-template-columns:1fr}}
+
+
+/* Interactive branch scope and quick date presets. */
+.analytics-branch-field{min-width:190px}
+.analytics-branch-field select{display:block;width:100%;min-height:38px;padding:8px 30px 8px 10px;border:1px solid #dce7dd;border-radius:9px;background:#fff;color:#315440;font:inherit;font-size:12px;outline-offset:2px}
+.analytics-branch-field select:focus-visible,.analytics-preset:focus-visible{outline:2px solid #258657;outline-offset:2px}
+.analytics-date-presets{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 13px}
+.analytics-date-presets>span{margin-right:3px;color:#7c8b80;font-size:11px;font-weight:700}
+.analytics-preset{padding:7px 12px;border:1px solid #e0e9e1;border-radius:999px;background:#fff;color:#5f7566;font-size:11px;font-weight:700;transition:background .15s,border-color .15s,color .15s}
+.analytics-preset:hover{border-color:#a9ceb4;background:#f4faf5;color:#24573c}
+.analytics-preset.active{border-color:#b5d9c0;background:#e8f5eb;color:#1f7044}
+.analytics-preset:disabled{opacity:.55;cursor:wait}
+@media(max-width:480px){.analytics-branch-field{min-width:100%;width:100%}.analytics-date-presets{gap:6px}.analytics-preset{padding:7px 10px}}
