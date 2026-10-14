@@ -38,8 +38,8 @@ with check (
   and public.can_access_branch(branch_id)
   and exists (
     select 1 from public.visits v
-    where v.id = visit_id and v.branch_id = branch_id
-      and v.visit_date = reported_on
+    where v.id = unavailable_items.visit_id and v.branch_id = unavailable_items.branch_id
+      and v.visit_date = unavailable_items.reported_on
       and v.unavailable_item_requested = true
   )
 );
@@ -140,4 +140,5 @@ $$;
 
 grant select, insert, update on public.unavailable_items to authenticated;
 revoke delete on public.unavailable_items from authenticated;
+revoke all on function public.record_unavailable_item(uuid, text, text, text) from public, anon;
 grant execute on function public.record_unavailable_item(uuid, text, text, text) to authenticated;
