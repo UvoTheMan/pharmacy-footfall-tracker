@@ -32,6 +32,10 @@ export default function ManualBackup({ role, branchSlug }: Props) {
 
   async function sendBackup() {
     if (!supabase || sending) return;
+    if (role === "staff" && !branchSlug) {
+      setError("Select your active branch before requesting a staff backup.");
+      return;
+    }
     setError("");
     setNotice("");
     if (!startDate || !endDate || endDate < startDate) {
@@ -99,7 +103,7 @@ export default function ManualBackup({ role, branchSlug }: Props) {
       {mode === "range" && startDate && endDate && endDate >= startDate && (
         <p className="manual-backup-range"><CalendarDays size={14} /> {days} calendar day{days === 1 ? "" : "s"} selected{days > 366 ? " · Maximum is 366 days" : ""}</p>
       )}
-      <button className="primary-button manual-backup-submit" type="button" onClick={() => void sendBackup()} disabled={sending || !startDate || !endDate || endDate < startDate || days > 366}>
+      <button className="primary-button manual-backup-submit" type="button" onClick={() => void sendBackup()} disabled={sending || (role === "staff" && !branchSlug) || !startDate || !endDate || endDate < startDate || days > 366}>
         <Send size={16} /> {sending ? "Queueing Gmail backup…" : role === "admin" ? "Email all branch reports" : "Email active branch CSV"}
       </button>
       {notice && <p className="notice" role="status">{notice}</p>}
