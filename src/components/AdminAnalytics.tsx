@@ -47,7 +47,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const [visibleData, setVisibleData] = useState<Record<string, boolean>>({});
   const sectionOptions: Record<AnalysisTab, { id: string; label: string }[]> = {
     overview: [
-      { id: "kpi-summary", label: "Visit summary metrics (visits, purchases, no purchase and conversion)" },
       { id: "kpi-unavailable", label: "Unavailable-item requests" }, { id: "outcomes", label: "Outcome distribution chart" },
       { id: "weekday", label: "Visits by weekday" }, { id: "branch-snapshot", label: "Branch snapshot" },
       { id: "insights", label: "Quick insights" }, { id: "overview-comparison", label: "Previous-period comparison" },
@@ -59,20 +58,18 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     trends: [
       { id: "daily-trend", label: "Daily visit trend" }, { id: "weekday-conversion", label: "Purchase conversion by weekday" },
       { id: "outcome-totals", label: "Outcome totals" }, { id: "hourly", label: "Busy hours and footfall patterns" },
-      { id: "daily-averages", label: "Daily averages and peak days" }, { id: "trends-comparison", label: "Previous-period comparison" },
+      { id: "daily-averages", label: "Daily averages and peak days" }, { id: "trend-summary", label: "Trend summary totals" },
+      { id: "trends-comparison", label: "Previous-period comparison" },
     ],
     reasons: [
       { id: "reason-kpis", label: "Reason summary metrics" }, { id: "reason-breakdown", label: "No-purchase reasons" },
       { id: "reason-branches", label: "Reasons by branch" }, { id: "reasons-comparison", label: "Previous-period comparison" },
     ],
   };
-  const kpiSummaryIds = ["kpi-visits", "kpi-purchases", "kpi-no-purchase", "kpi-conversion"];
-  const isVisible = (id: string) => id === "kpi-summary"
-    ? kpiSummaryIds.every((key) => visibleData[key] !== false)
-    : visibleData[id] !== false;
-  const toggleData = (id: string, checked: boolean) => setVisibleData((current) => id === "kpi-summary"
-    ? { ...current, ...Object.fromEntries(kpiSummaryIds.map((key) => [key, checked])) }
-    : { ...current, [id]: checked });
+  const isVisible = (id: string) => visibleData[id] !== false;
+  const toggleData = (id: string, checked: boolean) => setVisibleData((current) => ({ ...current, [id]: checked }));
+  const [expandedReasonBranches, setExpandedReasonBranches] = useState<Record<string, boolean>>({});
+  const [expandedBranchDetails, setExpandedBranchDetails] = useState<Record<string, boolean>>({});
   const setAllCurrent = (checked: boolean) => setVisibleData((current) => ({
     ...current,
     ...Object.fromEntries(sectionOptions[activeTab].map((item) => [item.id, checked])),
@@ -230,6 +227,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const maxHour = Math.max(1, ...busyHourStats.map((hour) => hour.total));
   const maxBranch = Math.max(1, ...branchStats.map((branch) => branch.total));
   const topBranch = [...branchStats].filter((item) => item.resolved > 0).sort((a, b) => b.conversion - a.conversion)[0];
+  const busiestBranch = [...branchStats].filter((item) => item.total > 0).sort((a, b) => b.total - a.total)[0];
 
   const downloadAnalysisPdf = () => {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -287,8 +285,10 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       line("Reason categories", String(reasonStats.length)); line("Most frequent reason", String(reasonStats[0]?.count ?? 0));
     }
     if (isVisible(activeTab + "-comparison")) section("Previous-period comparison");
-    if (isVisible("comparison")) line("Comparison dates", previousStartDate + " to " + previousEndDate);
-    if (isVisible("comparison")) comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " | " + (item.delta > 0 ? "+" : "") + item.delta + (item.percentagePoints ? " pp" : "") + (item.change === null ? " · no baseline" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)")));
+    if (isVisible(activeTab + "-comparison")) {
+      line("Previous period", previousStartDate + " to " + previousEndDate);
+      comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " vs " + String(item.previous) + (item.percentagePoints ? "%" : "") + " previous" + (item.change === null ? " · no baseline" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)")));
+    }
     if (activeTab === "overview") {
       if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]); }
       if (isVisible("weekday")) { section("Visits by weekday"); bars(weekdayStats.map(day => ({label:day.label,value:day.total}))); }
@@ -368,6 +368,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         ))}
       </nav>
       <p className="analytics-tab-description">{TABS.find((tab) => tab.id === activeTab)?.description}</p>
+
+      <div className="history-summary analytics-kpis analytics-shared-kpis" aria-label="Key performance metrics">
+        <div><strong>{analysisVisits.length.toLocaleString()}</strong><span><Users size={13} /> Total visits</span></div>
+        <div><strong>{purchases.toLocaleString()}</strong><span>Purchases</span></div>
+        <div><strong>{noPurchase.toLocaleString()}</strong><span>No purchase</span></div>
+        <div><strong>{conversion}%</strong><span>Purchase conversion</span></div>
+      </div>
+
       <details className="analytics-customise-panel">
         <summary><span><strong>Customise view</strong><small>Choose exactly which data to display in this section</small></span><span className="analytics-customise-count">{sectionOptions[activeTab].filter((item) => isVisible(item.id)).length} of {sectionOptions[activeTab].length} selected</span></summary>
         <div className="analytics-customise-tools">
@@ -385,23 +393,21 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         <span><strong>Period comparison</strong><small>{previousStartDate} to {previousEndDate} vs {startDate} to {endDate}</small></span>
         <button type="button" className="analytics-export-button" onClick={downloadAnalysisPdf} disabled={loading || Boolean(error)}><Download size={15} /> Export current view to PDF</button>
       </div>
-      {isVisible("comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
+      {isVisible(activeTab + "-comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
+        <p className="analytics-comparison-period">Previous period: {previousStartDate} to {previousEndDate}. Current period: {startDate} to {endDate}.</p>
+        {previousVisits.length === 0 && <p className="analytics-help analytics-comparison-empty">No saved visits were found in the previous period for this branch scope. The comparison below uses zero as the previous-period count.</p>}
         {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
           <span>{item.label}</span><strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
-          <small className={item.delta > 0 ? "comparison-up" : item.delta < 0 ? "comparison-down" : ""}>{item.delta > 0 ? "+" : ""}{item.delta}{item.percentagePoints ? " pp" : ""} vs previous {item.change === null ? "· no baseline" : "(" + (item.change > 0 ? "+" : "") + item.change + "%)"}</small>
+          <small>Previous: {item.previous}{item.percentagePoints ? "%" : ""}</small>
+          <small className={item.delta > 0 ? "comparison-up" : item.delta < 0 ? "comparison-down" : ""}>{item.delta > 0 ? "+" : ""}{item.delta}{item.percentagePoints ? " pp" : ""} change {item.change === null ? "· no baseline" : "(" + (item.change > 0 ? "+" : "") + item.change + "%)"}</small>
         </article>)}
       </section>}
 
       {activeTab === "overview" && (
         <div className="analytics-tab-content">
-          <div className="history-summary analytics-kpis">
-            <div hidden={!isVisible("kpi-visits")}><strong>{analysisVisits.length.toLocaleString()}</strong><span><Users size={13} /> Total visits</span></div>
-            <div hidden={!isVisible("kpi-purchases")}><strong>{purchases.toLocaleString()}</strong><span>Purchases</span></div>
-            <div hidden={!isVisible("kpi-no-purchase")}><strong>{noPurchase.toLocaleString()}</strong><span>No purchase</span></div>
-            <div hidden={!isVisible("kpi-conversion")}><strong>{conversion}%</strong><span>Purchase conversion</span></div>
-
-            <div hidden={!isVisible("kpi-unavailable")}><strong>{unavailableRequests.toLocaleString()}</strong><span>Unavailable-item requests</span></div>
-          </div>
+          {isVisible("kpi-unavailable") && <div className="history-summary analytics-kpis analytics-optional-kpi">
+            <div><strong>{unavailableRequests.toLocaleString()}</strong><span>Unavailable-item requests</span></div>
+          </div>}
           <div className="analytics-grid">
             <section hidden={!isVisible("outcomes")} className="analytics-subpanel analytics-chart-card">
               <h3><BarChart3 size={16} /> Outcome distribution</h3>
@@ -461,10 +467,16 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
       {activeTab === "branches" && (
         <div className="analytics-tab-content">
-          <div hidden={!isVisible("branch-kpis")} className="history-summary analytics-kpis">
+          <div hidden={!isVisible("branch-kpis")} className="history-summary analytics-kpis analytics-branch-summary">
             <div><strong>{branchStats.length}</strong><span>Branches included</span></div>
-            <div><strong>{Math.max(0, ...branchStats.map((item) => item.total)).toLocaleString()}</strong><span>Most visits at one branch</span></div>
-            <div><strong>{topBranch?.conversion ?? 0}%</strong><span>Highest branch conversion</span></div>
+            <div><strong>{branchStats.filter((item) => item.total > 0).length}</strong><span>Branches with visits</span></div>
+            <div><strong>{analysisVisits.length.toLocaleString()}</strong><span>Total visits across scope</span></div>
+            <div><strong>{purchases.toLocaleString()}</strong><span>Total purchases</span></div>
+            <div><strong>{noPurchase.toLocaleString()}</strong><span>No-purchase visits</span></div>
+            <div><strong>{conversion}%</strong><span>Overall conversion</span></div>
+            <div><strong>{unavailableRequests.toLocaleString()}</strong><span>Unavailable-item requests</span></div>
+            <div><strong>{busiestBranch?.name ?? "No data"}</strong><span>Highest footfall branch</span></div>
+            <div><strong>{topBranch ? topBranch.name + " · " + topBranch.conversion + "%" : "No data"}</strong><span>Highest branch conversion</span></div>
           </div>
           <div className="analytics-grid">
             <section hidden={!isVisible("branch-performance")} className="analytics-subpanel analytics-wide-subpanel">
@@ -476,6 +488,20 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                   <div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${item.total / maxBranch * 100}%` }} /></div>
                   <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span></div>
                   <div className="analytics-row-meta"><span>{item.unavailable} unavailable-item requests</span></div>
+                  <button type="button" className="text-button analytics-expand-button" aria-expanded={Boolean(expandedBranchDetails[item.id])} onClick={() => setExpandedBranchDetails((current) => ({ ...current, [item.id]: !current[item.id] }))}>
+                    {expandedBranchDetails[item.id] ? "Hide detailed breakdown" : "Show detailed breakdown"}
+                  </button>
+                  {expandedBranchDetails[item.id] && <div className="analytics-branch-detail">
+                    <div className="analytics-row-meta"><span>Share of all visits</span><strong>{percent(item.total, analysisVisits.length)}%</strong><span>Share of all purchases</span><strong>{percent(item.purchases, purchases)}%</strong></div>
+                    <div className="analytics-row-meta"><span>No-purchase rate</span><strong>{percent(item.noPurchase, item.total)}%</strong><span>Unavailable request rate</span><strong>{percent(item.unavailable, item.total)}%</strong></div>
+                    <strong>Reasons for no purchase</strong>
+                    {(reasonBranchStats.find((entry) => entry.id === item.id)?.reasons ?? []).length === 0
+                      ? <p className="corrections-empty">No no-purchase reasons recorded for this branch in this period.</p>
+                      : (reasonBranchStats.find((entry) => entry.id === item.id)?.reasons ?? []).map((reason) => <div className="analytics-reason-branch-row" key={reason.reason}>
+                        <div className="analytics-row-label"><span>{reason.reason}</span><strong>{reason.count} · {percent(reason.count, item.noPurchase)}%</strong></div>
+                        <div className="progress-track"><span style={{ width: percent(reason.count, item.noPurchase) + "%" }} /></div>
+                      </div>)}
+                  </div>}
                 </div>
               ))}
               {branchStats.length === 0 && <p className="corrections-empty">No branches are available for analysis.</p>}
@@ -486,6 +512,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
       {activeTab === "trends" && (
         <div className="analytics-tab-content">
+          <div className="analytics-trends-stack">
           <section hidden={!isVisible("daily-trend")} className="analytics-subpanel analytics-trend">
             <h3><CalendarDays size={16} /> Daily visit trend</h3>
             <p className="analytics-help">Each bar shows all recorded visits for that Lagos calendar date. Scroll horizontally on smaller screens to see the full period.</p>
@@ -504,6 +531,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <div className="analytics-legend analytics-trend-legend">
               {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span></div>)}
             </div>
+          </section>
             <div className="analytics-grid analytics-secondary-trends">
               <section hidden={!isVisible("weekday-conversion")} className="analytics-subpanel analytics-chart-card">
                 <h3><TrendingUp size={16} /> Purchase conversion by weekday</h3>
@@ -525,7 +553,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 </div>
               </section>
             </div>
-            <div className="analytics-trend-summary">
+            <div hidden={!isVisible("trend-summary")} className="analytics-trend-summary">
               <span>Visits <strong>{analysisVisits.length.toLocaleString()}</strong></span>
               <span>Purchases <strong>{purchases.toLocaleString()}</strong></span>
               <span>No purchase <strong>{noPurchase.toLocaleString()}</strong></span>
@@ -555,7 +583,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 {dailyStats.map(day => <div key={day.date} title={day.date + ": " + day.total + " visits"}><span style={{height: Math.max(day.total ? 4 : 1, day.total / Math.max(1,...dailyStats.map(item=>item.total))*100) + "%" }} /><small>{day.date.slice(8)}</small></div>)}
               </div>
             </section>
-          </section>
+          </div>
         </div>
       )}
 
@@ -582,14 +610,16 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <p className="analytics-help">See which reasons are being recorded at each branch. Counts reflect no-purchase visits within the selected date range.</p>
             <div className="analytics-reason-branch-grid">
               {reasonBranchStats.map((branch) => <article className="analytics-reason-branch-card" key={branch.id}>
-                <div className="analytics-row-label"><strong>{branch.name}</strong><span>{branch.total} no-purchase visits</span></div>
-                {branch.reasons.length === 0 ? <p className="corrections-empty">No reasons recorded.</p> : branch.reasons.slice(0, 5).map((item, index) => {
+                <div className="analytics-row-label"><strong>{branch.name}</strong><span>{branch.total} no-purchase visits · {percent(branch.total, noPurchase)}% of all no-purchase visits</span></div>
+                <div className="analytics-row-meta"><span>{branch.reasons.length} reason categories</span><span>Top reason: {branch.reasons[0]?.reason ?? "None recorded"}</span></div>
+                {branch.reasons.length === 0 ? <p className="corrections-empty">No reasons recorded.</p> : (expandedReasonBranches[branch.id] ? branch.reasons : branch.reasons.slice(0, 5)).map((item, index) => {
                   const colors = ["#e27b48", "#7b83d8", "#2395a8", "#c85e91", "#7b9b45", "#ba8a38"];
                   return <div className="analytics-reason-branch-row" key={item.reason}>
-                    <div className="analytics-row-label"><span>{item.reason}</span><strong>{item.count}</strong></div>
+                    <div className="analytics-row-label"><span>{item.reason}</span><strong>{item.count} · {percent(item.count, branch.total)}%</strong></div>
                     <div className="progress-track"><span style={{ width: `${item.count / Math.max(1, branch.total) * 100}%`, background: colors[index % colors.length] }} /></div>
                   </div>;
                 })}
+                {branch.reasons.length > 5 && <button type="button" className="text-button analytics-expand-button" aria-expanded={Boolean(expandedReasonBranches[branch.id])} onClick={() => setExpandedReasonBranches((current) => ({ ...current, [branch.id]: !current[branch.id] }))}>{expandedReasonBranches[branch.id] ? "Show top 5 reasons" : `Show all ${branch.reasons.length} reasons`}</button>}
               </article>)}
             </div>
           </section>
