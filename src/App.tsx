@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown,
+  Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, Footprints, Search,
   CircleHelp, Clock3, KeyRound, LogOut, ShoppingBag, Users, X,
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
@@ -10,6 +10,7 @@ import HistoricalVisits from "./components/HistoricalVisits";
 import BranchCorrectionRequests from "./components/BranchCorrectionRequests";
 import ManualBackup from "./components/ManualBackup";
 import AdminAnalytics from "./components/AdminAnalytics";
+import UnavailableItems from "./components/UnavailableItems";
 
 type Branch = { id: string; slug: string; name: string };
 type Outcome = "purchased" | "not_purchased" | "undecided";
@@ -70,6 +71,15 @@ export default function App() {
   const [branchChoice, setBranchChoice] = useState("");
   const [showBranchPicker, setShowBranchPicker] = useState(false);
   const [adminPage, setAdminPage] = useState<"dashboard" | "analytics">("dashboard");
+  const [showUnavailablePage, setShowUnavailablePage] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
+  const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
+  const [pendingUnavailableVisitId, setPendingUnavailableVisitId] = useState<string | null>(null);
+  const [pendingUnavailableVisitDate, setPendingUnavailableVisitDate] = useState("");
+  const [unavailableItemName, setUnavailableItemName] = useState("");
+  const [unavailableItemPhoto, setUnavailableItemPhoto] = useState<File | null>(null);
+  const [unavailableItemPhotoPreview, setUnavailableItemPhotoPreview] = useState("");
   const [showBatch, setShowBatch] = useState(false);
   const [showNoPurchaseReason, setShowNoPurchaseReason] = useState(false);
   const [batchCount, setBatchCount] = useState("5");
@@ -303,18 +313,18 @@ export default function App() {
     flash("Today's branch is set to " + chosen.name + ".");
   }
 
-  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false) {
+  async function addVisits(outcome: Outcome, count = 1, visitReason?: Reason, unavailableItemRequested = false, waitForRefresh = true) {
     if (profile?.role === "admin") {
       setError("Admin accounts can review branch performance and correct existing records, but cannot add new visits.");
-      return;
+      return null;
     }
     if (pendingCorrection) {
       setError("Visit entry is paused while a branch correction is awaiting administrator review.");
-      return;
+      return null;
     }
     if (!supabase || !branch || !session) {
       setError("Sign in and select an assigned branch before recording visits.");
-      return;
+      return null;
     }
     setBusy(true);
     setError("");
@@ -326,7 +336,7 @@ export default function App() {
       recorded_at: now.toISOString(),
       outcome,
       reason: outcome === "not_purchased" ? visitReason ?? null : null,
-      unavailable_item_requested: outcome === "purchased" && unavailableItemRequested,
+      unavailable_item_requested: unavailableItemRequested,
       batch_id: batchId,
       created_by: session.user.id,
     }));
@@ -334,12 +344,104 @@ export default function App() {
     if (result.error) {
       setError(`Visit not saved: ${result.error.message}`);
       setBusy(false);
-      return;
+      return null;
     }
     setReason("");
     setShowBatch(false);
-    await loadVisits();
+    if (waitForRefresh) await loadVisits();
+    else void loadVisits();
     flash(count === 1 ? "Visit saved to the shared database." : `${count} visits saved to the shared database.`);
+    setBusy(false);
+    return result.data?.[0]?.id ?? null;
+  }
+
+  async function startUnavailablePrompt(outcome: "purchased" | "not_purchased", reason?: Reason) {
+    setUnavailableOutcome(outcome);
+    setUnavailableItemName("");
+    clearUnavailablePhoto();
+    setError("");
+    const visitDate = lagosDateKey(new Date());
+    const visitId = await addVisits(outcome, 1, reason, true, false);
+    if (!visitId) return;
+    setPendingUnavailableVisitId(visitId);
+    setPendingUnavailableVisitDate(visitDate);
+    setShowUnavailablePrompt(true);
+  }
+
+  function clearUnavailablePhoto() {
+    if (unavailableItemPhotoPreview) URL.revokeObjectURL(unavailableItemPhotoPreview);
+    setUnavailableItemPhoto(null);
+    setUnavailableItemPhotoPreview("");
+  }
+
+  function deferUnavailablePrompt() {
+    setShowUnavailablePrompt(false);
+    setPendingUnavailableVisitId(null);
+    setPendingUnavailableVisitDate("");
+    setUnavailableItemName("");
+    clearUnavailablePhoto();
+    setError("");
+  }
+
+  function selectUnavailablePhoto(file: File | null) {
+    setError("");
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Choose a JPG, PNG or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("The picture must be 5 MB or smaller.");
+      return;
+    }
+    if (unavailableItemPhotoPreview) URL.revokeObjectURL(unavailableItemPhotoPreview);
+    setUnavailableItemPhoto(file);
+    setUnavailableItemPhotoPreview(URL.createObjectURL(file));
+  }
+
+  async function saveUnavailableItem() {
+    const itemName = unavailableItemName.trim();
+    if (!supabase || !branch || !session || !itemName || !pendingUnavailableVisitId || !pendingUnavailableVisitDate) {
+      setError("Enter the unavailable item name before saving.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    let imagePath: string | null = null;
+    if (unavailableItemPhoto) {
+      const extension = unavailableItemPhoto.type === "image/png" ? "png" : unavailableItemPhoto.type === "image/webp" ? "webp" : "jpg";
+      imagePath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
+      const upload = await supabase.storage.from("unavailable-item-photos").upload(imagePath, unavailableItemPhoto, {
+        contentType: unavailableItemPhoto.type,
+        upsert: false,
+      });
+      if (upload.error) {
+        setError("The report was not saved because the photo upload failed: " + upload.error.message);
+        setBusy(false);
+        return;
+      }
+    }
+    const result = await supabase.from("unavailable_items").insert({
+      visit_id: pendingUnavailableVisitId,
+      branch_id: branch.id,
+      item_name: itemName,
+      reported_on: pendingUnavailableVisitDate,
+      created_by: session.user.id,
+      updated_by: session.user.id,
+      image_path: imagePath,
+    });
+    if (result.error) {
+      setError("Unavailable item was not saved: " + result.error.message);
+      setBusy(false);
+      return;
+    }
+    setShowUnavailablePrompt(false);
+    setPendingUnavailableVisitId(null);
+    setPendingUnavailableVisitDate("");
+    setUnavailableItemName("");
+    clearUnavailablePhoto();
+    await loadVisits();
+    flash("Visit and unavailable item saved to the shared register.");
     setBusy(false);
   }
 
@@ -432,17 +534,23 @@ export default function App() {
         </a>
         <div className="user-actions">
           <div className="local-time"><span className="live-dot" /> Lagos time <Clock3 size={14} /></div>
-          {profile?.role === "admin" && <button className="signout-button admin-page-switch" type="button" onClick={() => setAdminPage((page) => page === "dashboard" ? "analytics" : "dashboard")} aria-label={adminPage === "analytics" ? "Return to daily dashboard" : "Open analysis and analytics"}>{adminPage === "analytics" ? <><Activity size={15} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><BarChart3 size={15} /><span className="admin-page-switch-label">Analysis &amp; analytics</span></>}</button>}
-          <button className="signout-button" onClick={() => { setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
-          <button className="signout-button" onClick={() => void signOut()} aria-label="Sign out"><LogOut size={15} /> Sign out</button>
+          {profile?.role === "admin" && <button className="signout-button admin-page-switch" type="button" onClick={() => { setShowUnavailablePage(false); setAdminPage((page) => page === "dashboard" ? "analytics" : "dashboard"); }} aria-label={adminPage === "analytics" ? "Return to daily dashboard" : "Open analysis and analytics"}>{adminPage === "analytics" ? <><Footprints size={15} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><BarChart3 size={15} /><span className="admin-page-switch-label">Analysis &amp; analytics</span></>}</button>}
+          <button className={`signout-button admin-page-switch unavailable-page-switch${showUnavailablePage ? " active" : ""}`} type="button" onClick={() => { setShowUnavailablePage((shown) => !shown); setAdminPage("dashboard"); setError(""); }} aria-label={showUnavailablePage ? "Return to daily dashboard" : "Open unavailable items register"}>{showUnavailablePage ? <><Footprints size={16} /><span className="admin-page-switch-label">Daily dashboard</span></> : <><Search size={15} /><span className="admin-page-switch-label">Unavailable items</span></>}</button>
+          <div className="account-menu-wrap">
+            <button className="signout-button account-menu-toggle" type="button" aria-haspopup="menu" aria-expanded={showAccountMenu} onClick={() => setShowAccountMenu((open) => !open)}><span className="account-menu-label">Account</span><ChevronDown size={15} /></button>
+            {showAccountMenu && <div className="account-menu" role="menu">
+              <button className="account-menu-item" role="menuitem" type="button" onClick={() => { setShowAccountMenu(false); setNewPassword(""); setConfirmNewPassword(""); setAdminToken(""); setError(""); setShowPasswordSettings(true); }} disabled={busy}><KeyRound size={15} /> Change password</button>
+              <button className="account-menu-item" role="menuitem" type="button" onClick={() => { setShowAccountMenu(false); void signOut(); }}><LogOut size={15} /> Sign out</button>
+            </div>}
+          </div>
         </div>
       </header>
 
       <section className="welcome">
         <div>
-          <p className="eyebrow">{profile?.role === "admin" && adminPage === "analytics" ? "ADMIN WORKSPACE" : "DAILY OPERATIONS"}</p>
-          <h1>{profile?.role === "admin" && adminPage === "analytics" ? "Analysis & analytics" : "Welcome"}</h1>
-          <p className="welcome-tagline">{profile?.role === "admin" && adminPage === "analytics" ? "BRANCH PERFORMANCE. TRENDS. OPPORTUNITIES." : "VISITS. INSIGHTS. GROWTH."}</p>
+          <p className="eyebrow">{showUnavailablePage ? "SHARED STOCK GAP REGISTER" : profile?.role === "admin" && adminPage === "analytics" ? "ADMIN WORKSPACE" : "DAILY OPERATIONS"}</p>
+          <h1>{showUnavailablePage ? "Unavailable items" : profile?.role === "admin" && adminPage === "analytics" ? "Analysis & analytics" : "Welcome"}</h1>
+          <p className="welcome-tagline">{showUnavailablePage ? "PRODUCT DEMAND. STOCK GAPS. FOLLOW-UP." : profile?.role === "admin" && adminPage === "analytics" ? "BRANCH PERFORMANCE. TRENDS. OPPORTUNITIES." : "VISITS. INSIGHTS. GROWTH."}</p>
           <p className="date-line"><CalendarDays size={16} /> {lagosDisplayDate()}</p>
         </div>
         {profile?.role === "admin" && adminPage === "dashboard" ? (
@@ -476,7 +584,9 @@ export default function App() {
 
       {pendingCorrection && <div className="notice" role="status">A branch correction is pending. Visit entry is paused until an administrator approves or rejects the request.</div>}
 
-      {profile?.role === "admin" && adminPage === "analytics" ? (
+      {showUnavailablePage ? (
+        <UnavailableItems branches={branches} profile={profile!} userId={session.user.id} />
+      ) : profile?.role === "admin" && adminPage === "analytics" ? (
         <section className="admin-analytics-page" aria-label="Admin analysis and analytics">
           <p className="panel-description">A dedicated workspace for reviewing performance across Gbagada, Akoka, and Sangotedo. More analysis tools can be added here without crowding daily operations.</p>
           <AdminAnalytics branches={branches} />
@@ -502,7 +612,7 @@ export default function App() {
             <button className="outcome-button purchased" onClick={() => void addVisits("purchased")} disabled={!branch || busy || pendingCorrection}><span className="outcome-symbol"><Check size={21} /></span><span className="outcome-text"><strong>Made a purchase</strong><small>Customer bought an item</small></span><span className="outcome-plus">+</span></button>
             <button className="outcome-button not-purchased" onClick={() => { setReason(""); setError(""); setShowNoPurchaseReason(true); }} disabled={!branch || busy || pendingCorrection}><span className="outcome-symbol"><X size={21} /></span><span className="outcome-text"><strong>No purchase</strong><small>Customer left without buying</small></span><span className="outcome-plus">+</span></button>
           </div>
-          <button className="secondary-button" style={{ width: "100%", marginTop: 10 }} onClick={() => void addVisits("purchased", 1, undefined, true)} disabled={!branch || busy || pendingCorrection}>Purchased, but requested item unavailable <span>↗</span></button>
+          <button className="secondary-button" style={{ width: "100%", marginTop: 10 }} onClick={() => void startUnavailablePrompt("purchased")} disabled={!branch || busy || pendingCorrection}>Purchased, but requested item unavailable <span>↗</span></button>
           <div className="counter-footer"><span /><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy || pendingCorrection}>Batch entry <span>+</span></button></div>
         </section>}
 
@@ -536,11 +646,11 @@ export default function App() {
       )}
 
       {/* Manual backup stays collapsed and directly above the testing warning. */}
-      {profile && <ManualBackup role={profile.role} />}
+      {profile && <ManualBackup role={profile.role} branchSlug={branch?.slug} />}
 
       <details className="testing-cutoff">
         <summary><CalendarDays size={16} /> Testing cutoff and historical records</summary>
-        <div className="testing-cutoff-content"><strong>Testing ended: Sunday, 11 October 2026</strong><p>From Monday, 12 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
+        <div className="testing-cutoff-content"><strong>Testing ended: Tuesday, 13 October 2026</strong><p>From Wednesday, 14 October 2026, visits are intended to be live operational records. Historical records have not been changed.</p></div>
       </details>
       </>
       )}
@@ -575,10 +685,31 @@ export default function App() {
             <p className="eyebrow">VISIT DETAILS</p>
             <h2 id="no-purchase-title">Why was there no purchase?</h2>
             <p className="modal-description">Tap a reason to record the visit immediately.</p>
-            <div className="branch-options">{REASONS.map((item) => <button key={item} type="button" className="branch-option" disabled={busy} onClick={() => { setReason(item); setShowNoPurchaseReason(false); void addVisits("not_purchased", 1, item); }}><span className="branch-option-icon"><X size={18} /></span><span><strong>{item}</strong></span><span className="outcome-plus">→</span></button>)}</div>
+            <div className="branch-options">{REASONS.map((item) => <button key={item} type="button" className="branch-option" disabled={busy} onClick={() => { setReason(item); setShowNoPurchaseReason(false); if (item === "Item unavailable") { void startUnavailablePrompt("not_purchased", item); } else { void addVisits("not_purchased", 1, item); } }}><span className="branch-option-icon"><X size={18} /></span><span><strong>{item}</strong></span><span className="outcome-plus">→</span></button>)}</div>
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="text-button" type="button" onClick={() => setShowNoPurchaseReason(false)} disabled={busy}>Cancel</button>
           </section>
+        </div>
+      )}
+
+      {showUnavailablePrompt && (
+        <div className="modal-backdrop" role="presentation">
+          <form className="modal" role="dialog" aria-modal="true" aria-labelledby="unavailable-prompt-title" onSubmit={(event) => { event.preventDefault(); void saveUnavailableItem(); }}>
+            <button className="modal-close" type="button" aria-label="Close product details prompt" disabled={busy} onClick={deferUnavailablePrompt}><X size={19} /></button>
+            <p className="eyebrow">UNAVAILABLE ITEM REPORT</p>
+            <h2 id="unavailable-prompt-title">Which item was unavailable?</h2>
+            <p className="modal-description">{unavailableOutcome === "purchased" ? "Record the item the customer couldn't obtain, even though they purchased something else." : "Record the item that led to the customer leaving without a purchase."} This report will be shared with staff and admins.</p>
+            <label className="field-label" htmlFor="unavailable-item-name">Product name, strength and form <span>Required</span></label>
+            <textarea className="unavailable-item-input" id="unavailable-item-name" maxLength={180} autoFocus required value={unavailableItemName} onChange={(event) => setUnavailableItemName(event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
+            <label className="field-label" htmlFor="unavailable-item-photo">Add a picture <span>Optional</span></label>
+            <input className="unavailable-photo-input" id="unavailable-item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(event) => selectUnavailablePhoto(event.target.files?.[0] ?? null)} />
+            {unavailableItemPhotoPreview && <div className="unavailable-photo-preview"><img src={unavailableItemPhotoPreview} alt="Selected unavailable item preview" /><div><strong>{unavailableItemPhoto?.name}</strong><small>Photo ready to attach</small><button className="text-button" type="button" disabled={busy} onClick={clearUnavailablePhoto}>Remove picture</button></div></div>}
+            <p className="modal-footnote">JPG, PNG or WebP, up to 5 MB. Please do not photograph prescriptions or documents showing patient-identifying details.</p>
+            {error && <p className="error-message" role="alert">{error}</p>}
+            <button className="primary-button" type="submit" disabled={busy || !unavailableItemName.trim()}>{busy ? "Saving report…" : "Save unavailable item"} <span>→</span></button>
+            <button className="text-button" type="button" disabled={busy} onClick={deferUnavailablePrompt}>Close for now</button>
+            <p className="modal-footnote">The visit has already been saved. You can close this prompt and add the product details later from the highlighted visit in Recent visits.</p>
+          </form>
         </div>
       )}
 
