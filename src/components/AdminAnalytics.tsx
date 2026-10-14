@@ -348,16 +348,29 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         ))}
       </nav>
       <p className="analytics-tab-description">{TABS.find((tab) => tab.id === activeTab)?.description}</p>
+      <details className="analytics-customise-panel">
+        <summary><span><strong>Customise view</strong><small>Choose exactly which data to display in this section</small></span><span className="analytics-customise-count">{sectionOptions[activeTab].filter((item) => isVisible(item.id)).length} of {sectionOptions[activeTab].length} selected</span></summary>
+        <div className="analytics-customise-tools">
+          <button type="button" onClick={() => setAllCurrent(true)}>Select all</button>
+          <button type="button" onClick={() => setAllCurrent(false)}>Clear all</button>
+        </div>
+        <div className="analytics-customise-options">
+          {sectionOptions[activeTab].map((item) => <label key={item.id} className="analytics-customise-option">
+            <input type="checkbox" checked={isVisible(item.id)} onChange={(event) => toggleData(item.id, event.target.checked)} />
+            <span>{item.label}</span>
+          </label>)}
+        </div>
+      </details>
       <div className="analytics-action-row">
         <span><strong>Period comparison</strong><small>{previousStartDate} to {previousEndDate} vs {startDate} to {endDate}</small></span>
         <button type="button" className="analytics-export-button" onClick={downloadAnalysisPdf} disabled={loading || Boolean(error)}><Download size={15} /> Export current view to PDF</button>
       </div>
-      <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
+      {isVisible("comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
         {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
           <span>{item.label}</span><strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
           <small className={item.delta > 0 ? "comparison-up" : item.delta < 0 ? "comparison-down" : ""}>{item.delta > 0 ? "+" : ""}{item.delta}{item.percentagePoints ? " pp" : ""} vs previous {item.change === null ? "· no baseline" : "(" + (item.change > 0 ? "+" : "") + item.change + "%)"}</small>
         </article>)}
-      </section>
+      </section>}
 
       {activeTab === "overview" && (
         <div className="analytics-tab-content">
