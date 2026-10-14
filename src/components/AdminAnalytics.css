@@ -142,3 +142,18 @@
 .analytics-customise-option span{overflow-wrap:anywhere}
 .analytics-kpis [hidden],.analytics-subpanel[hidden]{display:none!important}
 @media(max-width:480px){.analytics-customise-options{grid-template-columns:1fr}.analytics-customise-panel>summary{align-items:flex-start}.analytics-customise-count{font-size:9px}}
+
+
+/* Keep only the four core metrics permanent; make supporting breakdowns explicit and interactive. */
+.analytics-shared-kpis{margin:14px 0}
+.analytics-optional-kpi{margin:0 0 14px}
+.analytics-branch-summary{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px}
+.analytics-trends-stack{display:grid;gap:14px;min-width:0}
+.analytics-expand-button{display:inline-flex;align-items:center;margin-top:10px}
+.analytics-branch-detail{display:grid;gap:10px;margin-top:12px;padding:12px;border:1px solid #e5eee6;border-radius:10px;background:#fbfdfb}
+.analytics-branch-detail>.analytics-row-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px}
+.analytics-branch-detail>strong{font-size:11px;color:#2f5942}
+.analytics-comparison-period,.analytics-comparison-empty{grid-column:1/-1;margin:0;color:#6f8275;font-size:11px;line-height:1.5}
+.analytics-comparison-empty{padding:10px 12px;border:1px solid #e8eee8;border-radius:9px;background:#f9fbf9}
+@media(max-width:700px){.analytics-branch-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.analytics-branch-summary{grid-template-columns:1fr}}
