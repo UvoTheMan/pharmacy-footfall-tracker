@@ -249,7 +249,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </section>
             <section className="analytics-subpanel">
               <h3><GitCompare size={16} /> Branch snapshot</h3>
-              <p className="analytics-help">A quick view of recorded activity across all branches.</p>
+              <p className="analytics-help">A quick view of recorded activity for the selected branch scope.</p>
               {branchStats.map((item) => (
                 <div className="analytics-branch-row" key={item.id}>
                   <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total} visits</span></div>
@@ -272,7 +272,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <ul className="analytics-insight-list">
                   <li><strong>{conversion}%</strong> purchase conversion among visits with a resolved outcome.</li>
                   <li><strong>{noPurchaseRate}%</strong> of resolved visits ended without a purchase.</li>
-                  <li>{topBranch ? <><strong>{topBranch.name}</strong> has the highest conversion among branches with resolved visits.</> : "There are not yet enough resolved visits to compare branch conversion."}</li>
+                  <li>{topBranch ? selectedBranchId === "all" ? <><strong>{topBranch.name}</strong> has the highest conversion among branches with resolved visits.</> : <>The selected branch, <strong>{topBranch.name}</strong>, has a conversion rate of <strong>{topBranch.conversion}%</strong>.</> : "There are not yet enough resolved visits to compare branch conversion."}</li>
                   <li><strong>{undecided}</strong> visits still have an undecided outcome.</li>
                 </ul>
               )}
@@ -291,8 +291,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           </div>
           <div className="analytics-grid">
             <section className="analytics-subpanel analytics-wide-subpanel">
-              <h3><GitCompare size={16} /> Branch performance comparison</h3>
-              <p className="analytics-help">Compare visit volume, outcomes and conversion. Conversion excludes undecided visits from its denominator.</p>
+              <h3><GitCompare size={16} /> {selectedBranchId === "all" ? "Branch performance comparison" : "Selected branch performance"}</h3>
+              <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion excludes undecided visits from its denominator.</p>
               {branchStats.map((item) => (
                 <div className="analytics-branch-row" key={item.id}>
                   <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.conversion}% conversion</span></div>
