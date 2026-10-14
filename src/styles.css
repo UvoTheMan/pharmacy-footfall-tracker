@@ -343,3 +343,11 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .unavailable-record-photo{display:block;flex-shrink:0;width:70px;height:70px;border-radius:9px;overflow:hidden;border:1px solid #e2e9e3}
 .unavailable-record-photo img{display:block;width:100%;height:100%;object-fit:cover}
 @media(max-width:760px){.unavailable-record-photo{width:82px;height:82px}}
+
+
+/* Green icon-style navigation for the shared unavailable-items register */
+.unavailable-page-switch{border-color:#cfe5d5;background:#eaf6ee;color:#216b45}
+.unavailable-page-switch:hover{border-color:#9fc9ad;background:#ddf0e3;color:#174d32}
+.unavailable-page-switch.active{border-color:#24794d;background:#24794d;color:#fff}
+.unavailable-page-switch.active:hover{border-color:#195f3b;background:#195f3b;color:#fff}
+@media(max-width:520px){.user-actions .unavailable-page-switch{padding:8px}}
