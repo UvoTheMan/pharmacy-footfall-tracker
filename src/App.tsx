@@ -75,8 +75,6 @@ export default function App() {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
   const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
-  const [pendingUnavailableVisitId, setPendingUnavailableVisitId] = useState<string | null>(null);
-  const [pendingUnavailableVisitDate, setPendingUnavailableVisitDate] = useState("");
   const [unavailableItemName, setUnavailableItemName] = useState("");
   const [unavailableItemPhoto, setUnavailableItemPhoto] = useState<File | null>(null);
   const [unavailableItemPhotoPreview, setUnavailableItemPhotoPreview] = useState("");
@@ -356,15 +354,19 @@ export default function App() {
   }
 
   async function startUnavailablePrompt(outcome: "purchased" | "not_purchased", reason?: Reason) {
+    if (!supabase || !branch || !session || profile?.role === "admin" || pendingCorrection) {
+      setError(profile?.role === "admin"
+        ? "Admin accounts cannot record new visits."
+        : pendingCorrection
+          ? "Visit entry is paused while a branch correction is awaiting administrator review."
+          : "Sign in and select an assigned branch before recording visits.");
+      return;
+    }
     setUnavailableOutcome(outcome);
+    setReason(reason ?? "");
     setUnavailableItemName("");
     clearUnavailablePhoto();
     setError("");
-    const visitDate = lagosDateKey(new Date());
-    const visitId = await addVisits(outcome, 1, reason, true, false);
-    if (!visitId) return;
-    setPendingUnavailableVisitId(visitId);
-    setPendingUnavailableVisitDate(visitDate);
     setShowUnavailablePrompt(true);
   }
 
@@ -374,10 +376,15 @@ export default function App() {
     setUnavailableItemPhotoPreview("");
   }
 
-  function deferUnavailablePrompt() {
+  async function deferUnavailablePrompt() {
+    const savedVisitId = await addVisits(
+      unavailableOutcome,
+      1,
+      unavailableOutcome === "not_purchased" ? "Item unavailable" : undefined,
+      true,
+    );
+    if (!savedVisitId) return;
     setShowUnavailablePrompt(false);
-    setPendingUnavailableVisitId(null);
-    setPendingUnavailableVisitDate("");
     setUnavailableItemName("");
     clearUnavailablePhoto();
     setError("");
@@ -401,7 +408,7 @@ export default function App() {
 
   async function saveUnavailableItem() {
     const itemName = unavailableItemName.trim();
-    if (!supabase || !branch || !session || !itemName || !pendingUnavailableVisitId || !pendingUnavailableVisitDate) {
+    if (!supabase || !branch || !session || !itemName) {
       setError("Enter the unavailable item name before saving.");
       return;
     }
@@ -421,27 +428,23 @@ export default function App() {
         return;
       }
     }
-    const result = await supabase.from("unavailable_items").insert({
-      visit_id: pendingUnavailableVisitId,
-      branch_id: branch.id,
-      item_name: itemName,
-      reported_on: pendingUnavailableVisitDate,
-      created_by: session.user.id,
-      updated_by: session.user.id,
-      image_path: imagePath,
+    const result = await supabase.rpc("record_unavailable_item", {
+      p_branch_id: branch.id,
+      p_outcome: unavailableOutcome,
+      p_reason: unavailableOutcome === "not_purchased" ? "Item unavailable" : null,
+      p_item_name: itemName,
+      p_image_path: imagePath,
     });
     if (result.error) {
-      setError("Unavailable item was not saved: " + result.error.message);
+      setError("Visit and unavailable item were not saved: " + result.error.message);
       setBusy(false);
       return;
     }
     setShowUnavailablePrompt(false);
-    setPendingUnavailableVisitId(null);
-    setPendingUnavailableVisitDate("");
     setUnavailableItemName("");
     clearUnavailablePhoto();
     await loadVisits();
-    flash("Visit and unavailable item saved to the shared register.");
+    flash("Visit and unavailable item saved together to the shared register.");
     setBusy(false);
   }
 
@@ -708,7 +711,7 @@ export default function App() {
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="submit" disabled={busy || !unavailableItemName.trim()}>{busy ? "Saving report…" : "Save unavailable item"} <span>→</span></button>
             <button className="text-button" type="button" disabled={busy} onClick={deferUnavailablePrompt}>Close for now</button>
-            <p className="modal-footnote">The visit has already been saved. You can close this prompt and add the product details later from the highlighted visit in Recent visits.</p>
+            <p className="modal-footnote">Saving the product name records the visit and unavailable item together. If you close for now, the visit will still be recorded without product details, which can be added later from Recent visits.</p>
           </form>
         </div>
       )}
