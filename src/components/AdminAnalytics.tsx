@@ -56,7 +56,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       { id: "branches-comparison", label: "Previous-period comparison" }, { id: "branch-period-chart", label: "Branch current vs previous comparison chart" },
     ],
     trends: [
-      { id: "daily-trend", label: "Daily visit trend" }, { id: "weekday-conversion", label: "Purchase conversion by weekday" },
+      { id: "operating-hours", label: "Operating-hours context" }, { id: "daily-trend", label: "Daily visit trend" }, { id: "weekday-conversion", label: "Purchase conversion by weekday" },
       { id: "outcome-totals", label: "Outcome totals" }, { id: "hourly", label: "Busy hours and footfall patterns" },
       { id: "daily-averages", label: "Daily averages and peak days" }, { id: "trend-summary", label: "Trend summary totals" },
       { id: "trends-comparison", label: "Previous-period comparison" }, { id: "period-daily-chart", label: "Daily visits: current vs previous period" }, { id: "weekday-outcomes", label: "Purchase outcomes by weekday" },
@@ -170,7 +170,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       const date = new Date(visit.recorded_at);
       if (Number.isNaN(date.getTime())) return;
       const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", hourCycle: "h23" }).format(date));
-      if (hour >= 0 && hour < 24) hours[hour].total += 1;
+      const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Lagos", weekday: "short" }).format(date);
+      const openingHour = weekday === "Sun" ? 14 : 8;
+      if (hour >= openingHour && hour < 24) hours[hour].total += 1;
     });
     return hours;
   }, [analysisVisits]);
@@ -583,6 +585,15 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </div>
             <div className="analytics-period-legend"><span><i className="analytics-stack-purchased" /> Purchased</span><span><i className="analytics-stack-no-purchase" /> No purchase</span></div>
           </section>
+          <section hidden={!isVisible("operating-hours")} className="analytics-subpanel analytics-operating-hours">
+            <h3><Clock3 size={16} /> Operating hours context</h3>
+            <p className="analytics-help">Footlytics uses the pharmacy schedule below when interpreting hourly footfall. The hourly chart excludes records timestamped before opening; daily totals remain unchanged.</p>
+            <div className="analytics-operating-hours-grid">
+              <div><strong>8:00 AM</strong><span>Monday–Saturday opening</span></div>
+              <div><strong>2:00 PM</strong><span>Sunday opening</span></div>
+            </div>
+            <p className="analytics-help">Daily and weekday totals are raw visit counts, not visits-per-open-hour. A closing time has not been configured, so no closing-hour assumption is applied.</p>
+          </section>
           <div className="analytics-trends-stack">
           <section hidden={!isVisible("daily-trend")} className="analytics-subpanel analytics-trend">
             <h3><CalendarDays size={16} /> Daily visit trend</h3>
@@ -631,7 +642,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </div>
             <section hidden={!isVisible("hourly")} className="analytics-subpanel analytics-pattern-panel">
               <h3><Clock3 size={16} /> Busy hours &amp; footfall patterns</h3>
-              <p className="analytics-help">Visit recording times converted to Lagos local time. Hours with no visits are shown as empty bars.</p>
+              <p className="analytics-help">Visit recording times converted to Lagos local time. Counts before opening are excluded: 8:00 AM Monday–Saturday and 2:00 PM Sunday. Hours with no qualifying visits are shown as empty bars.</p>
               <div className="analytics-hour-chart" role="img" aria-label="Visits by hour of day in Lagos time">
                 {busyHourStats.map((hour) => <div className="analytics-hour" key={hour.hour} title={hour.label + ": " + hour.total + " visits"}>
                   <strong>{hour.total || ""}</strong><span className="analytics-hour-track"><i style={{ height: (hour.total ? Math.max(5, hour.total / maxHour * 100) : 2) + "%" }} /></span><small>{hour.hour % 3 === 0 ? hour.label.replace(" AM","a").replace(" PM","p") : ""}</small>
