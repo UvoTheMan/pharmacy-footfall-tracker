@@ -11,7 +11,7 @@
 - The enhanced component requires `jspdf` for PDF export; `main/package.json` did not include it.
 - The current application supports `purchased`, `not_purchased`, and `undecided`. Conversion metrics must exclude undecided visits from the denominator, while outcome distribution and footfall totals must still include them.
 - Do not copy the development branch's entire global stylesheet or unrelated feature work into this release.
-- Unavailable-item migrations are not required for the analytics component and have not been included.
+- Unavailable-item migrations are a separate feature dependency. They are included in this release branch so the unavailable-items entry and register can be reviewed together, but they have not been applied to any database by this work.
 
 ## Changes on the integration branch
 - Ported only `src/components/AdminAnalytics.tsx` and the dedicated `src/components/AdminAnalytics.css`.
@@ -21,7 +21,7 @@
 - Lazy-loaded the PDF export dependency so PDF-generation code is requested only when needed. The verified build's main JS chunk fell from 876.65 KB to 485.12 KB (391.53 KB, about 44.7% smaller); the 388.48 KB jsPDF chunk is now separate from the initial chunk.
 - Clarified conversion labels to say that conversion is based on resolved visits (purchased or no purchase).
 - Corrected branch no-purchase-rate denominator to exclude undecided visits.
-- Kept unrelated global CSS, unavailable-item migrations, and other development-branch features out of this integration.
+- Kept unrelated global styling and other development-branch features out of this integration; copied only the unavailable-items styles required by the register and recent-visit completion flow.
 
 ## Unavailable-items feature now included
 - Added the staff entry prompt for recording the unavailable product name and an optional JPG/PNG/WebP photo (up to 5 MB).
@@ -34,9 +34,10 @@
 - The feature was restored to the release scope after it was incorrectly omitted in the first integration pass.
 
 ## Build verification
-- Vercel Preview build is **READY** for code commit `8805d63f6b5a81ff098946e511eb4d1bfbb8c436` (PDF export lazy-loaded).
-- Preview URL: https://pharmacy-footfall-tracker-pec4o1td0-uvothemans-projects.vercel.app
-- An intermediate build failed due to a missing closing JSX brace in the undecided chart segment. It was fixed in commit `9a834f78dfae938692d609da70a5fad7bd86c390`; the later build with lazy loading also passed.
+- Vercel Preview build is **READY** for the current integration branch, including analytics and unavailable-item entry/register.
+- Latest Preview URL: https://pharmacy-footfall-tracker-qsht2bsbd-uvothemans-projects.vercel.app
+- Verified code build commit: `c21a9c1869e5a50c2791a46cf43a72c5370ce991` (unavailable-item feature wired into the app and both outcomes correctly flagged). The subsequent audit-document commit also built successfully.
+- An earlier intermediate build failed due to a missing closing JSX brace in the undecided chart segment. That was fixed before the successful build.
 - The Vercel web page could not be inspected through the available browser/search view. Interactive Preview testing remains required.
 
 ## Remaining release checks
