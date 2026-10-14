@@ -47,8 +47,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const [visibleData, setVisibleData] = useState<Record<string, boolean>>({});
   const sectionOptions: Record<AnalysisTab, { id: string; label: string }[]> = {
     overview: [
-      { id: "kpi-visits", label: "Total visits" }, { id: "kpi-purchases", label: "Purchases" },
-      { id: "kpi-no-purchase", label: "No-purchase visits" }, { id: "kpi-conversion", label: "Purchase conversion" },
+      { id: "kpi-summary", label: "Visit summary metrics (visits, purchases, no purchase and conversion)" },
       { id: "kpi-unavailable", label: "Unavailable-item requests" }, { id: "outcomes", label: "Outcome distribution chart" },
       { id: "weekday", label: "Visits by weekday" }, { id: "branch-snapshot", label: "Branch snapshot" },
       { id: "insights", label: "Quick insights" }, { id: "overview-comparison", label: "Previous-period comparison" },
@@ -67,8 +66,13 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       { id: "reason-branches", label: "Reasons by branch" }, { id: "reasons-comparison", label: "Previous-period comparison" },
     ],
   };
-  const isVisible = (id: string) => visibleData[id] !== false;
-  const toggleData = (id: string, checked: boolean) => setVisibleData((current) => ({ ...current, [id]: checked }));
+  const kpiSummaryIds = ["kpi-visits", "kpi-purchases", "kpi-no-purchase", "kpi-conversion"];
+  const isVisible = (id: string) => id === "kpi-summary"
+    ? kpiSummaryIds.every((key) => visibleData[key] !== false)
+    : visibleData[id] !== false;
+  const toggleData = (id: string, checked: boolean) => setVisibleData((current) => id === "kpi-summary"
+    ? { ...current, ...Object.fromEntries(kpiSummaryIds.map((key) => [key, checked])) }
+    : { ...current, [id]: checked });
   const setAllCurrent = (checked: boolean) => setVisibleData((current) => ({
     ...current,
     ...Object.fromEntries(sectionOptions[activeTab].map((item) => [item.id, checked])),
