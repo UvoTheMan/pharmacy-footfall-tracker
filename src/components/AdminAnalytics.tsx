@@ -117,13 +117,30 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const currentVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= startDate && visit.visit_date <= endDate), [visits, startDate, endDate]);
+  const scopedVisits = useMemo(
+    () => selectedBranchId === "all" ? visits : visits.filter((visit) => visit.branch_id === selectedBranchId),
+    [visits, selectedBranchId],
+  );
   const rangeDays = Math.max(1, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1);
   const previousStartDate = shiftDate(startDate, -rangeDays);
   const previousEndDate = shiftDate(startDate, -1);
-  const scopedCurrentVisits = useMemo(() => selectedBranchId === "all" ? currentVisits : currentVisits.filter((visit) => visit.branch_id === selectedBranchId), [currentVisits, selectedBranchId]);
-  const previousVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= previousStartDate && visit.visit_date <= previousEndDate && (selectedBranchId === "all" || visit.branch_id === selectedBranchId)), [visits, previousStartDate, previousEndDate, selectedBranchId]);
-  const analysisVisits = scopedCurrentVisits;
+  const analysisVisits = useMemo(
+    () => scopedVisits.filter((visit) => visit.visit_date >= startDate && visit.visit_date <= endDate),
+    [scopedVisits, startDate, endDate],
+  );
+  const previousVisits = useMemo(
+    () => scopedVisits.filter((visit) => visit.visit_date >= previousStartDate && visit.visit_date <= previousEndDate),
+    [scopedVisits, previousStartDate, previousEndDate],
+  );
+  const visitsByDate = useMemo(() => {
+    const grouped = new Map<string, Visit[]>();
+    for (const visit of scopedVisits) {
+      const day = grouped.get(visit.visit_date);
+      if (day) day.push(visit);
+      else grouped.set(visit.visit_date, [visit]);
+    }
+    return grouped;
+  }, [scopedVisits]);
   const analysisBranches = useMemo(() => selectedBranchId === "all" ? branches : branches.filter((branch) => branch.id === selectedBranchId), [branches, selectedBranchId]);
 
   const branchStats = useMemo(() => analysisBranches.map((branch) => {
@@ -183,25 +200,26 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const dailyStats = useMemo(() => {
     const days: { date: string; total: number; purchases: number; noPurchase: number }[] = [];
     for (let cursor = startDate; cursor <= endDate; cursor = shiftDate(cursor, 1)) {
-      const rows = analysisVisits.filter((visit) => visit.visit_date === cursor);
-      days.push({
-        date: cursor,
-        total: rows.length,
-        purchases: rows.filter((visit) => visit.outcome === "purchased").length,
-        noPurchase: rows.filter((visit) => visit.outcome === "not_purchased").length,
-      });
+      const rows = visitsByDate.get(cursor) ?? [];
+      let purchases = 0;
+      let noPurchase = 0;
+      for (const visit of rows) {
+        if (visit.outcome === "purchased") purchases += 1;
+        else if (visit.outcome === "not_purchased") noPurchase += 1;
+      }
+      days.push({ date: cursor, total: rows.length, purchases, noPurchase });
     }
     return days;
-  }, [analysisVisits, startDate, endDate]);
+  }, [visitsByDate, startDate, endDate]);
   const periodDailyComparison = useMemo(() => Array.from({ length: rangeDays }, (_, index) => {
     const currentDate = shiftDate(startDate, index);
     const previousDate = shiftDate(previousStartDate, index);
     return {
       index: index + 1,
-      current: analysisVisits.filter((visit) => visit.visit_date === currentDate).length,
-      previous: previousVisits.filter((visit) => visit.visit_date === previousDate).length,
+      current: visitsByDate.get(currentDate)?.length ?? 0,
+      previous: visitsByDate.get(previousDate)?.length ?? 0,
     };
-  }), [rangeDays, startDate, previousStartDate, analysisVisits, previousVisits]);
+  }), [rangeDays, startDate, previousStartDate, visitsByDate]);
   const maxPeriodDaily = Math.max(1, ...periodDailyComparison.flatMap((day) => [day.current, day.previous]));
   const activeDays = dailyStats.filter((day) => day.total > 0);
   const averageDailyFootfall = activeDays.length ? analysisVisits.length / activeDays.length : 0;
