@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release/footlytics-integration-2026-10-15
+      - fix/mobile-chrome-resume-loading-2026-10-15
   pull_request:
     branches:
       - main
