@@ -241,7 +241,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const outcomeStats = [
     { label: "Purchased", count: purchases, color: "#23875b" },
     { label: "No purchase", count: noPurchase, color: "#e27b48" },
-    { label: "Undecided", count: analysisVisits.filter((visit) => visit.outcome === "undecided").length, color: "#8b9a90" },
   ];
   const peak = Math.max(1, ...dailyStats.map((day) => day.total));
   const maxHour = Math.max(1, ...busyHourStats.map((hour) => hour.total));
@@ -320,7 +319,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " vs " + String(item.previous) + (item.percentagePoints ? "%" : "") + " previous" + (item.change === null ? " · no baseline" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)")));
     }
     if (activeTab === "overview") {
-      if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]},{label:"Undecided",value:analysisVisits.filter(visit => visit.outcome === "undecided").length,color:[139,154,144]}]); }
+      if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]); }
       if (isVisible("weekday")) { section("Visits by weekday"); bars(weekdayStats.map(day => ({label:day.label,value:day.total}))); }
       if (isVisible("branch-snapshot")) { section("Branch snapshot"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total}))); }
       if (isVisible("insights")) { section("Quick insights"); line("Purchase conversion", conversion + "%"); line("No-purchase rate", noPurchaseRate + "%"); }
@@ -602,7 +601,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                   <span className="analytics-day-stack" style={{ height: `${Math.max(day.total ? 8 : 2, day.total / peak * 100)}%` }}>
                     {day.purchases > 0 && <i className="analytics-stack-purchased" style={{ height: `${day.purchases / Math.max(1, day.total) * 100}%` }} />}
                     {day.noPurchase > 0 && <i className="analytics-stack-no-purchase" style={{ height: `${day.noPurchase / Math.max(1, day.total) * 100}%` }} />}
-                    {day.total - day.purchases - day.noPurchase > 0 && <i style={{ height: `${(day.total - day.purchases - day.noPurchase) / Math.max(1, day.total) * 100}%`, background: "#8b9a90" }} />}
                   </span>
                   <span className="analytics-day-label">{day.date.slice(5)}</span>
                 </div>
@@ -627,7 +625,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               </section>
               <section hidden={!isVisible("outcome-totals")} className="analytics-subpanel analytics-chart-card">
                 <h3><Users size={16} /> Outcome totals</h3>
-                <p className="analytics-help">Counts and share of all recorded visits, including undecided visits.</p>
+                <p className="analytics-help">Counts and share of recorded visits for the two tracked outcomes.</p>
                 <div className="analytics-legend">
                   {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, analysisVisits.length)}%</small></div>)}
                 </div>
