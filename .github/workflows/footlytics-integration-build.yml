@@ -13,6 +13,8 @@ on:
       - "tsconfig*.json"
       - "vite.config.*"
       - "index.html"
+      - "supabase/**"
+      - "scripts/**"
       - ".github/workflows/footlytics-integration-build.yml"
   workflow_dispatch:
 
