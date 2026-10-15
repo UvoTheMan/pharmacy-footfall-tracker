@@ -145,14 +145,6 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
       setReportedVisitIds((current) => new Set([...current, editing.id]));
     }
 
-    const correctedVisit: Visit = {
-      ...editing,
-      outcome,
-      reason: outcome === "not_purchased" ? reason as Reason : null,
-      unavailable_item_requested: outcome === "not_purchased" && reason === "Item unavailable"
-        ? true
-        : outcome === "purchased" ? editing.unavailable_item_requested : false,
-    };
     setEditing(null);
     setSaving(false);
     setCorrectionSaved(false);
