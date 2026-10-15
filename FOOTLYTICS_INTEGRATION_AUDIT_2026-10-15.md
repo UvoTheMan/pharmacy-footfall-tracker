@@ -38,6 +38,11 @@
 - Updated the Recent Visits correction component to support deferred product details; this was missing from an earlier integration attempt and is now included.
 - Added the checkpoint's Historical Visits display update while retaining undecided outcome support elsewhere.
 - Versioned `supabase/functions/manual-footfall-backup/index.ts` with configurable environment dispatch and a project-ref mismatch guard. This source change is not a remote deployment.
+- Hardened deferred-item photo handling: verify the signed-in user once, remove an uploaded photo if the database insert fails, and surface cleanup failures rather than silently leaving an orphaned image.
+- Delayed unavailable-item CSV object-URL cleanup so mobile browsers have time to begin the download.
+- Confirmed update actions actually return the expected row(s) before displaying successful item-name, individual status, or bulk status updates.
+- Disabled staff manual-backup submission until an active branch is selected.
+- Added `.github/workflows/footlytics-integration-build.yml` as an independent TypeScript/Vite build guard for this release branch and pull requests to `main`. Its successful run is not yet confirmed.
 
 ## Database and backup environment findings
 
@@ -51,9 +56,10 @@
 
 ## Build verification
 
-- Vercel reports the current integration app build as **READY** for code commit `91ad5cdb068784ca3fa6ac244729a2aa96efcd6c`.
-- Current Preview URL at audit time: https://pharmacy-footfall-tracker-pf1dksfbm-uvothemans-projects.vercel.app
-- An intermediate deployment failed when App.tsx was committed before the ManualBackup prop update landed; the subsequent complete branch state built successfully. The latest app code and checkpoint-aligned component changes have successful Vercel status checks.
+- The latest successful Vercel app build is commit `e4ac795dd03cc10ed36e2cf6d880853b8dc94741`, Preview URL: https://pharmacy-footfall-tracker-1m47b2zlt-uvothemans-projects.vercel.app
+- Later commits containing deferred-photo cleanup, CSV download cleanup, and explicit row-update verification received Vercel status failures pointing to Vercel's `build-rate-limit` restriction. This is a hosting build-quota failure, not a reported TypeScript/build error; those final commits have not yet been confirmed by a fresh Vercel build.
+- The independent GitHub Actions build workflow has been added to avoid relying solely on Vercel's build quota, but a successful run has not yet been verified.
+- An earlier intermediate deployment failed when App.tsx was committed before the ManualBackup prop update landed; the subsequent complete branch state built successfully.
 - Build success is not equivalent to authenticated, end-to-end feature verification.
 
 ## Required Preview verification before Production release
