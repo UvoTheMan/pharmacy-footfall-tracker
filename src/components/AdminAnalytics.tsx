@@ -84,10 +84,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     const requestId = ++loadRequestId.current;
     if (!supabase) {
       setError("Analytics is unavailable because the database connection is not configured.");
+      setLoading(false);
       return;
     }
     if (!startDate || !endDate || startDate < earliest || endDate > today || startDate > endDate) {
       setError(`Choose a valid range from ${earliest} through ${today}, with the start date no later than the end date.`);
+      setLoading(false);
       return;
     }
     setLoading(true);
