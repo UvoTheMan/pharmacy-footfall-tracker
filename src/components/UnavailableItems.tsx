@@ -47,6 +47,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | UnavailableItem["status"]>("all");
   const [fromDate, setFromDate] = useState(dateMinusDays(89));
   const [toDate, setToDate] = useState(todayKey());
   const [loading, setLoading] = useState(true);
@@ -163,8 +164,9 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
   const filteredItems = useMemo(() => items.filter((item) => {
     const matchesName = !appliedSearch || item.item_name.toLowerCase().includes(appliedSearch.toLowerCase());
     const matchesBranch = branchFilter === "all" || item.branch_id === branchFilter;
-    return matchesName && matchesBranch;
-  }), [items, appliedSearch, branchFilter]);
+    const matchesStatus = profile.role !== "admin" || statusFilter === "all" || item.status === statusFilter;
+    return matchesName && matchesBranch && matchesStatus;
+  }), [items, appliedSearch, branchFilter, profile.role, statusFilter]);
 
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -174,6 +176,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
       setError("Enter an item name between 1 and 180 characters.");
       return;
     }
+    const statusWillReset = profile.role !== "admin" && editing.status !== "pending" && cleanName !== editing.item_name;
     setSaving(true);
     setError("");
     const result = await supabase.from("unavailable_items")
@@ -188,7 +191,9 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     }
     setEditing(null);
     setSaving(false);
-    setNotice("Unavailable-item report corrected.");
+    setNotice(statusWillReset
+      ? "Report corrected and returned to Pending assessment for admin review."
+      : "Unavailable-item report corrected.");
     await loadItems();
   }
 
@@ -348,7 +353,8 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         <label className="history-date-field"><span>To date</span><input type="date" min={dateMinusDays(89)} max={todayKey()} value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
         <button className="primary-button unavailable-search-button" type="submit"><Search size={15} /> Search records</button>
       </form>
-      <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); setSelectedIds(new Set()); }}>Reset filters</button></div></div>
+      <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter("all"); setStatusFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); setSelectedIds(new Set()); }}>Reset filters</button></div></div>
+      {profile.role === "admin" && <div className="unavailable-status-filter-row"><label className="history-date-field"><span>Assessment status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All statuses</option><option value="pending">Pending assessment</option><option value="reviewed">Reviewed</option><option value="resolved">Resolved</option></select></label><span className="unavailable-filter-note">Applies to the selected date range and branch/item filters.</span></div>}
       {profile.role === "admin" && filteredItems.length > 0 && <div className="unavailable-bulk-toolbar">
         <label className="unavailable-select-all"><input type="checkbox" checked={filteredItems.every((item) => selectedIds.has(item.id))} onChange={(event) => toggleAllFiltered(event.target.checked)} aria-label="Select all filtered unavailable-item reports" /> <span>Select all shown</span></label>
         <span className="unavailable-selected-count">{filteredItems.filter((item) => selectedIds.has(item.id)).length} selected</span>
