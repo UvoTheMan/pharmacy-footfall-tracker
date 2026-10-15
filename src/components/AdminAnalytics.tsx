@@ -646,12 +646,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <input type="text" inputMode="numeric" pattern="[0-9]*" value={minimumHourlyVisits} onChange={(event) => setMinimumHourlyVisits(event.target.value.replace(/[^0-9]/g, ""))} aria-label="Minimum visits per hour" />
                 visits
               </label>
-              <div className="analytics-hour-chart" role="group" aria-label="Visits by hour of day in Lagos time" style={{ gridTemplateColumns: `repeat(${Math.max(1, visibleBusyHourStats.length)}, minmax(36px, 1fr))`, minWidth: `max(100%, ${Math.max(1, visibleBusyHourStats.length) * 36}px)` }}>
+              <div className="analytics-hour-chart-scroll"><div className="analytics-hour-chart" role="group" aria-label="Visits by hour of day in Lagos time" style={{ gridTemplateColumns: `repeat(${Math.max(1, visibleBusyHourStats.length)}, minmax(36px, 1fr))`, minWidth: `${Math.max(1, visibleBusyHourStats.length) * 36}px` }}>
                 {visibleBusyHourStats.map((hour) => <div className="analytics-hour" key={hour.hour} title={hour.label + ": " + hour.total + " visits"}>
                   <strong>{hour.total.toLocaleString()}</strong><span className="analytics-hour-track"><i style={{ height: (hour.total ? Math.max(5, hour.total / maxHour * 100) : 2) + "%" }} /></span><small>{hour.label.replace(" AM","a").replace(" PM","p")}</small>
                 </div>)}
                 {visibleBusyHourStats.length === 0 && <p className="corrections-empty">No hours reached this minimum in the selected period.</p>}
-              </div>
+              </div></div>
               <div className="analytics-pattern-highlights">
                 <div><span>Peak recorded hour</span><strong>{peakHour?.label ?? "No data"}</strong><small>{peakHour ? peakHour.total + " visits" : "No timestamped visits"}</small></div>
                 <div><span>Quietest active hour</span><strong>{quietHour?.label ?? "No data"}</strong><small>{quietHour ? quietHour.total + " visits" : "No timestamped visits"}</small></div>
