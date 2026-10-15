@@ -127,14 +127,10 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
         return;
       }
     }
-    const result = await supabase.from("unavailable_items").insert({
-      visit_id: pendingVisit.id,
-      branch_id: pendingVisit.branch_id,
-      item_name: itemName.trim(),
-      reported_on: pendingVisit.visit_date,
-      created_by: userId,
-      updated_by: userId,
-      image_path: imagePath,
+    const result = await supabase.rpc("add_unavailable_item_details", {
+      p_visit_id: pendingVisit.id,
+      p_item_name: itemName.trim(),
+      p_image_path: imagePath,
     });
     if (result.error) {
       if (imagePath) {
@@ -184,7 +180,7 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
                   <strong>{visit.outcome === "not_purchased" ? visit.reason ?? "Reason not recorded" : "Purchase recorded"}</strong>
                   {visit.unavailable_item_requested && !reportedVisitIds.has(visit.id) && <span className="pending-product-label">Product details needed</span>}
                 </div>
-                {visit.unavailable_item_requested && !reportedVisitIds.has(visit.id) && canEdit && <button type="button" className="correction-edit pending-product-action" onClick={() => { setPendingVisit(visit); setItemName(""); setItemPhoto(null); setError(""); }}><ImagePlus size={13} /> Add details</button>}
+                {visit.unavailable_item_requested && !reportedVisitIds.has(visit.id) && canEdit && <button type="button" className="correction-edit pending-product-action" onClick={() => { setPendingVisit(visit); setItemPhoto(null); setError(""); }}><ImagePlus size={13} /> Add details</button>}
                 {canEdit && <button type="button" className="correction-edit" onClick={() => beginEdit(visit)}><Edit3 size={13} /> Edit</button>}
               </article>
             ))}
