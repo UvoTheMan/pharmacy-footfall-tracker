@@ -391,7 +391,7 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 
 /* Assessment-status filtering is independent of bulk review/resolve actions. */
 .unavailable-status-filter-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:12px 0 14px;padding:12px;border:1px solid #e6eee7;border-radius:10px;background:#fbfdfb}
-.unavailable-status-filter-row .history-date-field{flex:0 1 240px;min-width:180px}
+.unavailable-status-filter-row .history-date-field{flex:0 1 200px;min-width:160px}
 .unavailable-filter-note{font-size:10px;line-height:1.5;color:#87958b;padding:0 0 11px}
 @media(max-width:520px){.unavailable-status-filter-row{align-items:stretch;flex-direction:column;gap:6px}.unavailable-status-filter-row .history-date-field{min-width:0;width:100%}.unavailable-filter-note{padding:0}}
 
