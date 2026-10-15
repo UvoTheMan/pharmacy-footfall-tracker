@@ -5,7 +5,7 @@
 - Production baseline: `main` at `75041f4d0ee9e4155f542e3e0a32359c81e0705b`.
 - Integration branch: `release/footlytics-integration-2026-10-15`.
 - Source checkpoint audited: `checkpoint/analytics-pr28-2026-10-14` (61 commits ahead of `main`, 0 behind at the time of comparison).
-- Integration branch is a selective, compatibility-reviewed port, not a blind merge of the checkpoint's commit stack. It currently contains 30 commits ahead of `main`, 0 behind, and includes every code file in the checkpoint's final file-level change set, plus the versioned manual-backup Edge Function and this audit.
+- Integration branch is a selective, compatibility-reviewed port, not a blind merge of the checkpoint's commit stack. Current GitHub comparison: 37 commits ahead of `main`, 0 behind. The source checkpoint is 61 commits ahead of `main`, 0 behind. The branches intentionally do not share checkpoint ancestry, so release readiness is determined by feature/file-level parity and compatibility review, not commit count alone. All 13 paths changed by the checkpoint are represented in the integration branch; the original checkpoint document is also preserved here, alongside the versioned manual-backup Edge Function, CI build guard, and this audit.
 - Never merge to `main`, deploy Production, or apply Production database migrations without explicit user authorization.
 - No Production database, environment variable, Edge Function, or deployment was changed during this work.
 
@@ -42,7 +42,7 @@
 - Delayed unavailable-item CSV object-URL cleanup so mobile browsers have time to begin the download.
 - Confirmed update actions actually return the expected row(s) before displaying successful item-name, individual status, or bulk status updates.
 - Disabled staff manual-backup submission until an active branch is selected.
-- Added `.github/workflows/footlytics-integration-build.yml` as an independent TypeScript/Vite build guard for this release branch and pull requests to `main`. Its successful run is not yet confirmed.
+- Added `.github/workflows/footlytics-integration-build.yml` as an independent TypeScript/Vite build guard for this release branch and pull requests to `main`. Its PR path filters have been widened to include Supabase migrations/functions and backup scripts, so backend-related edits also trigger the build guard. The latest Vercel build for the exact release-branch head is now READY; a successful GitHub Actions run remains separately unverified.
 
 ## Database and backup environment findings
 
@@ -56,8 +56,8 @@
 
 ## Build verification
 
-- The latest successful Vercel app build is commit `e4ac795dd03cc10ed36e2cf6d880853b8dc94741`, Preview URL: https://pharmacy-footfall-tracker-1m47b2zlt-uvothemans-projects.vercel.app
-- Later commits containing deferred-photo cleanup, CSV download cleanup, and explicit row-update verification received Vercel status failures pointing to Vercel's `build-rate-limit` restriction. This is a hosting build-quota failure, not a reported TypeScript/build error; those final commits have not yet been confirmed by a fresh Vercel build.
+- Latest release-branch head at time of audit refresh: `f821b81d443bbc2122c351e160fed691832a1efa` (`docs: record production schema prerequisite for unavailable items`). Vercel deployment `dpl_9SRQvMhRqhMXP9x2Sb7DriRsebh5` is `READY`, Preview URL: https://pharmacy-footfall-tracker-3i3ftm1mx-uvothemans-projects.vercel.app. GitHub combined status for this exact commit reports Vercel success.
+- This successful deployment includes the integrated application code at that branch head, superseding the earlier build-rate-limit failures for previous intermediate commits. The earlier failures were hosting build-quota failures, not reported TypeScript errors.
 - The independent GitHub Actions build workflow has been added to avoid relying solely on Vercel's build quota, but a successful run has not yet been verified.
 - An earlier intermediate deployment failed when App.tsx was committed before the ManualBackup prop update landed; the subsequent complete branch state built successfully.
 - Build success is not equivalent to authenticated, end-to-end feature verification.
@@ -75,7 +75,7 @@
 
 ## Release blockers and release decision
 
-- **Not ready to merge/deploy yet.** Authenticated Preview tests above remain outstanding.
+- **Not ready to merge/deploy yet.** Authenticated Preview tests above remain outstanding. The latest deployment is build-verified, not end-to-end verified.
 - Production unavailable-item migrations require review and explicit approval before application.
 - Production manual-backup Edge Function is absent and must be deliberately deployed/configured/tested; the workflow ref, environment, expected project ref, token permissions, and GitHub Environment secrets must be verified.
 - The reported Chrome re-entry blank screen and general slowdowns require manual reproduction after the auth safeguard and bundle-splitting changes.
