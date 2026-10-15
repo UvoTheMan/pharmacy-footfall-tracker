@@ -183,15 +183,28 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     { label: "Conversion", current: conversion, previous: previousConversion, percentagePoints: true },
   ].map((item) => ({ ...item, delta: item.current - item.previous, change: item.previous ? Math.round((item.current - item.previous) / item.previous * 100) : null }));
   const busyHourStats = useMemo(() => {
-    const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, label: new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "numeric", hour12: true }).format(new Date(Date.UTC(2026, 0, 1, hour - 1))), total: 0 }));
-    analysisVisits.forEach((visit) => {
+    const hourLabelFormatter = new Intl.DateTimeFormat("en-NG", {
+      timeZone: "Africa/Lagos", hour: "numeric", hour12: true,
+    });
+    const localHourFormatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Lagos", hour: "2-digit", hourCycle: "h23",
+    });
+    const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Africa/Lagos", weekday: "short",
+    });
+    const hours = Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      label: hourLabelFormatter.format(new Date(Date.UTC(2026, 0, 1, hour - 1))),
+      total: 0,
+    }));
+    for (const visit of analysisVisits) {
       const date = new Date(visit.recorded_at);
-      if (Number.isNaN(date.getTime())) return;
-      const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", hourCycle: "h23" }).format(date));
-      const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Lagos", weekday: "short" }).format(date);
+      if (Number.isNaN(date.getTime())) continue;
+      const hour = Number(localHourFormatter.format(date));
+      const weekday = weekdayFormatter.format(date);
       const openingHour = weekday === "Sun" ? 14 : 8;
       if (hour >= openingHour && hour < 24) hours[hour].total += 1;
-    });
+    }
     return hours;
   }, [analysisVisits]);
   const peakHour = [...busyHourStats].filter((hour) => hour.total > 0).sort((a, b) => b.total - a.total)[0];
