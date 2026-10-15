@@ -177,15 +177,31 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     return { id: branch.id, name: branch.name, total: rows.length, purchases, conversion: percent(purchases, resolved) };
   }), [analysisBranches, previousVisits]);
 
-  const purchases = analysisVisits.filter((visit) => visit.outcome === "purchased").length;
-  const noPurchase = analysisVisits.filter((visit) => visit.outcome === "not_purchased").length;
-  const resolved = analysisVisits.filter((visit) => visit.outcome !== "undecided").length;
+  const currentTotals = useMemo(() => {
+    const totals = { purchases: 0, noPurchase: 0, resolved: 0, unavailableRequests: 0 };
+    for (const visit of analysisVisits) {
+      if (visit.outcome === "purchased") totals.purchases += 1;
+      if (visit.outcome === "not_purchased") totals.noPurchase += 1;
+      if (visit.outcome !== "undecided") totals.resolved += 1;
+      if (visit.unavailable_item_requested) totals.unavailableRequests += 1;
+    }
+    return totals;
+  }, [analysisVisits]);
+  const previousTotals = useMemo(() => {
+    const totals = { purchases: 0, noPurchase: 0, resolved: 0 };
+    for (const visit of previousVisits) {
+      if (visit.outcome === "purchased") totals.purchases += 1;
+      if (visit.outcome === "not_purchased") totals.noPurchase += 1;
+      if (visit.outcome !== "undecided") totals.resolved += 1;
+    }
+    return totals;
+  }, [previousVisits]);
+  const { purchases, noPurchase, resolved, unavailableRequests } = currentTotals;
   const conversion = percent(purchases, resolved);
   const noPurchaseRate = percent(noPurchase, resolved);
-  const unavailableRequests = analysisVisits.filter((visit) => visit.unavailable_item_requested).length;
-  const previousPurchases = previousVisits.filter((visit) => visit.outcome === "purchased").length;
-  const previousNoPurchase = previousVisits.filter((visit) => visit.outcome === "not_purchased").length;
-  const previousResolved = previousVisits.filter((visit) => visit.outcome !== "undecided").length;
+  const previousPurchases = previousTotals.purchases;
+  const previousNoPurchase = previousTotals.noPurchase;
+  const previousResolved = previousTotals.resolved;
   const previousConversion = percent(previousPurchases, previousResolved);
   const comparisonStats = [
     { label: "Total visits", current: analysisVisits.length, previous: previousVisits.length },
@@ -252,10 +268,11 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
   const reasonStats = useMemo(() => {
     const counts = new Map<string, number>();
-    analysisVisits.filter((visit) => visit.outcome === "not_purchased").forEach((visit) => {
+    for (const visit of analysisVisits) {
+      if (visit.outcome !== "not_purchased") continue;
       const reason = visit.reason?.trim() || "Other / Unknown";
       counts.set(reason, (counts.get(reason) ?? 0) + 1);
-    });
+    }
     return [...counts.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
   }, [analysisVisits]);
 
