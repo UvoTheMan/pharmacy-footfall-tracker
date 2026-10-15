@@ -5,7 +5,7 @@
 - Production baseline: `main` at `75041f4d0ee9e4155f542e3e0a32359c81e0705b`.
 - Integration branch: `release/footlytics-integration-2026-10-15`.
 - Source checkpoint audited: `checkpoint/analytics-pr28-2026-10-14` (61 commits ahead of `main`, 0 behind at the time of comparison).
-- Integration branch is a selective, compatibility-reviewed port, not a blind merge of the checkpoint's commit stack. Current GitHub comparison before this audit refresh: 42 commits ahead of `main`, 0 behind. This audit refresh is the next documentation-only commit. The source checkpoint is 61 commits ahead of `main`, 0 behind. The branches intentionally do not share checkpoint ancestry, so release readiness is determined by feature/file-level parity and compatibility review, not commit count alone. All 13 paths changed by the checkpoint are represented in the integration branch; the original checkpoint document is also preserved here, alongside the versioned manual-backup Edge Function, CI build guard, and this audit.
+- Integration branch is a selective, compatibility-reviewed port, not a blind merge of the checkpoint's commit stack. Current GitHub comparison before this audit refresh: 43 commits ahead of `main`, 0 behind. This audit refresh is the next documentation-only commit. The source checkpoint is 61 commits ahead of `main`, 0 behind. The branches intentionally do not share checkpoint ancestry, so release readiness is determined by feature/file-level parity and compatibility review, not commit count alone. All 13 paths changed by the checkpoint are represented in the integration branch; the original checkpoint document is also preserved here, alongside the versioned manual-backup Edge Function, CI build guard, and this audit.
 - Never merge to `main`, deploy Production, or apply Production database migrations without explicit user authorization.
 - No Production database, environment variable, Edge Function, or deployment was changed during this work.
 
@@ -40,6 +40,7 @@
 - Added the checkpoint's Historical Visits display update while retaining undecided outcome support elsewhere.
 - Versioned `supabase/functions/manual-footfall-backup/index.ts` with configurable environment dispatch and a project-ref mismatch guard. This source change is not a remote deployment.
 - Hardened deferred-item photo handling: verify the signed-in user once, remove an uploaded photo if the database insert fails, and surface cleanup failures rather than silently leaving an orphaned image.
+- Paginated unavailable-item register reads in 1,000-row pages and batches signed-photo URL creation in groups of 100, avoiding silent truncation and oversized storage requests as the register grows.
 - Delayed unavailable-item CSV object-URL cleanup so mobile browsers have time to begin the download.
 - Confirmed update actions actually return the expected row(s) before displaying successful item-name, individual status, or bulk status updates.
 - Disabled staff manual-backup submission until an active branch is selected.
@@ -57,7 +58,7 @@
 
 ## Build verification
 
-- Latest application-code commit before this audit refresh: `abad16f9755ace083b24ef5123c87737094b48c0` (`fix: show correct branch labels in shared unavailable register`). Vercel deployment `dpl_4Kjs8aFJF4WrTD1XnYzRAc6LbKcW` is `READY`, Preview URL: https://pharmacy-footfall-tracker-376knvarq-uvothemans-projects.vercel.app. The preceding commit containing the branch-label migration also built successfully as deployment `dpl_9zGdHeX3y4DqpQjA4wPGiyGrXNdx`.
+- Latest verified application-code deployment before the pagination improvement: commit `abad16f9755ace083b24ef5123c87737094b48c0` (`fix: show correct branch labels in shared unavailable register`). Vercel deployment `dpl_4Kjs8aFJF4WrTD1XnYzRAc6LbKcW` is `READY`, Preview URL: https://pharmacy-footfall-tracker-376knvarq-uvothemans-projects.vercel.app. The preceding commit containing the branch-label migration also built successfully as deployment `dpl_9zGdHeX3y4DqpQjA4wPGiyGrXNdx`. A subsequent commit `8a5c8b786440901ef4d0eb1bb8b1623e11ecccbd` adds register pagination and photo URL batching; it has been committed to the isolated release branch, but its fresh deployment could not be initiated through the connected Vercel tool because that operation returned a team-scope 403. Therefore the pagination improvement is not yet build-verified.
 - These successful deployments supersede the earlier build-rate-limit failures for previous intermediate commits. Those earlier failures were hosting build-quota failures, not reported TypeScript errors.
 - The independent GitHub Actions build workflow has been added to avoid relying solely on Vercel's build quota, but a successful run has not yet been verified.
 - An earlier intermediate deployment failed when App.tsx was committed before the ManualBackup prop update landed; the subsequent complete branch state built successfully.
@@ -76,7 +77,7 @@
 
 ## Release blockers and release decision
 
-- **Not ready to merge/deploy yet.** Authenticated Preview tests above remain outstanding. The latest deployment is build-verified, not end-to-end verified.
+- **Not ready to merge/deploy yet.** Authenticated Preview tests above remain outstanding. The last verified deployment predates the latest pagination improvement, so a fresh Preview build and test are required before release.
 - Production unavailable-item migrations, including the new branch-label RPC migration, require review and explicit approval before application. Preview testing of all-branch labels also depends on applying the new branch-label migration to the staging project first.
 - Production manual-backup Edge Function is absent and must be deliberately deployed/configured/tested; the workflow ref, environment, expected project ref, token permissions, and GitHub Environment secrets must be verified.
 - The reported Chrome re-entry blank screen and general slowdowns require manual reproduction after the auth safeguard and bundle-splitting changes.
