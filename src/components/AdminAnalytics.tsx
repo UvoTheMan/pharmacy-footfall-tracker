@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, CalendarDays, Clock3, Download, GitCompare, RefreshCw, Search, TrendingUp, Users } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import "./AdminAnalytics.css";
@@ -78,8 +78,10 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadedRange, setLoadedRange] = useState("");
+  const loadRequestId = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestId.current;
     if (!supabase) {
       setError("Analytics is unavailable because the database connection is not configured.");
       return;
@@ -92,14 +94,17 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     setError("");
     const rows: Visit[] = [];
     for (let offset = 0; ; offset += 1000) {
-      const result = await supabase
+      let query = supabase
         .from("visits")
         .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested")
         .gte("visit_date", shiftDate(startDate, -Math.max(1, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1)))
-        .lte("visit_date", endDate)
+        .lte("visit_date", endDate);
+      if (selectedBranchId !== "all") query = query.eq("branch_id", selectedBranchId);
+      const result = await query
         .order("visit_date", { ascending: true })
         .order("id", { ascending: true })
         .range(offset, offset + 999);
+      if (requestId !== loadRequestId.current) return;
       if (result.error) {
         setError(`Could not load analytics: ${result.error.message}`);
         setVisits([]);
@@ -110,12 +115,16 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       rows.push(...page);
       if (page.length < 1000) break;
     }
+    if (requestId !== loadRequestId.current) return;
     setVisits(rows);
     setLoadedRange(`${startDate} to ${endDate}`);
     setLoading(false);
-  }, [startDate, endDate, earliest, today]);
+  }, [startDate, endDate, earliest, today, selectedBranchId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { loadRequestId.current += 1; };
+  }, [load]);
 
   const scopedVisits = useMemo(
     () => selectedBranchId === "all" ? visits : visits.filter((visit) => visit.branch_id === selectedBranchId),
