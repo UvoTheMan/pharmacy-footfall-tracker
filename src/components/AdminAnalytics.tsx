@@ -645,7 +645,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <input type="number" min="0" step="1" inputMode="numeric" value={minimumHourlyVisits} onChange={(event) => setMinimumHourlyVisits(Math.max(0, Math.floor(Number(event.target.value) || 0)))} aria-label="Minimum visits per hour" />
                 visits
               </label>
-              <div className="analytics-hour-chart" role="img" aria-label="Visits by hour of day in Lagos time">
+              <div className="analytics-hour-chart" role="group" aria-label="Visits by hour of day in Lagos time" style={{ gridTemplateColumns: `repeat(${Math.max(1, visibleBusyHourStats.length)}, minmax(0, 1fr))` }}>
                 {visibleBusyHourStats.map((hour) => <div className="analytics-hour" key={hour.hour} title={hour.label + ": " + hour.total + " visits"}>
                   <strong>{hour.total.toLocaleString()}</strong><span className="analytics-hour-track"><i style={{ height: (hour.total ? Math.max(5, hour.total / maxHour * 100) : 2) + "%" }} /></span><small>{hour.hour % 3 === 0 ? hour.label.replace(" AM","a").replace(" PM","p") : ""}</small>
                 </div>)}
