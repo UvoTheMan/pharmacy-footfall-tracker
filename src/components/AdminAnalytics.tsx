@@ -67,7 +67,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   };
   const isVisible = (id: string) => visibleData[id] !== false;
   const toggleData = (id: string, checked: boolean) => setVisibleData((current) => ({ ...current, [id]: checked }));
-  const [minimumHourlyVisits, setMinimumHourlyVisits] = useState(0);
+  const [minimumHourlyVisits, setMinimumHourlyVisits] = useState("0");
+  const minimumHourlyVisitThreshold = Math.max(0, Math.floor(Number(minimumHourlyVisits) || 0));
   const [expandedReasonBranches, setExpandedReasonBranches] = useState<Record<string, boolean>>({});
   const [expandedBranchDetails, setExpandedBranchDetails] = useState<Record<string, boolean>>({});
   const setAllCurrent = (checked: boolean) => setVisibleData((current) => ({
@@ -178,7 +179,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     });
     return hours;
   }, [analysisVisits]);
-  const visibleBusyHourStats = busyHourStats.filter((hour) => hour.total >= minimumHourlyVisits);
+  const visibleBusyHourStats = busyHourStats.filter((hour) => hour.total >= minimumHourlyVisitThreshold);
   const peakHour = [...visibleBusyHourStats].filter((hour) => hour.total > 0).sort((a, b) => b.total - a.total)[0];
   const quietHour = [...visibleBusyHourStats].filter((hour) => hour.total > 0).sort((a, b) => a.total - b.total)[0];
 
@@ -642,7 +643,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               <h3><Clock3 size={16} /> Busy hours &amp; footfall patterns</h3>
               <p className="analytics-help">Visit recording times are shown in Lagos local time. Pre-opening records are excluded: 8:00 AM Monday–Saturday and 2:00 PM Sunday. Set a minimum to focus on hours with that many visits or more; at 0, all hours and their counts are shown.</p>
               <label className="analytics-hour-threshold">Show hours with at least
-                <input type="number" min="0" step="1" inputMode="numeric" value={minimumHourlyVisits} onChange={(event) => setMinimumHourlyVisits(Math.max(0, Math.floor(Number(event.target.value) || 0)))} aria-label="Minimum visits per hour" />
+                <input type="text" inputMode="numeric" pattern="[0-9]*" value={minimumHourlyVisits} onChange={(event) => setMinimumHourlyVisits(event.target.value.replace(/[^0-9]/g, ""))} aria-label="Minimum visits per hour" />
                 visits
               </label>
               <div className="analytics-hour-chart" role="group" aria-label="Visits by hour of day in Lagos time" style={{ gridTemplateColumns: `repeat(${Math.max(1, visibleBusyHourStats.length)}, minmax(0, 1fr))` }}>
