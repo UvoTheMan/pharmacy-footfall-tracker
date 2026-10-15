@@ -141,6 +141,9 @@ export default function App() {
         setBranches([]);
         setVisits([]);
         setBranch(null);
+        // Always return to the normal workspace when a session changes.
+        setShowUnavailablePage(false);
+        setAdminPage("dashboard");
       }
     });
     return () => data.subscription.unsubscribe();
