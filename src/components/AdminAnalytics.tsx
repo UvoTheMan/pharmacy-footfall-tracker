@@ -67,6 +67,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   };
   const isVisible = (id: string) => visibleData[id] !== false;
   const toggleData = (id: string, checked: boolean) => setVisibleData((current) => ({ ...current, [id]: checked }));
+  const [minimumHourlyVisits, setMinimumHourlyVisits] = useState(0);
   const [expandedReasonBranches, setExpandedReasonBranches] = useState<Record<string, boolean>>({});
   const [expandedBranchDetails, setExpandedBranchDetails] = useState<Record<string, boolean>>({});
   const setAllCurrent = (checked: boolean) => setVisibleData((current) => ({
@@ -177,8 +178,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     });
     return hours;
   }, [analysisVisits]);
-  const peakHour = [...busyHourStats].filter((hour) => hour.total > 0).sort((a, b) => b.total - a.total)[0];
-  const quietHour = [...busyHourStats].filter((hour) => hour.total > 0).sort((a, b) => a.total - b.total)[0];
+  const visibleBusyHourStats = busyHourStats.filter((hour) => hour.total >= minimumHourlyVisits);
+  const peakHour = [...visibleBusyHourStats].filter((hour) => hour.total > 0).sort((a, b) => b.total - a.total)[0];
+  const quietHour = [...visibleBusyHourStats].filter((hour) => hour.total > 0).sort((a, b) => a.total - b.total)[0];
 
   const dailyStats = useMemo(() => {
     const days: { date: string; total: number; purchases: number; noPurchase: number }[] = [];
@@ -243,7 +245,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     { label: "No purchase", count: noPurchase, color: "#e27b48" },
   ];
   const peak = Math.max(1, ...dailyStats.map((day) => day.total));
-  const maxHour = Math.max(1, ...busyHourStats.map((hour) => hour.total));
+  const maxHour = Math.max(1, ...visibleBusyHourStats.map((hour) => hour.total));
   const maxBranch = Math.max(1, ...branchStats.map((branch) => branch.total));
   const topBranch = [...branchStats].filter((item) => item.resolved > 0).sort((a, b) => b.conversion - a.conversion)[0];
   const busiestBranch = [...branchStats].filter((item) => item.total > 0).sort((a, b) => b.total - a.total)[0];
@@ -638,11 +640,16 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </div>
             <section hidden={!isVisible("hourly")} className="analytics-subpanel analytics-pattern-panel">
               <h3><Clock3 size={16} /> Busy hours &amp; footfall patterns</h3>
-              <p className="analytics-help">Visit recording times converted to Lagos local time. Counts before opening are excluded: 8:00 AM Monday–Saturday and 2:00 PM Sunday. Hours with no qualifying visits are shown as empty bars.</p>
+              <p className="analytics-help">Visit recording times are shown in Lagos local time. Pre-opening records are excluded: 8:00 AM Monday–Saturday and 2:00 PM Sunday. Set a minimum to focus on hours with that many visits or more; at 0, all hours and their counts are shown.</p>
+              <label className="analytics-hour-threshold">Show hours with at least
+                <input type="number" min="0" step="1" inputMode="numeric" value={minimumHourlyVisits} onChange={(event) => setMinimumHourlyVisits(Math.max(0, Math.floor(Number(event.target.value) || 0)))} aria-label="Minimum visits per hour" />
+                visits
+              </label>
               <div className="analytics-hour-chart" role="img" aria-label="Visits by hour of day in Lagos time">
-                {busyHourStats.map((hour) => <div className="analytics-hour" key={hour.hour} title={hour.label + ": " + hour.total + " visits"}>
-                  <strong>{hour.total || ""}</strong><span className="analytics-hour-track"><i style={{ height: (hour.total ? Math.max(5, hour.total / maxHour * 100) : 2) + "%" }} /></span><small>{hour.hour % 3 === 0 ? hour.label.replace(" AM","a").replace(" PM","p") : ""}</small>
+                {visibleBusyHourStats.map((hour) => <div className="analytics-hour" key={hour.hour} title={hour.label + ": " + hour.total + " visits"}>
+                  <strong>{hour.total.toLocaleString()}</strong><span className="analytics-hour-track"><i style={{ height: (hour.total ? Math.max(5, hour.total / maxHour * 100) : 2) + "%" }} /></span><small>{hour.hour % 3 === 0 ? hour.label.replace(" AM","a").replace(" PM","p") : ""}</small>
                 </div>)}
+                {visibleBusyHourStats.length === 0 && <p className="corrections-empty">No hours reached this minimum in the selected period.</p>}
               </div>
               <div className="analytics-pattern-highlights">
                 <div><span>Peak recorded hour</span><strong>{peakHour?.label ?? "No data"}</strong><small>{peakHour ? peakHour.total + " visits" : "No timestamped visits"}</small></div>
