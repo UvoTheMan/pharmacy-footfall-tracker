@@ -82,9 +82,24 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
       setSaving(false);
       return;
     }
+    const correctedVisit: Visit = {
+      ...editing,
+      outcome,
+      reason: outcome === "not_purchased" ? reason as Reason : null,
+      unavailable_item_requested: outcome === "not_purchased" && reason === "Item unavailable"
+        ? true
+        : outcome === "purchased" ? editing.unavailable_item_requested : false,
+    };
     setEditing(null);
     setSaving(false);
-    setNotice("Visit correction saved.");
+    if (outcome === "not_purchased" && reason === "Item unavailable" && !reportedVisitIds.has(editing.id)) {
+      setPendingVisit(correctedVisit);
+      setItemName("");
+      setItemPhoto(null);
+      setNotice("");
+    } else {
+      setNotice("Visit correction saved.");
+    }
     await onUpdated();
   }
 
