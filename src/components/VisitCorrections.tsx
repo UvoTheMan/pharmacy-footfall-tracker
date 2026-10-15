@@ -209,6 +209,7 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
             <p className="modal-footnote">JPG, PNG or WebP, up to 5 MB. Do not photograph prescriptions or documents showing patient-identifying details.</p>
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="submit" disabled={savingItem || !itemName.trim()}>{savingItem ? "Saving details…" : "Save product details"} <span>→</span></button>
+            <button className="text-button" type="button" disabled={savingItem} onClick={() => setPendingVisit(null)}>Close for now and fill in later</button>
           </form>
         </div>
       )}
