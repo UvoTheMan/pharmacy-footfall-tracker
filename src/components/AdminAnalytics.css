@@ -110,6 +110,8 @@
 .analytics-comparison-card .comparison-up{color:#1c8756;font-weight:800}.analytics-comparison-card .comparison-down{color:#c3653b;font-weight:800}
 .analytics-pattern-panel,.analytics-daily-summary{margin-top:14px}
 .analytics-hour-chart{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:4px;align-items:stretch;height:132px;margin-top:18px;padding-bottom:3px}
+.analytics-hour-threshold{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;color:#536b5b;font-size:13px;font-weight:600}
+.analytics-hour-threshold input{width:76px;min-height:36px;padding:6px 8px;border:1px solid #cbd8ce;border-radius:8px;background:#fff;color:#234b35;font:inherit}
 .analytics-hour{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;min-width:0}
 .analytics-hour>strong{font-size:9px;color:#536b5b}
 .analytics-hour-track{display:flex;align-items:flex-end;width:100%;max-width:16px;height:82px;overflow:hidden;border-radius:5px 5px 2px 2px;background:#edf4ee}
