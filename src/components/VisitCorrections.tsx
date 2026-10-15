@@ -60,6 +60,8 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
     setEditing(visit);
     setOutcome(visit.outcome === "not_purchased" ? "not_purchased" : "purchased");
     setReason(visit.outcome === "not_purchased" ? visit.reason ?? "" : "");
+    setItemName("");
+    setItemPhoto(null);
     setError("");
     setNotice("");
   }
@@ -240,7 +242,7 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
                   {REASONS.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </div>
-              {reason === "Item unavailable" && <>
+              {reason === "Item unavailable" && !reportedVisitIds.has(editing.id) && <>
                 <label className="field-label" htmlFor="edit-unavailable-item-name">Which item was unavailable? <span>Required for register entry</span></label>
                 <input className="number-input" id="edit-unavailable-item-name" maxLength={180} value={itemName} onChange={(event) => setItemName(event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
                 <p className="modal-footnote">After saving the correction, you can confirm these details in the shared unavailable-items register prompt.</p>
