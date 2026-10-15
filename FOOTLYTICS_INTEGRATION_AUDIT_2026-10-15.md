@@ -5,7 +5,7 @@
 - Production baseline: `main` at `75041f4d0ee9e4155f542e3e0a32359c81e0705b`.
 - Integration branch: `release/footlytics-integration-2026-10-15`.
 - Source checkpoint audited: `checkpoint/analytics-pr28-2026-10-14` (61 commits ahead of `main`, 0 behind at the time of comparison).
-- Integration branch is a selective, compatibility-reviewed port, not a blind merge of the checkpoint's commit stack. Current GitHub comparison before this audit refresh: 43 commits ahead of `main`, 0 behind. This audit refresh is the next documentation-only commit. The source checkpoint is 61 commits ahead of `main`, 0 behind. The branches intentionally do not share checkpoint ancestry, so release readiness is determined by feature/file-level parity and compatibility review, not commit count alone. All 13 paths changed by the checkpoint are represented in the integration branch; the original checkpoint document is also preserved here, alongside the versioned manual-backup Edge Function, CI build guard, and this audit.
+- Integration branch is a selective, compatibility-reviewed port, not a blind merge of the checkpoint's commit stack. Latest verified comparison on 15 October 2026: 55 commits ahead of `main`, 0 behind. The source checkpoint is 61 commits ahead of `main`, 0 behind at its own comparison. The branches intentionally do not share checkpoint ancestry, so release readiness is determined by feature/file-level parity and compatibility review, not commit count alone. All 13 paths changed by the checkpoint are represented in the integration branch; the original checkpoint document is also preserved here, alongside the versioned manual-backup Edge Function, CI build guard, and this audit.
 - Never merge to `main`, deploy Production, or apply Production database migrations without explicit user authorization.
 - No Production database, environment variable, Edge Function, or deployment was changed during this work.
 
@@ -15,7 +15,7 @@
 |---|---|---|
 | Enhanced Admin Analytics | Integrated | Four tabs and four core KPIs, 7/30/90-day presets/custom date filters, current-versus-previous comparisons, daily and weekday outcome trends, branch comparisons and expanded branch summaries, per-branch reason breakdowns, chart visibility controls, operating-hours context, leading-reason KPI with count, distinct empty states, and PDF export are retained. The previously noted selected-period reason-data path still requires Preview verification if the empty/no-data display persists. |
 | Analytics PDF performance | Integrated | `jspdf` is lazy-loaded only when PDF export is requested. Prior verified build reduced the initial JS chunk from 876.65 KB to 485.12 KB (about 44.7%); jsPDF is split into a separate ~388.48 KB chunk. |
-| Undecided/legacy visit handling | Compatibility-preserved | Existing `undecided` records remain typed and visible in outcome distribution. Conversion calculations exclude undecided visits from the denominator. Historical visits use the checkpoint's “Legacy record” display treatment, while the analytics data still counts these visits correctly. |
+| Undecided/legacy visit handling | Compatibility-preserved; admin outcome charts updated | Existing `undecided` records remain supported in stored data and types. Conversion calculations exclude undecided visits from the denominator. The 15 October fix removes Undecided from Admin Analytics daily trend and outcome-distribution charts and related outcome totals/explanatory text; underlying visit records and conversion calculations are unchanged. Historical visits retain the checkpoint's “Legacy record” display treatment. |
 | Unavailable-item entry | Integrated | Staff can report a requested item when the visit ends in no purchase due to unavailability or when another item is purchased instead. Product name, strength/form, optional photo, and size/type checks are wired. |
 | Deferred unavailable-item details | Integrated | A visit can be saved with an outstanding-details marker; Recent Visits now exposes “Add details” and supports later product detail/photo capture. |
 | Shared unavailable-items register | Integrated | Search, branch/date filters, photo viewing, item-name correction, CSV export, individual status changes, and bulk reviewed/resolved actions are included. |
@@ -44,7 +44,7 @@
 - Delayed unavailable-item CSV object-URL cleanup so mobile browsers have time to begin the download.
 - Confirmed update actions actually return the expected row(s) before displaying successful item-name, individual status, or bulk status updates.
 - Disabled staff manual-backup submission until an active branch is selected.
-- Added `.github/workflows/footlytics-integration-build.yml` as an independent TypeScript/Vite build guard for this release branch and pull requests to `main`. Its PR path filters have been widened to include Supabase migrations/functions and backup scripts, so backend-related edits also trigger the build guard. The latest Vercel build for the exact release-branch head is now READY; a successful GitHub Actions run remains separately unverified.
+- Added `.github/workflows/footlytics-integration-build.yml` as an independent TypeScript/Vite build guard for this release branch and pull requests to `main`. Its PR path filters include Supabase migrations/functions and backup scripts, so backend-related edits also trigger the build guard. GitHub Actions run 38700005286 completed successfully for exact release-branch head `d1e2df77ecfd7cb04a2e18717c133388f9b8c31c` on 15 October 2026.
 
 ## Database and backup environment findings
 
@@ -60,7 +60,7 @@
 
 - Latest verified application-code deployment before the pagination improvement: commit `abad16f9755ace083b24ef5123c87737094b48c0` (`fix: show correct branch labels in shared unavailable register`). Vercel deployment `dpl_4Kjs8aFJF4WrTD1XnYzRAc6LbKcW` is `READY`, Preview URL: https://pharmacy-footfall-tracker-376knvarq-uvothemans-projects.vercel.app. The preceding commit containing the branch-label migration also built successfully as deployment `dpl_9zGdHeX3y4DqpQjA4wPGiyGrXNdx`. A subsequent commit `8a5c8b786440901ef4d0eb1bb8b1623e11ecccbd` adds register pagination and photo URL batching; it has been committed to the isolated release branch, but its fresh deployment could not be initiated through the connected Vercel tool because that operation returned a team-scope 403. Therefore the pagination improvement is not yet build-verified.
 - These successful deployments supersede the earlier build-rate-limit failures for previous intermediate commits. Those earlier failures were hosting build-quota failures, not reported TypeScript errors.
-- The independent GitHub Actions build workflow has been added to avoid relying solely on Vercel's build quota, but a successful run has not yet been verified.
+- The independent GitHub Actions build workflow has now passed for the latest commit `d1e2df77ecfd7cb04a2e18717c133388f9b8c31c`; this verifies TypeScript/Vite build success, not browser-based end-to-end behaviour.
 - An earlier intermediate deployment failed when App.tsx was committed before the ManualBackup prop update landed; the subsequent complete branch state built successfully.
 - Build success is not equivalent to authenticated, end-to-end feature verification.
 
@@ -77,8 +77,21 @@
 
 ## Release blockers and release decision
 
-- **Not ready to merge/deploy yet.** Authenticated Preview tests above remain outstanding. The last verified deployment predates the latest pagination improvement, so a fresh Preview build and test are required before release.
+- **Not ready to merge/deploy yet.** The latest GitHub Actions TypeScript/Vite build passed for `d1e2df77ecfd7cb04a2e18717c133388f9b8c31c`, but authenticated Preview tests remain outstanding. Vercel's connected API access returned a team-scope 403 when project/deployment verification was attempted, so a fresh Preview deployment for the latest head has not been independently verified in this audit.
 - Production unavailable-item migrations, including the new branch-label RPC migration, require review and explicit approval before application. Preview testing of all-branch labels also depends on applying the new branch-label migration to the staging project first.
 - Production manual-backup Edge Function is absent and must be deliberately deployed/configured/tested; the workflow ref, environment, expected project ref, token permissions, and GitHub Environment secrets must be verified.
 - The reported Chrome re-entry blank screen and general slowdowns require manual reproduction after the auth safeguard and bundle-splitting changes.
 - No Production merge, deployment, or database mutation is authorized by this audit.
+
+
+## Checkpoint update — 15 October 2026
+
+- User explicitly deferred merging to `main`; no merge, Production deployment, Production environment-variable change, or Production database mutation is authorized.
+- Vercel Settings → Git was checked by the user: Production Branch is `main`. The Ignored Build Step setting was reported as `Automatic`; this is not a guarantee that a merge will avoid a Production deployment. Do not change this setting without a deliberate release plan.
+- Latest branch comparison: `release/footlytics-integration-2026-10-15` is 55 commits ahead of `main`, 0 behind; base/merge-base SHA `75041f4d0ee9e4155f542e3e0a32359c81e0705b`. Comparison count is not itself a readiness guarantee.
+- Latest commit: `d1e2df77ecfd7cb04a2e18717c133388f9b8c31c`, `fix: remove undecided from admin outcome charts`.
+- The latest fix removes Undecided from the Admin Analytics daily trend, outcome distribution, and related outcome totals/explanatory text. It does not alter stored historical visit records or conversion calculations.
+- GitHub Actions workflow run [38700005286](https://github.com/UvoTheMan/pharmacy-footfall-tracker/actions/runs/38700005286) passed the TypeScript/Vite build for the exact latest commit. Manual Preview/browser verification is still pending.
+- Vercel API verification could not be completed because the connected Vercel tool returned a team-scope 403. Do not claim latest Preview deployment status as verified until checked through the Vercel UI or a working authorized connection.
+- Next gates: verify latest Preview deployment/build, manually test analytics and other critical flows on mobile Chrome, investigate the blank-screen-on-Chrome-re-entry and slow sections, and review database/manual-backup Production prerequisites. Recheck branch comparison and environment settings immediately before a future authorized release.
+- Release rule remains: no merge into `main`, Production deployment, or Production migration until the user explicitly authorizes it.
