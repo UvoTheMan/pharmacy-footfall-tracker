@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Activity, ArrowDownRight, ArrowUpRight, BarChart3, CalendarDays, Check, ChevronDown, Footprints, Search,
@@ -6,11 +6,11 @@ import {
 } from "lucide-react";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import VisitCorrections from "./components/VisitCorrections";
-import HistoricalVisits from "./components/HistoricalVisits";
+const HistoricalVisits = lazy(() => import("./components/HistoricalVisits"));
 import BranchCorrectionRequests from "./components/BranchCorrectionRequests";
 import ManualBackup from "./components/ManualBackup";
-import AdminAnalytics from "./components/AdminAnalytics";
-import UnavailableItems from "./components/UnavailableItems";
+const AdminAnalytics = lazy(() => import("./components/AdminAnalytics"));
+const UnavailableItems = lazy(() => import("./components/UnavailableItems"));
 
 type Branch = { id: string; slug: string; name: string };
 type Outcome = "purchased" | "not_purchased";
@@ -626,7 +626,7 @@ export default function App() {
 
       {showUnavailablePage ? (
         profile ? (
-          <UnavailableItems branches={branches} profile={profile} userId={session.user.id} />
+          <Suspense fallback={<section className="panel" role="status"><p className="panel-description">Loading unavailable items…</p></section>}><UnavailableItems branches={branches} profile={profile} userId={session.user.id} /></Suspense>
         ) : (
           <section className="panel" role="status">
             <p className="panel-description">Loading your workspace. The unavailable-items register will open when your account details are ready.</p>
@@ -635,7 +635,7 @@ export default function App() {
       ) : profile?.role === "admin" && adminPage === "analytics" ? (
         <section className="admin-analytics-page" aria-label="Admin analysis and analytics">
           <p className="panel-description">A dedicated workspace for reviewing performance across Gbagada, Akoka, and Sangotedo. More analysis tools can be added here without crowding daily operations.</p>
-          <AdminAnalytics branches={branches} />
+          <Suspense fallback={<section className="panel" role="status"><p className="panel-description">Loading analytics…</p></section>}><AdminAnalytics branches={branches} /></Suspense>
         </section>
       ) : (
       <>
@@ -682,12 +682,12 @@ export default function App() {
       {profile?.role === "admin" ? (
         <details className="admin-record-rollup">
           <summary><span className="admin-record-rollup-title"><span className="eyebrow">HISTORICAL RECORDS</span><strong>Historical records</strong><small>Search previous dates, filter by branch, and export CSVs.</small></span><span className="admin-record-rollup-meta">Last 90 days <ChevronDown size={17} /></span></summary>
-          <div className="admin-record-rollup-content"><HistoricalVisits branch={branch} branches={branches} profile={profile} /></div>
+          <div className="admin-record-rollup-content"><Suspense fallback={<p className="panel-description" role="status">Loading historical records…</p>}><HistoricalVisits branch={branch} branches={branches} profile={profile} /></Suspense></div>
         </details>
       ) : (
         <details className="admin-record-rollup staff-history-rollup">
           <summary><span className="admin-record-rollup-title"><span className="eyebrow">HISTORY &amp; EXPORT</span><strong>Historical records &amp; CSV export</strong><small>Review past visits or download a CSV for a date range.</small></span><span className="admin-record-rollup-meta">Last 90 days <ChevronDown size={17} /></span></summary>
-          <div className="admin-record-rollup-content"><HistoricalVisits branch={branch} branches={branches} profile={profile} /></div>
+          <div className="admin-record-rollup-content"><Suspense fallback={<p className="panel-description" role="status">Loading historical records…</p>}><HistoricalVisits branch={branch} branches={branches} profile={profile} /></Suspense></div>
         </details>
       )}
 
