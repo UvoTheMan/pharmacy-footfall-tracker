@@ -353,6 +353,10 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         <label className="history-date-field"><span>To date</span><input type="date" min={dateMinusDays(89)} max={todayKey()} value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
         <button className="primary-button unavailable-search-button" type="submit"><Search size={15} /> Search records</button>
       </form>
+      <div className="history-toolbar"><span>Quick date range</span><div>
+        <button className="secondary-button" type="button" onClick={() => { setFromDate(dateMinusDays(6)); setToDate(todayKey()); }}>Last 7 days</button>
+        <button className="secondary-button" type="button" onClick={() => { setFromDate(dateMinusDays(29)); setToDate(todayKey()); }}>Last 30 days</button>
+      </div></div>
       <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter("all"); setStatusFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); setSelectedIds(new Set()); }}>Reset filters</button></div></div>
       {profile.role === "admin" && <div className="unavailable-status-filter-row"><label className="history-date-field"><span>Assessment status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All statuses</option><option value="pending">Pending assessment</option><option value="reviewed">Reviewed</option><option value="resolved">Resolved</option></select></label><span className="unavailable-filter-note">Applies to the selected date range and branch/item filters.</span></div>}
       {profile.role === "admin" && filteredItems.length > 0 && <div className="unavailable-bulk-toolbar">
