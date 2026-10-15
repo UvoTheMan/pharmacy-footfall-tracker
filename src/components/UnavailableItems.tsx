@@ -97,25 +97,38 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         setError("Choose a valid date range within the last 90 days.");
         return;
       }
-      const result = await supabase
-        .from("unavailable_items")
-        .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
-        .gte("reported_on", safeFrom)
-        .lte("reported_on", safeTo)
-        .order("reported_on", { ascending: false })
-        .order("recorded_at", { ascending: false });
-      if (result.error) {
-        setItems([]);
-        setError("Could not load unavailable items: " + result.error.message);
-        return;
+      const records: UnavailableItem[] = [];
+      const pageSize = 1000;
+      for (let offset = 0; ; offset += pageSize) {
+        const result = await supabase
+          .from("unavailable_items")
+          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
+          .gte("reported_on", safeFrom)
+          .lte("reported_on", safeTo)
+          .order("reported_on", { ascending: false })
+          .order("recorded_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (result.error) {
+          setItems([]);
+          setError("Could not load unavailable items: " + result.error.message);
+          return;
+        }
+        const page = (result.data ?? []) as unknown as UnavailableItem[];
+        records.push(...page);
+        if (page.length < pageSize) break;
       }
-      const records = (result.data ?? []) as unknown as UnavailableItem[];
       const paths = records.flatMap((item) => item.image_path ? [item.image_path] : []);
-      let photoUrls = new Map<string, string>();
-      if (paths.length) {
-        const signed = await supabase.storage.from("unavailable-item-photos").createSignedUrls(paths, 3600);
-        if (signed.error) setError("Reports loaded, but some photos could not be opened: " + signed.error.message);
-        else photoUrls = new Map((signed.data ?? []).flatMap((entry) => entry.path && entry.signedUrl ? [[entry.path, entry.signedUrl] as [string, string]] : []));
+      const photoUrls = new Map<string, string>();
+      for (let index = 0; index < paths.length; index += 100) {
+        const signed = await supabase.storage.from("unavailable-item-photos").createSignedUrls(paths.slice(index, index + 100), 3600);
+        if (signed.error) {
+          setError("Reports loaded, but some photos could not be opened: " + signed.error.message);
+          continue;
+        }
+        for (const entry of signed.data ?? []) {
+          if (entry.path && entry.signedUrl) photoUrls.set(entry.path, entry.signedUrl);
+        }
       }
       setItems(records.map((item) => ({ ...item, photo_url: item.image_path ? photoUrls.get(item.image_path) : undefined })));
     } catch {
