@@ -94,7 +94,6 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
     setSaving(false);
     if (outcome === "not_purchased" && reason === "Item unavailable" && !reportedVisitIds.has(editing.id)) {
       setPendingVisit(correctedVisit);
-      setItemName("");
       setItemPhoto(null);
       setNotice("");
     } else {
@@ -232,11 +231,20 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
             {outcome === "not_purchased" && <>
               <label className="field-label" htmlFor="edit-visit-reason">Reason <span>Required</span></label>
               <div className="select-wrap">
-                <select id="edit-visit-reason" value={reason} disabled={saving} required onChange={(event) => setReason(event.target.value as Reason | "")}>
+                <select id="edit-visit-reason" value={reason} disabled={saving} required onChange={(event) => {
+                  const nextReason = event.target.value as Reason | "";
+                  setReason(nextReason);
+                  if (nextReason !== "Item unavailable") setItemName("");
+                }}>
                   <option value="">Select a reason</option>
                   {REASONS.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </div>
+              {reason === "Item unavailable" && <>
+                <label className="field-label" htmlFor="edit-unavailable-item-name">Which item was unavailable? <span>Required for register entry</span></label>
+                <input className="number-input" id="edit-unavailable-item-name" maxLength={180} value={itemName} onChange={(event) => setItemName(event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
+                <p className="modal-footnote">After saving the correction, you can confirm these details in the shared unavailable-items register prompt.</p>
+              </>}
             </>}
             {error && <p className="error-message" role="alert">{error}</p>}
             <button type="button" className="primary-button" disabled={saving || (outcome === "not_purchased" && !reason)} onClick={() => void saveCorrection()}>{saving ? "Saving correction…" : "Save correction"} <span>→</span></button>
