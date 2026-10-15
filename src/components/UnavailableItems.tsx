@@ -43,6 +43,7 @@ function displayDate(value: string) {
 
 export default function UnavailableItems({ branches, profile, userId }: Props) {
   const [items, setItems] = useState<UnavailableItem[]>([]);
+  const [registerBranches, setRegisterBranches] = useState<Branch[]>(branches);
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState("all");
@@ -58,6 +59,23 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [exportFromDate, setExportFromDate] = useState(dateMinusDays(29));
   const [exportToDate, setExportToDate] = useState(todayKey());
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBranchLabels() {
+      if (!supabase) {
+        setRegisterBranches(branches);
+        return;
+      }
+      const result = await supabase.rpc("list_active_branch_labels");
+      if (cancelled) return;
+      setRegisterBranches(!result.error && result.data?.length
+        ? result.data as Branch[]
+        : branches);
+    }
+    void loadBranchLabels();
+    return () => { cancelled = true; };
+  }, [branches]);
   const [exporting, setExporting] = useState(false);
 
   const loadItems = useCallback(async () => {
@@ -276,7 +294,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
       };
       const rows = exportRows.map((item) => [
         item.item_name,
-        item.branches?.name ?? branches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable",
+        item.branches?.name ?? registerBranches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable",
         item.reported_on,
         new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(item.recorded_at)),
         item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved",
@@ -312,7 +330,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
       {error && <p className="error-message" role="alert">{error}</p>}
       <form className="unavailable-search" onSubmit={(event) => { event.preventDefault(); setAppliedSearch(searchInput.trim()); }}>
         <label className="history-date-field unavailable-search-name"><span><Search size={14} /> Search item name</span><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="e.g. Amoxicillin 500 mg" /></label>
-        <label className="history-date-field"><span>Branch</span><select value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}><option value="all">All branches</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
+        <label className="history-date-field"><span>Branch</span><select value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}><option value="all">All branches</option>{registerBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
         <label className="history-date-field"><span><CalendarDays size={14} /> From date</span><input type="date" min={dateMinusDays(89)} max={todayKey()} value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
         <label className="history-date-field"><span>To date</span><input type="date" min={dateMinusDays(89)} max={todayKey()} value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
         <button className="primary-button unavailable-search-button" type="submit"><Search size={15} /> Search records</button>
@@ -331,7 +349,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
               {item.photo_url && <a className="unavailable-record-photo" href={item.photo_url} target="_blank" rel="noreferrer"><img src={item.photo_url} alt={`Photo of ${item.item_name}`} loading="lazy" /></a>}
               <div className="unavailable-record-main">
                 <div className="unavailable-record-title"><strong>{item.item_name}</strong><span className={`unavailable-status ${item.status}`}>{item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved"}</span></div>
-                <div className="unavailable-record-meta"><span>{item.branches?.name ?? branches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable"}</span><span>Unavailable on {displayDate(item.reported_on)}</span><span>Reported {new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" }).format(new Date(item.recorded_at))}</span></div>
+                <div className="unavailable-record-meta"><span>{item.branches?.name ?? registerBranches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable"}</span><span>Unavailable on {displayDate(item.reported_on)}</span><span>Reported {new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" }).format(new Date(item.recorded_at))}</span></div>
               </div>
               <div className="unavailable-record-actions">
                 {(ownReport(item) || profile.role === "admin") && <button className="correction-edit" type="button" onClick={() => { setEditing(item); setEditName(item.item_name); setError(""); }}><Edit3 size={13} /> Correct</button>}
