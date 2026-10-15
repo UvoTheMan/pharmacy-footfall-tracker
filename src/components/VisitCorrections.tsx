@@ -39,6 +39,7 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
   const [itemName, setItemName] = useState("");
   const [itemPhoto, setItemPhoto] = useState<File | null>(null);
   const [savingItem, setSavingItem] = useState(false);
+  const [correctionSaved, setCorrectionSaved] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -62,6 +63,7 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
     setReason(visit.outcome === "not_purchased" ? visit.reason ?? "" : "");
     setItemName("");
     setItemPhoto(null);
+    setCorrectionSaved(false);
     setError("");
     setNotice("");
   }
@@ -72,18 +74,77 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
       setError("Choose a reason before saving a no-purchase correction.");
       return;
     }
-    setSaving(true);
-    setError("");
-    const result = await supabase.rpc("correct_visit", {
-      p_visit_id: editing.id,
-      p_outcome: outcome,
-      p_reason: outcome === "not_purchased" ? reason : null,
-    });
-    if (result.error) {
-      setError(`Could not save correction: ${result.error.message}`);
-      setSaving(false);
+    const needsUnavailableDetails = outcome === "not_purchased"
+      && reason === "Item unavailable"
+      && !reportedVisitIds.has(editing.id);
+    if (needsUnavailableDetails && !itemName.trim()) {
+      setError("Enter the unavailable product name before saving this correction.");
       return;
     }
+
+    setSaving(true);
+    setError("");
+
+    // Save the correction only once. If the product upload/save needs a retry,
+    // keep this modal open and retry just the unavailable-item details.
+    if (!correctionSaved) {
+      const result = await supabase.rpc("correct_visit", {
+        p_visit_id: editing.id,
+        p_outcome: outcome,
+        p_reason: outcome === "not_purchased" ? reason : null,
+      });
+      if (result.error) {
+        setError(`Could not save correction: ${result.error.message}`);
+        setSaving(false);
+        return;
+      }
+      setCorrectionSaved(true);
+    }
+
+    let imagePath: string | null = null;
+    if (needsUnavailableDetails) {
+      const auth = await supabase.auth.getUser();
+      const userId = auth.data.user?.id;
+      if (auth.error || !userId) {
+        setError("The correction was saved, but your session could not be verified for the product details. Please sign in again.");
+        setSaving(false);
+        return;
+      }
+
+      if (itemPhoto) {
+        const extension = itemPhoto.type === "image/png" ? "png" : itemPhoto.type === "image/webp" ? "webp" : "jpg";
+        imagePath = `${userId}/${crypto.randomUUID()}.${extension}`;
+        const upload = await supabase.storage.from("unavailable-item-photos").upload(imagePath, itemPhoto, { contentType: itemPhoto.type, upsert: false });
+        if (upload.error) {
+          setError("The correction was saved, but the product photo could not be uploaded: " + upload.error.message);
+          setSaving(false);
+          return;
+        }
+      }
+
+      const details = await supabase.rpc("add_unavailable_item_details", {
+        p_visit_id: editing.id,
+        p_item_name: itemName.trim(),
+        p_image_path: imagePath,
+      });
+      if (details.error) {
+        if (imagePath) {
+          const cleanup = await supabase.storage.from("unavailable-item-photos").remove([imagePath]);
+          if (cleanup.error) {
+            setError("The correction was saved, but product details failed: " + details.error.message + ". The uploaded photo could not be cleaned up; please notify the administrator.");
+            setSaving(false);
+            return;
+          }
+        }
+        setError(details.error.code === "23505"
+          ? "The correction was saved, but product details already exist for this visit. Refresh the list to confirm."
+          : "The correction was saved, but product details could not be saved: " + details.error.message);
+        setSaving(false);
+        return;
+      }
+      setReportedVisitIds((current) => new Set([...current, editing.id]));
+    }
+
     const correctedVisit: Visit = {
       ...editing,
       outcome,
@@ -94,13 +155,12 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
     };
     setEditing(null);
     setSaving(false);
-    if (outcome === "not_purchased" && reason === "Item unavailable" && !reportedVisitIds.has(editing.id)) {
-      setPendingVisit(correctedVisit);
-      setItemPhoto(null);
-      setNotice("");
-    } else {
-      setNotice("Visit correction saved.");
-    }
+    setCorrectionSaved(false);
+    setItemName("");
+    setItemPhoto(null);
+    setNotice(needsUnavailableDetails
+      ? "Visit correction and unavailable-product details saved."
+      : "Visit correction saved.");
     await onUpdated();
   }
 
@@ -216,7 +276,7 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
       {canEdit && editing && (
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-visit-title">
-            <button className="modal-close" type="button" aria-label="Cancel visit correction" disabled={saving} onClick={() => setEditing(null)}><X size={19} /></button>
+            <button className="modal-close" type="button" aria-label="Cancel visit correction" disabled={saving || correctionSaved} onClick={() => setEditing(null)}><X size={19} /></button>
             <p className="eyebrow">AUDITED CORRECTION</p>
             <h2 id="edit-visit-title">Edit recorded visit</h2>
             <p className="modal-description">Recorded at {timeLabel(editing.recorded_at)}. The original and corrected values are retained in the audit log.</p>
@@ -233,20 +293,30 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
                 <select id="edit-visit-reason" value={reason} disabled={saving} required onChange={(event) => {
                   const nextReason = event.target.value as Reason | "";
                   setReason(nextReason);
-                  if (nextReason !== "Item unavailable") setItemName("");
+                  if (nextReason !== "Item unavailable") { setItemName(""); setItemPhoto(null); }
                 }}>
                   <option value="">Select a reason</option>
                   {REASONS.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </div>
               {reason === "Item unavailable" && !reportedVisitIds.has(editing.id) && <>
-                <label className="field-label" htmlFor="edit-unavailable-item-name">Which item was unavailable? <span>Required for register entry</span></label>
-                <input className="number-input" id="edit-unavailable-item-name" maxLength={180} value={itemName} onChange={(event) => setItemName(event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
-                <p className="modal-footnote">After saving the correction, you can confirm these details in the shared unavailable-items register prompt.</p>
+                <label className="field-label" htmlFor="edit-unavailable-item-name">Product name, strength and form <span>Required</span></label>
+                <input className="number-input" id="edit-unavailable-item-name" maxLength={180} required value={itemName} onChange={(event) => setItemName(event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
+                <label className="field-label" htmlFor="edit-unavailable-item-photo">Add a picture <span>Optional</span></label>
+                <input className="unavailable-photo-input" id="edit-unavailable-item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={saving || correctionSaved} onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  if (!file) return;
+                  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Choose a JPG, PNG or WebP image."); return; }
+                  if (file.size > 5 * 1024 * 1024) { setError("The picture must be 5 MB or smaller."); return; }
+                  setItemPhoto(file);
+                  setError("");
+                }} />
+                {itemPhoto && <p className="modal-footnote">Photo selected: {itemPhoto.name}</p>}
+                <p className="modal-footnote">JPG, PNG or WebP, up to 5 MB. Do not photograph prescriptions or documents showing patient-identifying details.</p>
               </>}
             </>}
             {error && <p className="error-message" role="alert">{error}</p>}
-            <button type="button" className="primary-button" disabled={saving || (outcome === "not_purchased" && !reason)} onClick={() => void saveCorrection()}>{saving ? "Saving correction…" : "Save correction"} <span>→</span></button>
+            <button type="button" className="primary-button" disabled={saving || (outcome === "not_purchased" && (!reason || (reason === "Item unavailable" && !reportedVisitIds.has(editing.id) && !itemName.trim())))} onClick={() => void saveCorrection()}>{saving ? "Saving correction…" : correctionSaved ? "Retry saving product details" : "Save correction"} <span>→</span></button>
             <p className="modal-footnote">Changes apply to today's totals after the database confirms the save.</p>
           </section>
         </div>
