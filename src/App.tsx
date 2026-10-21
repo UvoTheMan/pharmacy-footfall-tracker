@@ -629,7 +629,7 @@ export default function App() {
 
       {showUnavailablePage ? (
         profile ? (
-          <UnavailableItems branches={branches} profile={profile} userId={session.user.id} />
+          <UnavailableItems branches={branches} profile={profile} userId={session.user.id} activeBranchId={profile.role === "admin" ? null : branch?.id ?? null} />
         ) : (
           <section className="panel" role="status">
             <p className="panel-description">Loading your workspace. The unavailable-items register will open when your account details are ready.</p>
