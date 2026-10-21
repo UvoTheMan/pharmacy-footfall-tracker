@@ -173,7 +173,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     const matchesBranch = profile.role === "admin" ? branchFilter === "all" || item.branch_id === branchFilter : item.branch_id === activeBranchId;
     const matchesStatus = profile.role !== "admin" || statusFilter === "all" || item.status === statusFilter;
     return matchesName && matchesBranch && matchesStatus;
-  }), [items, appliedSearch, branchFilter, profile.role, statusFilter]);
+  }), [items, appliedSearch, branchFilter, profile.role, statusFilter, activeBranchId]);
 
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
