@@ -18,7 +18,7 @@ type UnavailableItem = {
   branches?: { name: string } | null;
 };
 
-type Props = { branches: Branch[]; profile: Profile; userId: string };
+type Props = { branches: Branch[]; profile: Profile; userId: string; activeBranchId: string | null };
 
 const dateKey = (date: Date) => {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -41,12 +41,12 @@ function displayDate(value: string) {
   }).format(new Date(value + "T12:00:00"));
 }
 
-export default function UnavailableItems({ branches, profile, userId }: Props) {
+export default function UnavailableItems({ branches, profile, userId, activeBranchId }: Props) {
   const [items, setItems] = useState<UnavailableItem[]>([]);
   const [registerBranches, setRegisterBranches] = useState<Branch[]>(branches);
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
-  const [branchFilter, setBranchFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState(profile.role === "admin" ? "all" : activeBranchId ?? "");
   const [statusFilter, setStatusFilter] = useState<"all" | UnavailableItem["status"]>("all");
   const [fromDate, setFromDate] = useState(dateMinusDays(89));
   const [toDate, setToDate] = useState(todayKey());
@@ -79,6 +79,11 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
   }, [branches]);
   const [exporting, setExporting] = useState(false);
 
+  useEffect(() => {
+    setBranchFilter(profile.role === "admin" ? "all" : activeBranchId ?? "");
+    setSelectedIds(new Set());
+  }, [profile.role, activeBranchId]);
+
   const loadItems = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -101,11 +106,13 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
       const records: UnavailableItem[] = [];
       const pageSize = 1000;
       for (let offset = 0; ; offset += pageSize) {
-        const result = await supabase
+        let query = supabase
           .from("unavailable_items")
           .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
           .gte("reported_on", safeFrom)
-          .lte("reported_on", safeTo)
+          .lte("reported_on", safeTo);
+        if (profile.role !== "admin") query = query.eq("branch_id", activeBranchId!);
+        const result = await query
           .order("reported_on", { ascending: false })
           .order("recorded_at", { ascending: false })
           .order("id", { ascending: true })
@@ -138,7 +145,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, profile.role, activeBranchId]);
 
   useEffect(() => {
     const refreshWhenVisible = () => {
@@ -163,10 +170,10 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
 
   const filteredItems = useMemo(() => items.filter((item) => {
     const matchesName = !appliedSearch || item.item_name.toLowerCase().includes(appliedSearch.toLowerCase());
-    const matchesBranch = branchFilter === "all" || item.branch_id === branchFilter;
+    const matchesBranch = profile.role === "admin" ? branchFilter === "all" || item.branch_id === branchFilter : item.branch_id === activeBranchId;
     const matchesStatus = profile.role !== "admin" || statusFilter === "all" || item.status === statusFilter;
     return matchesName && matchesBranch && matchesStatus;
-  }), [items, appliedSearch, branchFilter, profile.role, statusFilter]);
+  }), [items, appliedSearch, branchFilter, profile.role, statusFilter, activeBranchId]);
 
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -289,7 +296,8 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
           .order("reported_on", { ascending: false })
           .order("recorded_at", { ascending: false })
           .range(offset, offset + pageSize - 1);
-        if (branchFilter !== "all") query = query.eq("branch_id", branchFilter);
+        if (profile.role !== "admin") query = query.eq("branch_id", activeBranchId!);
+        else if (branchFilter !== "all") query = query.eq("branch_id", branchFilter);
         if (appliedSearch) query = query.ilike("item_name", `%${appliedSearch.replace(/[\\%_]/g, "\\$&")}%`);
         const result = await query;
         if (result.error) throw result.error;
@@ -343,12 +351,12 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         <div><p className="eyebrow">STOCK GAP MONITORING</p><h2>Unavailable items</h2></div>
         <span className="date-pill">Last 90 days</span>
       </div>
-      <p className="panel-description">Search shared reports from every branch. Each row represents one customer visit, so repeat requests remain visible as separate records.</p>
+      <p className="panel-description">{profile.role === "admin" ? "Review unavailable-item reports across all branches or narrow the register to one branch. Each row represents one customer visit." : "Showing unavailable-item reports for your active branch only. Each row represents one customer visit."}</p>
       {notice && <div className="notice" role="status"><Check size={15} />{notice}</div>}
       {error && <p className="error-message" role="alert">{error}</p>}
       <form className="unavailable-search" onSubmit={(event) => { event.preventDefault(); setAppliedSearch(searchInput.trim()); }}>
         <label className="history-date-field unavailable-search-name"><span><Search size={14} /> Search item name</span><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="e.g. Amoxicillin 500 mg" /></label>
-        <label className="history-date-field"><span>Branch</span><select value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}><option value="all">All branches</option>{registerBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
+        {profile.role === "admin" ? <label className="history-date-field"><span>Branch</span><select value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}><option value="all">All branches</option>{registerBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label> : <div className="history-date-field"><span>Active branch</span><strong>{branches.find((item) => item.id === activeBranchId)?.name ?? "No branch selected"}</strong></div>}
         <label className="history-date-field"><span><CalendarDays size={14} /> From date</span><input type="date" min={dateMinusDays(89)} max={todayKey()} value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
         <label className="history-date-field"><span>To date</span><input type="date" min={dateMinusDays(89)} max={todayKey()} value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
         <button className="primary-button unavailable-search-button" type="submit"><Search size={15} /> Search records</button>
@@ -357,7 +365,7 @@ export default function UnavailableItems({ branches, profile, userId }: Props) {
         <button className="secondary-button" type="button" onClick={() => { setFromDate(dateMinusDays(6)); setToDate(todayKey()); }}>Last 7 days</button>
         <button className="secondary-button" type="button" onClick={() => { setFromDate(dateMinusDays(29)); setToDate(todayKey()); }}>Last 30 days</button>
       </div></div>
-      <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter("all"); setStatusFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); setSelectedIds(new Set()); }}>Reset filters</button></div></div>
+      <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter(profile.role === "admin" ? "all" : activeBranchId ?? ""); setStatusFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); setSelectedIds(new Set()); }}>Reset filters</button></div></div>
       {profile.role === "admin" && <div className="unavailable-status-filter-row"><label className="history-date-field"><span>Assessment status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All statuses</option><option value="pending">Pending assessment</option><option value="reviewed">Reviewed</option><option value="resolved">Resolved</option></select></label><span className="unavailable-filter-note">Applies to the selected date range and branch/item filters.</span></div>}
       {profile.role === "admin" && filteredItems.length > 0 && <div className="unavailable-bulk-toolbar">
         <label className="unavailable-select-all"><input type="checkbox" checked={filteredItems.every((item) => selectedIds.has(item.id))} onChange={(event) => toggleAllFiltered(event.target.checked)} aria-label="Select all filtered unavailable-item reports" /> <span>Select all shown</span></label>
