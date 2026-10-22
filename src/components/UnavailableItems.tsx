@@ -148,20 +148,30 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
   }, [fromDate, toDate, profile.role, activeBranchId]);
 
   useEffect(() => {
+    let refreshTimer: number | undefined;
+    const scheduleRefresh = () => {
+      // Mobile Chrome can emit both visibilitychange and focus when returning
+      // to a suspended tab. Coalesce them into one data refresh.
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = undefined;
+        void loadItems();
+      }, 200);
+    };
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") void loadItems();
+      if (document.visibilityState === "visible") scheduleRefresh();
     };
     const recoverFromBrowserRestore = (event: PageTransitionEvent) => {
-      // Mobile Chrome can restore a frozen page from its back-forward cache
-      // with stale component state. Reload only when the browser confirms that
-      // this document was restored from that cache.
-      if (event.persisted) window.location.reload();
+      // Refresh the register after a back-forward-cache restore without
+      // reloading the entire app and forcing authentication/workspace startup.
+      if (event.persisted) scheduleRefresh();
     };
     void loadItems();
     window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
     window.addEventListener("pageshow", recoverFromBrowserRestore);
     return () => {
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       window.removeEventListener("pageshow", recoverFromBrowserRestore);
