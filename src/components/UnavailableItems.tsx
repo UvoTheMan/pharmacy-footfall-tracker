@@ -48,6 +48,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
   const [appliedSearch, setAppliedSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState(profile.role === "admin" ? "all" : activeBranchId ?? "");
   const [statusFilter, setStatusFilter] = useState<"all" | UnavailableItem["status"]>("all");
+  const [visibleItemCount, setVisibleItemCount] = useState(10);
   const [fromDate, setFromDate] = useState(dateMinusDays(89));
   const [toDate, setToDate] = useState(todayKey());
   const [loading, setLoading] = useState(true);
@@ -184,6 +185,12 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     const matchesStatus = profile.role !== "admin" || statusFilter === "all" || item.status === statusFilter;
     return matchesName && matchesBranch && matchesStatus;
   }), [items, appliedSearch, branchFilter, profile.role, statusFilter, activeBranchId]);
+
+  useEffect(() => {
+    setVisibleItemCount(10);
+  }, [filteredItems]);
+
+  const visibleItems = filteredItems.slice(0, visibleItemCount);
 
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -384,7 +391,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       </div>}
       {filteredItems.length === 0 && !loading ? <div className="corrections-empty">No unavailable-item reports match these filters.</div> : (
         <div className="unavailable-record-list">
-          {filteredItems.map((item) => (
+          {visibleItems.map((item) => (
             <article className={`unavailable-record${profile.role === "admin" && selectedIds.has(item.id) ? " selected" : ""}`} key={item.id}>
               {profile.role === "admin" && <label className="unavailable-record-select"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={(event) => toggleSelected(item.id, event.target.checked)} aria-label={`Select ${item.item_name}`} /></label>}
               {item.photo_url && <a className="unavailable-record-photo" href={item.photo_url} target="_blank" rel="noreferrer"><img src={item.photo_url} alt={`Photo of ${item.item_name}`} loading="lazy" /></a>}
