@@ -477,10 +477,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                     {[
                       { count: item.purchases, color: "#23875b" },
                       { count: item.noPurchase, color: "#e27b48" },
-                      { count: item.total - item.purchases - item.noPurchase, color: "#8b9a90" },
-                    ].filter((part) => part.count > 0).map((part, index) => <span key={index} style={{ width: `${part.count / Math.max(1, item.total) * 100}%`, background: part.color }} />)}
+                    ].filter((part) => part.count > 0).map((part, index) => <span key={index} style={{ width: `${part.count / Math.max(1, item.purchases + item.noPurchase) * 100}%`, background: part.color }} />)}
                   </div>
-                  <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span><span>{item.total - item.purchases - item.noPurchase} undecided</span></div>
+                  <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span></div>
                 </div>
               ))}
               {branchStats.length === 0 && <p className="corrections-empty">No branches are available for analysis.</p>}
@@ -537,12 +536,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </section>
             <section hidden={!isVisible("branch-performance")} className="analytics-subpanel analytics-wide-subpanel">
               <h3><GitCompare size={16} /> {selectedBranchId === "all" ? "Branch performance comparison" : "Selected branch performance"}</h3>
-              <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion is purchases divided by resolved visits (purchased or no purchase); undecided visits are excluded.</p>
+              <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion is purchases divided by resolved visits.</p>
               {branchStats.map((item) => (
                 <div className="analytics-branch-row" key={item.id}>
                   <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.conversion}% conversion</span></div>
                   <div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${item.total / maxBranch * 100}%` }} /></div>
-                  <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span><span>{item.total - item.purchases - item.noPurchase} undecided</span></div>
+                  <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span></div>
                   <div className="analytics-row-meta"><span>{item.unavailable} unavailable-item requests</span></div>
                   <button type="button" className="text-button analytics-expand-button" aria-expanded={Boolean(expandedBranchDetails[item.id])} onClick={() => setExpandedBranchDetails((current) => ({ ...current, [item.id]: !current[item.id] }))}>
                     {expandedBranchDetails[item.id] ? "Hide detailed breakdown" : "Show detailed breakdown"}
