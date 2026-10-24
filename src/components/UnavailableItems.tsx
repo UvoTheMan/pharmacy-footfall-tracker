@@ -407,6 +407,15 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           ))}
         </div>
       )}
+      {filteredItems.length > 10 && (
+        <div className="history-toolbar unavailable-pagination">
+          <span>Showing {Math.min(visibleItems.length, filteredItems.length)} of {filteredItems.length} reports</span>
+          <div>
+            {visibleItemCount < filteredItems.length && <button className="secondary-button" type="button" onClick={() => setVisibleItemCount((count) => Math.min(count + 10, filteredItems.length))}>Show more</button>}
+            {visibleItemCount > 10 && <button className="secondary-button" type="button" onClick={() => setVisibleItemCount(10)}>Show less</button>}
+          </div>
+        </div>
+      )}
       <details className="admin-record-rollup unavailable-export-rollup">
         <summary><span className="admin-record-rollup-title"><span className="eyebrow">CSV EXPORT</span><strong>Export unavailable-item reports</strong><small>Choose a separate date range for the CSV export.</small></span><span className="admin-record-rollup-meta">{exportFromDate && exportToDate ? `${exportFromDate} → ${exportToDate}` : "Choose dates"} <Download size={15} /></span></summary>
         <div className="admin-record-rollup-content">
