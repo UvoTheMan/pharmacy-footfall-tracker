@@ -305,3 +305,103 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
   .admin-record-rollup-meta{font-size:9px;gap:5px}
   .admin-record-rollup-content{padding:0 12px 12px}
 }
+
+
+/* Unavailable item register */
+.unavailable-panel{margin-top:20px}
+.unavailable-search{display:grid;grid-template-columns:minmax(180px,1.4fr) repeat(3,minmax(130px,1fr));gap:12px;align-items:end;margin:18px 0}
+.unavailable-search .history-date-field{min-width:0}
+.unavailable-search .history-date-field input,.unavailable-search .history-date-field select{font:inherit}
+.unavailable-search-button{grid-column:1/-1;max-width:220px;gap:8px}
+.unavailable-record-list{display:grid;gap:10px}
+.unavailable-record{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid #e7ece8;border-radius:11px;padding:14px;background:#fff}
+.unavailable-record-main{min-width:0;flex:1}
+.unavailable-record-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.unavailable-record-title strong{font-size:13px;color:#2c4036;overflow-wrap:anywhere}
+.unavailable-status{display:inline-flex;border-radius:20px;padding:4px 8px;font-size:9px;font-weight:700}
+.unavailable-status.pending{background:#fff3df;color:#a66a16}
+.unavailable-status.reviewed{background:#eaf1ff;color:#4268ae}
+.unavailable-status.resolved{background:#e9f7ef;color:#27895b}
+.unavailable-record-meta{display:flex;gap:7px 15px;flex-wrap:wrap;margin-top:8px;color:#849188;font-size:10px}
+.unavailable-record-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.unavailable-status-control select{max-width:160px;border:1px solid #dfe8e1;border-radius:8px;background:#fff;color:#32674c;padding:8px;font-size:10px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.unavailable-item-input{width:100%;min-height:104px;resize:vertical;padding:12px;border:1px solid #e3e9e4;border-radius:9px;background:#fbfcfb;color:#2a4033;outline:none;font:inherit}
+.unavailable-item-input:focus{border-color:#7fb39a;box-shadow:0 0 0 3px #e8f4ec}
+@media(max-width:760px){.unavailable-search{grid-template-columns:1fr 1fr}.unavailable-search-name{grid-column:1/-1}.unavailable-record{align-items:flex-start;flex-direction:column}.unavailable-record-actions{width:100%}.unavailable-search-button{max-width:none}}
+@media(max-width:520px){.unavailable-search{grid-template-columns:1fr}.unavailable-search-name{grid-column:auto}.unavailable-record-meta{flex-direction:column;gap:5px}}
+
+
+/* Optional photos for unavailable-item reports */
+.unavailable-photo-input{display:block;width:100%;padding:11px;border:1px dashed #cddbd0;border-radius:9px;background:#f8fbf8;color:#53635a;font-size:11px}
+.unavailable-photo-preview{display:flex;align-items:center;gap:12px;margin-top:12px;padding:10px;border:1px solid #e3e9e4;border-radius:10px;background:#fbfcfb;min-width:0}
+.unavailable-photo-preview img{width:76px;height:76px;object-fit:cover;border-radius:8px;background:#edf2ed;flex-shrink:0}
+.unavailable-photo-preview>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.unavailable-photo-preview strong{font-size:11px;overflow-wrap:anywhere;color:#344a3d}
+.unavailable-photo-preview small{font-size:10px;color:#87958b}
+.unavailable-photo-preview .text-button{align-self:flex-start}
+.unavailable-record-photo{display:block;flex-shrink:0;width:70px;height:70px;border-radius:9px;overflow:hidden;border:1px solid #e2e9e3}
+.unavailable-record-photo img{display:block;width:100%;height:100%;object-fit:cover}
+@media(max-width:760px){.unavailable-record-photo{width:82px;height:82px}}
+
+
+/* Green icon-style navigation for the shared unavailable-items register */
+.unavailable-page-switch{border-color:#cfe5d5;background:#eaf6ee;color:#216b45}
+.unavailable-page-switch:hover{border-color:#9fc9ad;background:#ddf0e3;color:#174d32}
+.unavailable-page-switch.active{border-color:#24794d;background:#24794d;color:#fff}
+.unavailable-page-switch.active:hover{border-color:#195f3b;background:#195f3b;color:#fff}
+@media(max-width:520px){.user-actions .unavailable-page-switch{padding:8px}}
+
+
+/* Pending unavailable-product details remain visible in the daily visit list. */
+.correction-row.pending-product-details{border:1px solid #e6b95b;background:#fffaf0;border-radius:12px;padding:12px}
+.pending-product-label{display:inline-flex;align-items:center;width:fit-content;margin-top:6px;padding:4px 8px;border-radius:999px;background:#fff0c2;color:#7a4b00;font-size:11px;font-weight:700}
+.pending-product-action{border-color:#d9a63b;background:#fff3cd;color:#704600}
+.pending-product-action:hover{background:#ffe8a3}
+
+
+/* Compact account roll-up shared by staff and admin. */
+.account-menu-wrap{position:relative;flex-shrink:0}
+.account-menu-toggle{min-width:84px;justify-content:center;background:#fff}
+.account-menu-toggle[aria-expanded="true"]{border-color:#a9c4b1;color:#285c42}
+.account-menu-label{font-weight:700}
+.account-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:30;min-width:190px;padding:6px;background:#fff;border:1px solid #dfe8e1;border-radius:12px;box-shadow:0 12px 34px #173b3020}
+.account-menu-item{display:flex;align-items:center;gap:10px;width:100%;padding:11px 10px;border:0;border-radius:8px;background:transparent;color:#435a4b;font-size:12px;text-align:left}
+.account-menu-item:hover{background:#f1f6f2;color:#174d3b}
+.account-menu-item:disabled{opacity:.5}
+@media(max-width:520px){.account-menu-toggle{min-width:0}.account-menu-label{display:none}.account-menu{min-width:180px}}
+
+/* Admin bulk selection for unavailable-item reports. */
+.unavailable-bulk-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:0 0 14px;padding:12px;border:1px solid #e0e9e1;border-radius:11px;background:#f8fbf8}
+.unavailable-select-all,.unavailable-record-select{display:inline-flex;align-items:center;gap:7px;color:#3e5948;font-size:11px;font-weight:700;cursor:pointer}
+.unavailable-select-all input,.unavailable-record-select input{width:16px;height:16px;accent-color:#18794e;cursor:pointer}
+.unavailable-selected-count{font-size:11px;color:#77877b}
+.unavailable-bulk-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-left:auto}
+.unavailable-bulk-actions .secondary-button{font-size:10px;padding:8px 10px}
+.unavailable-clear-selection{border:0;background:transparent;color:#77877b;font-size:11px;padding:8px;cursor:pointer}
+.unavailable-clear-selection:disabled{opacity:.4;cursor:default}
+.unavailable-record-select{flex-shrink:0}
+.unavailable-record.selected{border-color:#86b99a;background:#f6fbf7}
+@media(max-width:520px){.unavailable-bulk-toolbar{gap:9px;padding:10px}.unavailable-bulk-actions{width:100%;margin-left:0}.unavailable-bulk-actions .secondary-button{flex:1;justify-content:center}.unavailable-record{gap:8px}}
+
+.branch-confirm-backdrop{z-index:20}
+.branch-confirm-cancel{width:100%;justify-content:center;margin-top:10px}
+.branch-switch-warning{background:#fff4e5;border:1px solid #f2c078;border-left:4px solid #c77812;border-radius:9px;color:#7a3e00;padding:12px 13px;margin:0 0 18px;font-size:12px;line-height:1.6}
+
+
+/* Assessment-status filtering is independent of bulk review/resolve actions. */
+.unavailable-status-filter-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:12px 0 14px;padding:12px;border:1px solid #e6eee7;border-radius:10px;background:#fbfdfb}
+.unavailable-status-filter-row .history-date-field{flex:0 1 135px;min-width:120px}
+.unavailable-filter-note{font-size:10px;line-height:1.5;color:#87958b;padding:0 0 11px}
+@media(max-width:520px){.unavailable-status-filter-row{align-items:stretch;flex-direction:column;gap:6px}.unavailable-status-filter-row .history-date-field{min-width:0;width:100%}.unavailable-filter-note{padding:0}}
+
+/* Keep branch-correction decision controls visible on mobile while the visit list scrolls. */
+.branch-correction-modal{display:flex;flex-direction:column;max-height:90dvh;overflow:hidden;min-height:0}
+.branch-correction-modal .modal-description{flex:0 0 auto;margin-bottom:12px}
+.branch-correction-modal .branch-correction-select-all{display:flex;align-items:center;gap:9px;flex:0 0 auto;padding:10px 11px;margin:0 0 8px;border:1px solid #dfe9e1;border-radius:9px;background:#f7fbf7;color:#315b43;font-size:11px;font-weight:700}
+.branch-correction-modal .branch-correction-select-all input,.branch-correction-modal .correction-row>input[type="checkbox"]{width:18px;height:18px;flex:0 0 18px;accent-color:#258657}
+.branch-correction-modal .corrections-list{flex:1 1 auto;min-height:60px;max-height:none;overflow-y:auto;overscroll-behavior:contain;margin:0 0 10px;padding:0 3px 2px 0}
+.branch-correction-modal>.error-message{flex:0 0 auto;margin:0 0 8px}
+.branch-correction-modal>.primary-button,.branch-correction-modal>.text-button{flex:0 0 auto;width:100%;margin-top:7px}
+.branch-correction-modal>.text-button{justify-content:center;padding:10px}
+@media(max-width:520px){.branch-correction-modal{padding:20px 16px;max-height:92dvh}.branch-correction-modal h2{padding-right:28px}.branch-correction-modal .correction-row{align-items:flex-start;flex-wrap:wrap}.branch-correction-modal .correction-time{width:64px;padding-top:3px}.branch-correction-modal .correction-details{flex:1 1 120px}}

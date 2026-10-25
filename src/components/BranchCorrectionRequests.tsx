@@ -232,12 +232,14 @@ export default function BranchCorrectionRequests({ branches, onUpdated, mode = "
       </details>}
       {activeRequest && (
         <div className="modal-backdrop" role="presentation">
-          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-correction-review-title">
+          <section className="modal branch-correction-modal" role="dialog" aria-modal="true" aria-labelledby="branch-correction-review-title">
             <button className="modal-close" type="button" aria-label="Close review" disabled={busy} onClick={() => setActiveRequest(null)}><X size={19} /></button>
             <p className="eyebrow">CONFIRM CORRECTION</p>
             <h2 id="branch-correction-review-title">{branchName(activeRequest.source_branch_id)} → {branchName(activeRequest.target_branch_id)}</h2>
             <p className="modal-description">Select only the visits that were recorded under the wrong branch. Unselected visits will stay where they are.</p>
             {visits.length === 0 ? <p className="modal-footnote">No visits are available for this request.</p> : (
+              <>
+              <label className="branch-correction-select-all"><input type="checkbox" checked={visits.length > 0 && selected.length === visits.length} disabled={busy} onChange={(event) => setSelected(event.target.checked ? visits.map((visit) => visit.id) : [])} /> <span>Select all {visits.length} visits</span></label>
               <div className="corrections-list">
                 {visits.map((visit) => (
                   <label className="correction-row" key={visit.id}>
@@ -257,6 +259,7 @@ export default function BranchCorrectionRequests({ branches, onUpdated, mode = "
                   </label>
                 ))}
               </div>
+              </>
             )}
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="button" disabled={busy || selected.length === 0} onClick={() => void resolveRequest(true)}>{busy ? "Saving…" : `Move ${selected.length} selected visit(s)`} <span>→</span></button>

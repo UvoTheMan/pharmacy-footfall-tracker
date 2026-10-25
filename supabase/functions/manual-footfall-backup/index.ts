@@ -43,13 +43,30 @@ Deno.serve(async (request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-  const githubToken = Deno.env.get("GITHUB_BACKUP_WORKFLOW_TOKEN");
+  const githubToken = Deno.env.get("GITHUB_BACKUP_WORKFLOW_TOKEN")?.trim();
+  const workflowRef = Deno.env.get("GITHUB_BACKUP_WORKFLOW_REF")?.trim();
+  const targetEnvironment = Deno.env.get("GITHUB_BACKUP_TARGET_ENVIRONMENT")?.trim();
+  const expectedProjectRef = Deno.env.get("BACKUP_EXPECTED_SUPABASE_PROJECT_REF")?.trim();
+
   if (!supabaseUrl || !serviceRoleKey || !anonKey) {
     console.error("Manual backup database configuration incomplete.");
-    return json({ error: "Manual backup service is not configured in staging." }, 503, origin);
+    return json({ error: "Manual backup service is not configured." }, 503, origin);
   }
-  if (!githubToken) {
-    return json({ error: "Manual backup is not connected to GitHub Actions yet. Add the GITHUB_BACKUP_WORKFLOW_TOKEN secret to the staging Supabase project." }, 503, origin);
+  if (!githubToken || !workflowRef || !targetEnvironment || !expectedProjectRef) {
+    return json({ error: "Manual backup is not fully configured. Contact the administrator." }, 503, origin);
+  }
+  if (!["staging", "Production"].includes(targetEnvironment)) {
+    return json({ error: "Manual backup environment configuration is invalid." }, 503, origin);
+  }
+  let actualProjectRef = "";
+  try {
+    actualProjectRef = new URL(supabaseUrl).hostname.split(".")[0];
+  } catch {
+    return json({ error: "Manual backup database URL is invalid." }, 503, origin);
+  }
+  if (actualProjectRef !== expectedProjectRef) {
+    console.error("Manual backup project/environment mismatch.");
+    return json({ error: "Manual backup environment configuration does not match this database." }, 503, origin);
   }
 
   const authClient = createClient(supabaseUrl, anonKey, {
@@ -72,7 +89,7 @@ Deno.serve(async (request) => {
     return json({ error: "Only active staff and admin accounts can send manual backups." }, 403, origin);
   }
 
-  let body: { startDate?: unknown; endDate?: unknown } = {};
+  let body: { startDate?: unknown; endDate?: unknown; branchSlug?: unknown } = {};
   try { body = await request.json(); } catch { return json({ error: "A date range is required." }, 400, origin); }
   const startDate = body.startDate;
   const endDate = body.endDate;
@@ -83,6 +100,25 @@ Deno.serve(async (request) => {
   const dayCount = Math.floor((new Date(endDate + "T00:00:00Z").getTime() - new Date(startDate + "T00:00:00Z").getTime()) / 86400000) + 1;
   if (dayCount > 366) return json({ error: "A single manual export can cover up to 366 days." }, 400, origin);
 
+  let reportScope = "all";
+  if (profile.role === "staff") {
+    if (typeof body.branchSlug !== "string" || !["gbagada", "akoka", "sangotedo"].includes(body.branchSlug)) {
+      return json({ error: "Choose your active branch before requesting a staff backup." }, 400, origin);
+    }
+    const { data: memberships, error: membershipError } = await serviceClient
+      .from("branch_memberships")
+      .select("branch_id, branch:branches!branch_memberships_branch_id_fkey(slug,active)")
+      .eq("user_id", authData.user.id);
+    if (membershipError) {
+      console.error("Could not verify staff branch membership:", membershipError.message);
+      return json({ error: "Could not verify your assigned branch permissions." }, 500, origin);
+    }
+    const rows = (memberships ?? []) as Array<{ branch?: { slug?: string; active?: boolean } | null }>;
+    const allowed = rows.some((item) => item.branch?.slug === body.branchSlug && item.branch?.active === true);
+    if (!allowed) return json({ error: "You can only email a CSV for a branch assigned to your staff account." }, 403, origin);
+    reportScope = body.branchSlug;
+  }
+
   const response = await fetch("https://api.github.com/repos/UvoTheMan/pharmacy-footfall-tracker/actions/workflows/daily-footfall-backup.yml/dispatches", {
     method: "POST",
     headers: {
@@ -92,12 +128,13 @@ Deno.serve(async (request) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      ref: "preview/manual-email-backup",
+      ref: workflowRef,
       inputs: {
-        target_environment: "staging",
+        target_environment: targetEnvironment,
         send_email: "true",
         start_date: startDate,
         end_date: endDate,
+        report_scope: reportScope,
       },
     }),
   });
@@ -112,6 +149,7 @@ Deno.serve(async (request) => {
     queued: true,
     startDate,
     endDate,
+    reportScope,
     message: "The Gmail backup job was queued in GitHub Actions.",
   }, 202, origin);
 });

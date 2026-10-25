@@ -10,10 +10,11 @@ function lagosDateKey(date = new Date()) {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
-type Props = { role: "staff" | "admin" };
+type Props = { role: "staff" | "admin"; branchSlug?: string };
 
-export default function ManualBackup({ role }: Props) {
+export default function ManualBackup({ role, branchSlug }: Props) {
   const today = lagosDateKey();
+  const scopeLabel = role === "admin" ? "all three branch CSVs and the combined report" : `the active branch CSV only (${branchSlug ?? "active branch"})`;
   const [mode, setMode] = useState<"day" | "range">("day");
   const [expanded, setExpanded] = useState(false);
   const [startDate, setStartDate] = useState(today);
@@ -31,6 +32,10 @@ export default function ManualBackup({ role }: Props) {
 
   async function sendBackup() {
     if (!supabase || sending) return;
+    if (role === "staff" && !branchSlug) {
+      setError("Select your active branch before requesting a staff backup.");
+      return;
+    }
     setError("");
     setNotice("");
     if (!startDate || !endDate || endDate < startDate) {
@@ -42,11 +47,11 @@ export default function ManualBackup({ role }: Props) {
       return;
     }
     const period = startDate === endDate ? startDate : `${startDate} to ${endDate}`;
-    if (!window.confirm(`Email the collated Footlytics CSV reports for ${period} to both configured backup email addresses? This will send an email now.`)) return;
+    if (!window.confirm(`Email ${scopeLabel} for ${period} to the configured backup email recipients? This will send an email now.`)) return;
 
     setSending(true);
     const result = await supabase.functions.invoke("manual-footfall-backup", {
-      body: { startDate, endDate },
+      body: { startDate, endDate, branchSlug },
     });
     if (result.error || result.data?.success !== true) {
       let serverMessage = result.data?.error as string | undefined;
@@ -61,7 +66,7 @@ export default function ManualBackup({ role }: Props) {
       }
       setError(serverMessage ?? result.error?.message ?? "The backup email could not be sent. Please try again or contact the administrator.");
     } else {
-      setNotice(`Backup email job queued for ${period}. GitHub Actions will generate the four CSV reports and send them using the configured Gmail app password. Check the GitHub Actions run for the final delivery status.`);
+      setNotice(`Backup email job queued for ${period}. ${scopeLabel} will be generated and emailed. Check the GitHub Actions run for final delivery status.`);
     }
     setSending(false);
   }
@@ -72,14 +77,14 @@ export default function ManualBackup({ role }: Props) {
         <span className="manual-backup-title">
           <span className="eyebrow">EMAIL EXPORT</span>
           <strong>Manual data backup</strong>
-          <small>Queue CSV reports for all three branches to both configured backup email addresses.</small>
+          <small>{role === "admin" ? "Queue all three branch reports plus the combined report." : `Queue a CSV for the active branch (${branchSlug ?? "not selected"}) only.`}</small>
         </span>
         <span className="heading-chip"><Mail size={14} /> Staff and admin</span>
         <span className="manual-backup-toggle" aria-hidden="true">{expanded ? "−" : "+"}</span>
       </button>
       {expanded && <div className="manual-backup-content">
         <p className="panel-description">
-          Choose one day or a date range. This queues a GitHub Actions job to generate four CSV files and email them through Gmail: one per branch and one combined report.
+          Choose one day or a date range. This queues a GitHub Actions job to email the report permitted for your account: admins receive one CSV per branch plus a combined report; staff receive only the active branch CSV.
         </p>
       <div className="manual-backup-mode" role="group" aria-label="Export period">
         <button type="button" className={mode === "day" ? "admin-branch-tab active" : "admin-branch-tab"} aria-pressed={mode === "day"} onClick={() => { setMode("day"); setEndDate(startDate || today); setError(""); setNotice(""); }}>Single day</button>
@@ -98,12 +103,12 @@ export default function ManualBackup({ role }: Props) {
       {mode === "range" && startDate && endDate && endDate >= startDate && (
         <p className="manual-backup-range"><CalendarDays size={14} /> {days} calendar day{days === 1 ? "" : "s"} selected{days > 366 ? " · Maximum is 366 days" : ""}</p>
       )}
-      <button className="primary-button manual-backup-submit" type="button" onClick={() => void sendBackup()} disabled={sending || !startDate || !endDate || endDate < startDate || days > 366}>
-        <Send size={16} /> {sending ? "Queueing Gmail backup…" : "Send CSV reports to both emails"}
+      <button className="primary-button manual-backup-submit" type="button" onClick={() => void sendBackup()} disabled={sending || (role === "staff" && !branchSlug) || !startDate || !endDate || endDate < startDate || days > 366}>
+        <Send size={16} /> {sending ? "Queueing Gmail backup…" : role === "admin" ? "Email all branch reports" : "Email active branch CSV"}
       </button>
       {notice && <p className="notice" role="status">{notice}</p>}
       {error && <p className="error-message" role="alert">{error}</p>}
-        <p className="setup-footnote">Includes branch-specific CSVs for Gbagada, Akoka, and Sangotedo, plus one combined CSV. {role === "admin" ? "This action does not change visit records." : "This action is for reporting only and does not change visit records."}</p>
+        <p className="setup-footnote">{role === "admin" ? "Includes Gbagada, Akoka, Sangotedo, and the combined CSV. " : "Only the active branch report will be sent. "}{role === "admin" ? "This action does not change visit records." : "This action is for reporting only and does not change visit records."}</p>
       </div>}
     </section>
   );

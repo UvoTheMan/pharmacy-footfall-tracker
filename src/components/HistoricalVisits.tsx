@@ -221,7 +221,6 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
 
   const purchases = visits.filter((visit) => visit.outcome === "purchased").length;
   const noPurchases = visits.filter((visit) => visit.outcome === "not_purchased").length;
-  const undecided = visits.filter((visit) => visit.outcome === "undecided").length;
   const unavailableDespitePurchase = visits.filter((visit) => visit.outcome === "purchased" && visit.unavailable_item_requested).length;
 
   return (
@@ -255,7 +254,6 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
         <div><strong>{visits.length}</strong><span>Total visits</span></div>
         <div><strong>{purchases}</strong><span>Purchases</span></div>
         <div><strong>{noPurchases}</strong><span>No purchase</span></div>
-        {undecided > 0 && <div><strong>{undecided}</strong><span>Undecided</span></div>}
         <div><strong>{unavailableDespitePurchase}</strong><span>Purchased despite stockout</span></div>
       </div>
 
@@ -277,7 +275,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
                 <tr key={visit.id}>
                   <td>{formatTime(visit.recorded_at)}</td>
                   <td>{branchNames.get(visit.branch_id) ?? "Unknown branch"}</td>
-                  <td><span className={`correction-badge ${visit.outcome === "not_purchased" ? "not-purchased" : "purchased"}`}>{visit.outcome === "purchased" ? "Purchased" : visit.outcome === "not_purchased" ? "No purchase" : "Undecided"}</span></td>
+                  <td><span className={`correction-badge ${visit.outcome === "not_purchased" ? "not-purchased" : "purchased"}`}>{visit.outcome === "purchased" ? "Purchased" : visit.outcome === "not_purchased" ? "No purchase" : "Legacy record"}</span></td>
                   <td>{visit.reason ?? "—"}</td>
                   <td>{visit.outcome === "purchased" && visit.unavailable_item_requested ? "Yes" : "—"}</td>
                   <td><code>{visit.id}</code></td>
