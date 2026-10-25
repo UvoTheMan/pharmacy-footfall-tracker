@@ -101,7 +101,8 @@ begin
       or new.visit_id is distinct from old.visit_id
       or new.reported_on is distinct from old.reported_on
       or new.created_by is distinct from old.created_by
-      or new.recorded_at is distinct from old.recorded_at then
+      or new.recorded_at is distinct from old.recorded_at
+      or new.image_path is distinct from old.image_path then
       raise exception 'Staff can correct the item name only.';
     end if;
 
@@ -120,8 +121,9 @@ create trigger unavailable_items_guard_update
 before update on public.unavailable_items
 for each row execute procedure public.guard_unavailable_item_update();
 
--- Keep the existing visit-correction workflow, including same-day Lagos restriction,
--- correction history, branch authorization, and unavailable-item flag behavior.
+-- Preserve Production's existing correction window (no same-day restriction),
+-- correction history, and branch authorization. The flag update below is a new
+-- behavior required for unavailable-item tracking.
 create or replace function public.correct_visit(p_visit_id uuid, p_outcome text, p_reason text)
 returns void
 language plpgsql
