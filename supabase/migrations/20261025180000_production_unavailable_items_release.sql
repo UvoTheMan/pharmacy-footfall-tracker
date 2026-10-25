@@ -1,7 +1,7 @@
 -- Forward-only Production release for the unavailable-item register.
 -- This migration creates schema and functions only. It does not copy or seed data.
 -- It intentionally does not replay the initial schema or legacy visit-correction migrations.
--- Target: bring Production's unavailable-item capability in line with the verified Staging behavior.
+-- Target: add unavailable-item capability with stricter branch-scoped photo reads than the legacy Staging policy.
 
 begin;
 
@@ -338,7 +338,17 @@ create policy "Active staff can view unavailable-item photos"
 on storage.objects for select to authenticated
 using (
   bucket_id = 'unavailable-item-photos'
-  and exists (select 1 from public.profiles p where p.user_id = (select auth.uid()) and p.active = true)
+  and exists (
+    select 1
+    from public.profiles p
+    where p.user_id = (select auth.uid()) and p.active = true
+  )
+  and exists (
+    select 1
+    from public.unavailable_items ui
+    where ui.image_path = storage.objects.name
+      and (public.is_active_admin() or public.can_access_branch(ui.branch_id))
+  )
 );
 
 drop policy if exists "Owners can remove unlinked unavailable-item photos" on storage.objects;
