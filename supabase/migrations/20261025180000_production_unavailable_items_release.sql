@@ -167,9 +167,9 @@ begin
     v.id, v.branch_id, auth.uid(), v.outcome, v.reason, p_outcome, p_reason
   );
 
-  -- Preserve Production's existing correction window. Only maintain the new
-  -- unavailable-item flag when a correction explicitly marks a no-purchase
-  -- visit as Item unavailable; otherwise preserve its current value.
+  -- Preserve Production's existing correction window. For no-purchase
+  -- corrections, set the flag to match the selected reason. For purchased
+  -- corrections, preserve the existing flag for the unavailable-item workflow.
   update public.visits
   set outcome = p_outcome,
       reason = p_reason,
