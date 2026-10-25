@@ -361,6 +361,7 @@ using (
   and not exists (select 1 from public.unavailable_items ui where ui.image_path = storage.objects.name)
 );
 
+revoke all on public.unavailable_items from public, anon;
 grant select, insert, update on public.unavailable_items to authenticated;
 revoke delete on public.unavailable_items from authenticated;
 
