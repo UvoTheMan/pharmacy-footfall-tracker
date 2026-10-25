@@ -363,6 +363,6 @@ using (
 
 revoke all on public.unavailable_items from public, anon;
 grant select, insert, update on public.unavailable_items to authenticated;
-revoke delete on public.unavailable_items from authenticated;
+revoke delete, truncate, references, trigger on public.unavailable_items from authenticated;
 
 commit;
