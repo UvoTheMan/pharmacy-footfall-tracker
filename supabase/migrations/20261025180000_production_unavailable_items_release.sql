@@ -155,9 +155,6 @@ begin
   if not found then
     raise exception 'Visit not found';
   end if;
-  if v.visit_date is distinct from (now() at time zone 'Africa/Lagos')::date then
-    raise exception 'Only visits recorded today can be corrected';
-  end if;
   if not public.can_access_branch(v.branch_id) then
     raise exception 'No access to this branch';
   end if;
@@ -168,12 +165,16 @@ begin
     v.id, v.branch_id, auth.uid(), v.outcome, v.reason, p_outcome, p_reason
   );
 
+  -- Preserve Production's existing correction window. Only maintain the new
+  -- unavailable-item flag when a correction explicitly marks a no-purchase
+  -- visit as Item unavailable; otherwise preserve its current value.
   update public.visits
   set outcome = p_outcome,
       reason = p_reason,
-      unavailable_item_requested = (
-        p_outcome = 'not_purchased' and p_reason = 'Item unavailable'
-      ),
+      unavailable_item_requested = case
+        when p_outcome = 'not_purchased' then p_reason = 'Item unavailable'
+        else v.unavailable_item_requested
+      end,
       updated_at = now()
   where id = v.id;
 end;
