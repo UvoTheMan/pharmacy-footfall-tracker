@@ -10,6 +10,7 @@ import HistoricalVisits from "./components/HistoricalVisits";
 import BranchCorrectionRequests from "./components/BranchCorrectionRequests";
 import ManualBackup from "./components/ManualBackup";
 import AdminAnalytics from "./components/AdminAnalytics";
+import AdminDashboardOverview from "./components/AdminDashboardOverview";
 import UnavailableItems from "./components/UnavailableItems";
 
 type Branch = { id: string; slug: string; name: string };
@@ -642,6 +643,7 @@ export default function App() {
         </section>
       ) : (
       <>
+      {profile?.role === "admin" && <AdminDashboardOverview branches={branches} />}
       {profile?.role === "admin" && <BranchCorrectionRequests branches={branches} onUpdated={loadVisits} />}
 
       <section className="stats-grid" aria-label="Today's totals">
