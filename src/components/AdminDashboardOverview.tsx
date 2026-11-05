@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertCircle, CheckCircle2, Clock3, RefreshCw, ShoppingBag, Users } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import "./AdminDashboardOverview.css";
 
 type Branch = { id: string; name: string };
 type Visit = { branch_id: string; outcome: "purchased" | "not_purchased" | "undecided" };
@@ -24,7 +25,7 @@ function lagosDateKey(date = new Date()) {
 }
 
 export default function AdminDashboardOverview({ branches }: { branches: Branch[] }) {
-  const today = useMemo(() => lagosDateKey(), []);
+  const [today, setToday] = useState(() => lagosDateKey());
   const [visits, setVisits] = useState<Visit[]>([]);
   const [pendingCorrections, setPendingCorrections] = useState<number | null>(null);
   const [pendingUnavailable, setPendingUnavailable] = useState<number | null>(null);
@@ -38,6 +39,8 @@ export default function AdminDashboardOverview({ branches }: { branches: Branch[
       setLoading(false);
       return;
     }
+    const currentDate = lagosDateKey();
+    setToday(currentDate);
     if (manual) setRefreshing(true);
     else setLoading(true);
     setError("");
@@ -59,7 +62,7 @@ export default function AdminDashboardOverview({ branches }: { branches: Branch[
         const result = await supabase
           .from("visits")
           .select("branch_id,outcome")
-          .eq("visit_date", today)
+          .eq("visit_date", currentDate)
           .order("id", { ascending: true })
           .range(offset, offset + 999);
         if (result.error) throw result.error;
@@ -81,7 +84,7 @@ export default function AdminDashboardOverview({ branches }: { branches: Branch[
       setLoading(false);
       setRefreshing(false);
     }
-  }, [today]);
+  }, []);
 
   useEffect(() => {
     void refresh();
