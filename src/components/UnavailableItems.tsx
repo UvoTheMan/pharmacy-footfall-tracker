@@ -188,7 +188,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
 
   useEffect(() => {
     setVisibleItemCount(10);
-  }, [filteredItems]);
+    setSelectedIds(new Set());
+  }, [filteredItems, fromDate, toDate]);
 
   const visibleItems = filteredItems.slice(0, visibleItemCount);
 
@@ -244,6 +245,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       setSelectedIds(new Set());
       return;
     }
+    const actionLabel = status === "reviewed" ? "mark as reviewed" : "mark as resolved";
+    if (!window.confirm(`Apply this change to ${visibleSelected.length} selected report${visibleSelected.length === 1 ? "" : "s"}? They will be ${actionLabel}.`)) return;
     setBulkSaving(true);
     setError("");
     setNotice("");
@@ -385,8 +388,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       <div className="history-toolbar"><span>{loading ? "Loading records…" : `${filteredItems.length} report${filteredItems.length === 1 ? "" : "s"} found`}</span><div><button className="secondary-button" type="button" onClick={() => { setSearchInput(""); setAppliedSearch(""); setBranchFilter(profile.role === "admin" ? "all" : activeBranchId ?? ""); setStatusFilter("all"); setFromDate(dateMinusDays(89)); setToDate(todayKey()); setSelectedIds(new Set()); }}>Reset filters</button></div></div>
       <details className="admin-record-rollup unavailable-status-rollup"><summary><span className="admin-record-rollup-title"><strong>Assessment status</strong><small>Filter reports by review progress</small></span><span className="admin-record-rollup-meta">{statusFilter === "all" ? "All statuses" : statusFilter === "pending" ? "Pending assessment" : statusFilter === "reviewed" ? "Reviewed" : "Resolved"}</span></summary><div className="admin-record-rollup-content"><label className="history-date-field"><span>Show reports</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All statuses</option><option value="pending">Pending assessment</option><option value="reviewed">Reviewed</option><option value="resolved">Resolved</option></select></label><p className="unavailable-filter-note">Applies to the selected date range, branch, and item-name filters.</p></div></details>
       {profile.role === "admin" && filteredItems.length > 0 && <div className="unavailable-bulk-toolbar">
-        <label className="unavailable-select-all"><input type="checkbox" checked={filteredItems.every((item) => selectedIds.has(item.id))} onChange={(event) => toggleAllFiltered(event.target.checked)} aria-label="Select all filtered unavailable-item reports" /> <span>Select all shown</span></label>
-        <span className="unavailable-selected-count">{filteredItems.filter((item) => selectedIds.has(item.id)).length} selected</span>
+        <label className="unavailable-select-all"><input type="checkbox" checked={filteredItems.every((item) => selectedIds.has(item.id))} onChange={(event) => toggleAllFiltered(event.target.checked)} aria-label={`Select all ${filteredItems.length} filtered unavailable-item reports`} /> <span>Select all {filteredItems.length} filtered</span></label>
+        <span className="unavailable-selected-count">{filteredItems.filter((item) => selectedIds.has(item.id)).length} of {filteredItems.length} selected</span>
         <div className="unavailable-bulk-actions"><button className="secondary-button" type="button" disabled={bulkSaving || !filteredItems.some((item) => selectedIds.has(item.id))} onClick={() => void bulkUpdateStatus("reviewed")}>{bulkSaving ? "Updating…" : "Mark reviewed"}</button><button className="secondary-button" type="button" disabled={bulkSaving || !filteredItems.some((item) => selectedIds.has(item.id))} onClick={() => void bulkUpdateStatus("resolved")}>{bulkSaving ? "Updating…" : "Mark resolved"}</button><button className="unavailable-clear-selection" type="button" disabled={bulkSaving || selectedIds.size === 0} onClick={() => setSelectedIds(new Set())}>Clear</button></div>
       </div>}
       {filteredItems.length === 0 && !loading ? <div className="corrections-empty">No unavailable-item reports match these filters.</div> : (
