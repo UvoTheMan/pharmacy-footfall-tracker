@@ -179,6 +179,42 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     };
   }, [loadItems]);
 
+  const intelligenceItems = useMemo(() => items.filter((item) =>
+    profile.role !== "admin" || branchFilter === "all" || item.branch_id === branchFilter
+  ), [items, profile.role, branchFilter]);
+
+  const unavailableIntelligence = useMemo(() => {
+    const statusCounts = {
+      total: intelligenceItems.length,
+      pending: intelligenceItems.filter((item) => item.status === "pending").length,
+      reviewed: intelligenceItems.filter((item) => item.status === "reviewed").length,
+      resolved: intelligenceItems.filter((item) => item.status === "resolved").length,
+    };
+    const byBranch = registerBranches.map((branch) => {
+      const rows = intelligenceItems.filter((item) => item.branch_id === branch.id);
+      return {
+        id: branch.id,
+        name: branch.name,
+        total: rows.length,
+        pending: rows.filter((item) => item.status === "pending").length,
+      };
+    }).filter((branch) => branch.total > 0).sort((a, b) => b.total - a.total);
+    const productCounts = new Map<string, { name: string; count: number; branches: Set<string> }>();
+    intelligenceItems.forEach((item) => {
+      const key = item.item_name.trim().toLocaleLowerCase();
+      if (!key) return;
+      const current = productCounts.get(key) ?? { name: item.item_name.trim(), count: 0, branches: new Set<string>() };
+      current.count += 1;
+      current.branches.add(item.branch_id);
+      productCounts.set(key, current);
+    });
+    const topProducts = [...productCounts.values()]
+      .map((item) => ({ ...item, branchCount: item.branches.size }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 5);
+    return { statusCounts, byBranch, topProducts };
+  }, [intelligenceItems, registerBranches]);
+
   const filteredItems = useMemo(() => items.filter((item) => {
     const matchesName = !appliedSearch || item.item_name.toLowerCase().includes(appliedSearch.toLowerCase());
     const matchesBranch = profile.role === "admin" ? branchFilter === "all" || item.branch_id === branchFilter : item.branch_id === activeBranchId;
@@ -372,6 +408,33 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
         <span className="date-pill">Last 90 days</span>
       </div>
       <p className="panel-description">{profile.role === "admin" ? "Review unavailable-item reports across all branches or narrow the register to one branch. Each row represents one customer visit." : "Showing unavailable-item reports for your active branch only. Each row represents one customer visit."}</p>
+      {profile.role === "admin" && <section className="unavailable-intelligence" aria-label="Unavailable-item intelligence">
+        <div className="unavailable-intelligence-heading">
+          <div><p className="eyebrow">MANAGEMENT SNAPSHOT</p><h3>Reported stock gaps</h3></div>
+          <span>{fromDate} to {toDate}</span>
+        </div>
+        <p className="panel-description">A summary of customer visits where an item was reported unavailable. Repeated reports can reflect repeated visits and should be checked against branch stock records.</p>
+        <div className="unavailable-intelligence-kpis">
+          <div><strong>{unavailableIntelligence.statusCounts.total.toLocaleString()}</strong><span>Total reports</span></div>
+          <div><strong>{unavailableIntelligence.statusCounts.pending.toLocaleString()}</strong><span>Pending assessment</span></div>
+          <div><strong>{unavailableIntelligence.statusCounts.reviewed.toLocaleString()}</strong><span>Reviewed</span></div>
+          <div><strong>{unavailableIntelligence.statusCounts.resolved.toLocaleString()}</strong><span>Resolved</span></div>
+        </div>
+        <div className="unavailable-intelligence-columns">
+          <div>
+            <h4>Reports by branch</h4>
+            {unavailableIntelligence.byBranch.length === 0 ? <p className="corrections-empty">No reports in this date range.</p> : unavailableIntelligence.byBranch.map((branch) => <div className="unavailable-intelligence-row" key={branch.id}>
+              <span>{branch.name}</span><strong>{branch.total}</strong><small>{branch.pending} pending</small>
+            </div>)}
+          </div>
+          <div>
+            <h4>Most reported unavailable items</h4>
+            {unavailableIntelligence.topProducts.length === 0 ? <p className="corrections-empty">No item reports to rank yet.</p> : unavailableIntelligence.topProducts.map((item) => <div className="unavailable-intelligence-row" key={item.name.toLocaleLowerCase()}>
+              <span>{item.name}</span><strong>{item.count} {item.count === 1 ? "report" : "reports"}</strong><small>{item.branchCount} {item.branchCount === 1 ? "branch" : "branches"}</small>
+            </div>)}
+          </div>
+        </div>
+      </section>}
       {notice && <div className="notice" role="status"><Check size={15} />{notice}</div>}
       {error && <p className="error-message" role="alert">{error}</p>}
       <form className="unavailable-search" onSubmit={(event) => { event.preventDefault(); setAppliedSearch(searchInput.trim()); }}>
