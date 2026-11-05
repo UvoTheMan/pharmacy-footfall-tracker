@@ -25,7 +25,6 @@ function lagosDateKey(date = new Date()) {
 }
 
 export default function AdminDashboardOverview({ branches }: { branches: Branch[] }) {
-  const [today, setToday] = useState(() => lagosDateKey());
   const [visits, setVisits] = useState<Visit[]>([]);
   const [pendingCorrections, setPendingCorrections] = useState<number | null>(null);
   const [pendingUnavailable, setPendingUnavailable] = useState<number | null>(null);
@@ -40,7 +39,6 @@ export default function AdminDashboardOverview({ branches }: { branches: Branch[
       return;
     }
     const currentDate = lagosDateKey();
-    setToday(currentDate);
     if (manual) setRefreshing(true);
     else setLoading(true);
     setError("");
