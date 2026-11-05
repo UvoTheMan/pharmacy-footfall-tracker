@@ -1,5 +1,5 @@
 -- Allow one customer visit to have multiple independently managed unavailable items.
-DROP INDEX IF EXISTS public.unavailable_items_visit_id_key;
+ALTER TABLE public.unavailable_items DROP CONSTRAINT IF EXISTS unavailable_items_visit_id_key;
 
 CREATE INDEX IF NOT EXISTS unavailable_items_visit_id_idx
   ON public.unavailable_items (visit_id);
