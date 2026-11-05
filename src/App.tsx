@@ -81,9 +81,7 @@ export default function App() {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
   const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
-  const [unavailableItemName, setUnavailableItemName] = useState("");
-  const [unavailableItemPhoto, setUnavailableItemPhoto] = useState<File | null>(null);
-  const [unavailableItemPhotoPreview, setUnavailableItemPhotoPreview] = useState("");
+  const [unavailableItemsDraft, setUnavailableItemsDraft] = useState<Array<{ id: string; name: string; photo: File | null; preview: string }>>([{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }]);
   const [showBatch, setShowBatch] = useState(false);
   const [showNoPurchaseReason, setShowNoPurchaseReason] = useState(false);
   const [batchCount, setBatchCount] = useState("5");
@@ -396,16 +394,51 @@ export default function App() {
     }
     setUnavailableOutcome(outcome);
     setReason(reason ?? "");
-    setUnavailableItemName("");
-    clearUnavailablePhoto();
+    setUnavailableItemsDraft([{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }]);
     setError("");
     setShowUnavailablePrompt(true);
   }
 
-  function clearUnavailablePhoto() {
-    if (unavailableItemPhotoPreview) URL.revokeObjectURL(unavailableItemPhotoPreview);
-    setUnavailableItemPhoto(null);
-    setUnavailableItemPhotoPreview("");
+  function clearUnavailableDrafts() {
+    setUnavailableItemsDraft((current) => {
+      current.forEach((item) => { if (item.preview) URL.revokeObjectURL(item.preview); });
+      return [{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }];
+    });
+  }
+
+  function updateUnavailableItemName(id: string, name: string) {
+    setUnavailableItemsDraft((current) => current.map((item) => item.id === id ? { ...item, name } : item));
+  }
+
+  function addUnavailableDraft() {
+    setUnavailableItemsDraft((current) => [...current, { id: crypto.randomUUID(), name: "", photo: null, preview: "" }]);
+  }
+
+  function removeUnavailableDraft(id: string) {
+    setUnavailableItemsDraft((current) => {
+      const item = current.find((entry) => entry.id === id);
+      if (item?.preview) URL.revokeObjectURL(item.preview);
+      const next = current.filter((entry) => entry.id !== id);
+      return next.length ? next : [{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }];
+    });
+  }
+
+  function selectUnavailablePhoto(id: string, file: File | null) {
+    setError("");
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Choose a JPG, PNG or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Each picture must be 5 MB or smaller.");
+      return;
+    }
+    setUnavailableItemsDraft((current) => current.map((item) => {
+      if (item.id !== id) return item;
+      if (item.preview) URL.revokeObjectURL(item.preview);
+      return { ...item, photo: file, preview: URL.createObjectURL(file) };
+    }));
   }
 
   async function deferUnavailablePrompt() {
@@ -417,75 +450,62 @@ export default function App() {
     );
     if (!savedVisitId) return;
     setShowUnavailablePrompt(false);
-    setUnavailableItemName("");
-    clearUnavailablePhoto();
+    clearUnavailableDrafts();
     setError("");
-  }
-
-  function selectUnavailablePhoto(file: File | null) {
-    setError("");
-    if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Choose a JPG, PNG or WebP image.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("The picture must be 5 MB or smaller.");
-      return;
-    }
-    if (unavailableItemPhotoPreview) URL.revokeObjectURL(unavailableItemPhotoPreview);
-    setUnavailableItemPhoto(file);
-    setUnavailableItemPhotoPreview(URL.createObjectURL(file));
   }
 
   async function saveUnavailableItem() {
-    const itemName = unavailableItemName.trim();
-    if (!supabase || !branch || !session || !itemName) {
-      setError("Enter the unavailable item name before saving.");
+    const items = unavailableItemsDraft.map((item) => ({ ...item, name: item.name.trim() }));
+    if (!supabase || !branch || !session || items.some((item) => !item.name)) {
+      setError("Enter a product name for every item before saving.");
+      return;
+    }
+    if (items.some((item) => item.name.length > 180)) {
+      setError("Each product name must be 180 characters or fewer.");
       return;
     }
     setBusy(true);
     setError("");
-    let imagePath: string | null = null;
-    if (unavailableItemPhoto) {
-      const extension = unavailableItemPhoto.type === "image/png" ? "png" : unavailableItemPhoto.type === "image/webp" ? "webp" : "jpg";
-      imagePath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
-      const upload = await supabase.storage.from("unavailable-item-photos").upload(imagePath, unavailableItemPhoto, {
-        contentType: unavailableItemPhoto.type,
-        upsert: false,
+    const uploadedPaths: string[] = [];
+    try {
+      const preparedItems = await Promise.all(items.map(async (item) => {
+        if (!item.photo) return { item_name: item.name, image_path: null as string | null };
+        const extension = item.photo.type === "image/png" ? "png" : item.photo.type === "image/webp" ? "webp" : "jpg";
+        const imagePath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
+        const upload = await supabase!.storage.from("unavailable-item-photos").upload(imagePath, item.photo, {
+          contentType: item.photo.type,
+          upsert: false,
+        });
+        if (upload.error) throw new Error("A photo could not be uploaded: " + upload.error.message);
+        uploadedPaths.push(imagePath);
+        return { item_name: item.name, image_path: imagePath };
+      }));
+      const result = await supabase.rpc("record_unavailable_items", {
+        p_branch_id: branch.id,
+        p_outcome: unavailableOutcome,
+        p_reason: unavailableOutcome === "not_purchased" ? "Item unavailable" : null,
+        p_items: preparedItems,
       });
-      if (upload.error) {
-        setError("The report was not saved because the photo upload failed: " + upload.error.message);
-        setBusy(false);
-        return;
-      }
-    }
-    const result = await supabase.rpc("record_unavailable_item", {
-      p_branch_id: branch.id,
-      p_outcome: unavailableOutcome,
-      p_reason: unavailableOutcome === "not_purchased" ? "Item unavailable" : null,
-      p_item_name: itemName,
-      p_image_path: imagePath,
-    });
-    if (result.error) {
-      if (imagePath) {
-        const cleanup = await supabase.storage.from("unavailable-item-photos").remove([imagePath]);
+      if (result.error) throw new Error(result.error.message);
+      setShowUnavailablePrompt(false);
+      clearUnavailableDrafts();
+      void loadVisits();
+      flash(items.length === 1
+        ? "Visit and unavailable item saved."
+        : `Visit and ${items.length} unavailable items saved.`);
+    } catch (e) {
+      if (uploadedPaths.length) {
+        const cleanup = await supabase.storage.from("unavailable-item-photos").remove(uploadedPaths);
         if (cleanup.error) {
-          setError("Visit and unavailable item were not saved: " + result.error.message + ". The uploaded photo could not be cleaned up; please notify the administrator.");
+          setError((e instanceof Error ? e.message : "Unable to save these items.") + " Uploaded photos could not all be cleaned up. Please notify the administrator.");
           setBusy(false);
           return;
         }
       }
-      setError("Visit and unavailable item were not saved: " + result.error.message);
+      setError(e instanceof Error ? e.message : "Unable to save these items.");
+    } finally {
       setBusy(false);
-      return;
     }
-    setShowUnavailablePrompt(false);
-    setUnavailableItemName("");
-    clearUnavailablePhoto();
-    await loadVisits();
-    flash("Visit and unavailable item saved together to the shared register.");
-    setBusy(false);
   }
 
   const todaysVisits = useMemo(() => visits.filter((visit) => visit.branch_id === branch?.id && visit.visit_date === today), [visits, branch, today]);
@@ -749,22 +769,32 @@ export default function App() {
           <form className="modal" role="dialog" aria-modal="true" aria-labelledby="unavailable-prompt-title" onSubmit={(event) => { event.preventDefault(); void saveUnavailableItem(); }}>
             <button className="modal-close" type="button" aria-label="Close product details prompt" disabled={busy} onClick={deferUnavailablePrompt}><X size={19} /></button>
             <p className="eyebrow">UNAVAILABLE ITEM REPORT</p>
-            <h2 id="unavailable-prompt-title">Which item was unavailable?</h2>
-            <p className="modal-description">{unavailableOutcome === "purchased" ? "Record the item the customer couldn't obtain, even though they purchased something else." : "Record the item that led to the customer leaving without a purchase."} This report will be shared with staff and admins.</p>
-            <label className="field-label" htmlFor="unavailable-item-name">Product name, strength and form <span>Required</span></label>
-            <textarea className="unavailable-item-input" id="unavailable-item-name" maxLength={180} autoFocus required value={unavailableItemName} onChange={(event) => setUnavailableItemName(event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
-            <label className="field-label" htmlFor="unavailable-item-photo">Add a picture <span>Optional</span></label>
-            <input className="unavailable-photo-input" id="unavailable-item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(event) => selectUnavailablePhoto(event.target.files?.[0] ?? null)} />
-            {unavailableItemPhotoPreview && <div className="unavailable-photo-preview"><img src={unavailableItemPhotoPreview} alt="Selected unavailable item preview" /><div><strong>{unavailableItemPhoto?.name}</strong><small>Photo ready to attach</small><button className="text-button" type="button" disabled={busy} onClick={clearUnavailablePhoto}>Remove picture</button></div></div>}
-            <p className="modal-footnote">JPG, PNG or WebP, up to 5 MB. Please do not photograph prescriptions or documents showing patient-identifying details.</p>
+            <h2 id="unavailable-prompt-title">Which items were unavailable?</h2>
+            <p className="modal-description">{unavailableOutcome === "purchased" ? "Record each item the customer couldn't obtain, even though they purchased something else." : "Record each item that led to the customer leaving without a purchase."} Every item will be saved as a separate report under the same customer visit.</p>
+            <div className="unavailable-items-draft-list">
+              {unavailableItemsDraft.map((item, index) => (
+                <section className="unavailable-item-draft" key={item.id}>
+                  <div className="unavailable-item-draft-heading">
+                    <strong>Item {index + 1}</strong>
+                    {unavailableItemsDraft.length > 1 && <button className="text-button" type="button" disabled={busy} onClick={() => removeUnavailableDraft(item.id)}>Remove</button>}
+                  </div>
+                  <label className="field-label" htmlFor={`unavailable-item-name-${item.id}`}>Product name, strength and form <span>Required</span></label>
+                  <textarea className="unavailable-item-input" id={`unavailable-item-name-${item.id}`} maxLength={180} required value={item.name} onChange={(event) => updateUnavailableItemName(item.id, event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
+                  <label className="field-label" htmlFor={`unavailable-item-photo-${item.id}`}>Add a picture <span>Optional</span></label>
+                  <input className="unavailable-photo-input" id={`unavailable-item-photo-${item.id}`} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(event) => selectUnavailablePhoto(item.id, event.target.files?.[0] ?? null)} />
+                  {item.preview && <div className="unavailable-photo-preview"><img src={item.preview} alt={`Selected photo for item ${index + 1}`} /><div><strong>{item.photo?.name}</strong><small>Photo ready to attach</small><button className="text-button" type="button" disabled={busy} onClick={() => setUnavailableItemsDraft((current) => current.map((entry) => { if (entry.id !== item.id) return entry; if (entry.preview) URL.revokeObjectURL(entry.preview); return { ...entry, photo: null, preview: "" }; }))}>Remove picture</button></div></div>}
+                </section>
+              ))}
+            </div>
+            <button className="text-button" type="button" disabled={busy || unavailableItemsDraft.length >= 10} onClick={addUnavailableDraft}>+ Add another item</button>
+            <p className="modal-footnote">Each picture is optional. JPG, PNG or WebP, up to 5 MB per picture. Please don't photograph prescriptions or documents showing patient-identifying details.</p>
             {error && <p className="error-message" role="alert">{error}</p>}
-            <button className="primary-button" type="submit" disabled={busy || !unavailableItemName.trim()}>{busy ? "Saving report…" : "Save unavailable item"} <span>→</span></button>
+            <button className="primary-button" type="submit" disabled={busy || unavailableItemsDraft.some((item) => !item.name.trim())}>{busy ? "Saving reports…" : `Save ${unavailableItemsDraft.length} ${unavailableItemsDraft.length === 1 ? "item" : "items"}`} <span>→</span></button>
             <button className="text-button" type="button" disabled={busy} onClick={deferUnavailablePrompt}>Close for now</button>
-            <p className="modal-footnote">Saving the product name records the visit and unavailable item together. If you close for now, the visit will still be recorded without product details, which can be added later from Recent visits.</p>
+            <p className="modal-footnote">Closing for now records the customer visit without product details. You can add those details later from Recent visits.</p>
           </form>
         </div>
       )}
-
       {showBranchPicker && profile?.role !== "admin" && (
         <div className="modal-backdrop" role="presentation">
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="branch-title">
