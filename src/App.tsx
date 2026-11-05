@@ -468,7 +468,7 @@ export default function App() {
     setError("");
     const uploadedPaths: string[] = [];
     try {
-      const preparedItems = await Promise.all(items.map(async (item) => {
+      const uploadResults = await Promise.allSettled(items.map(async (item) => {
         if (!item.photo) return { item_name: item.name, image_path: null as string | null };
         const extension = item.photo.type === "image/png" ? "png" : item.photo.type === "image/webp" ? "webp" : "jpg";
         const imagePath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
@@ -477,9 +477,14 @@ export default function App() {
           upsert: false,
         });
         if (upload.error) throw new Error("A photo could not be uploaded: " + upload.error.message);
-        uploadedPaths.push(imagePath);
         return { item_name: item.name, image_path: imagePath };
       }));
+      for (const result of uploadResults) {
+        if (result.status === "fulfilled" && result.value.image_path) uploadedPaths.push(result.value.image_path);
+      }
+      const failedUpload = uploadResults.find((result): result is PromiseRejectedResult => result.status === "rejected");
+      if (failedUpload) throw failedUpload.reason;
+      const preparedItems = uploadResults.map((result) => (result as PromiseFulfilledResult<{ item_name: string; image_path: string | null }>).value);
       const result = await supabase.rpc("record_unavailable_items", {
         p_branch_id: branch.id,
         p_outcome: unavailableOutcome,
