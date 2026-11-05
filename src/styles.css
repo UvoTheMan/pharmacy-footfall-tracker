@@ -409,3 +409,91 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .correction-heading-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .correction-refresh{padding:7px 9px;font-size:10px}
 @media(max-width:520px){.correction-heading-actions{gap:6px}.correction-refresh{padding:7px;font-size:9px}.correction-heading-actions .date-pill{padding:7px}}
+
+
+/* Admin unavailable-item management intelligence */
+.unavailable-intelligence {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  background: var(--surface, #fff);
+}
+.unavailable-intelligence-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.unavailable-intelligence-heading h3 {
+  margin: .2rem 0 0;
+  font-size: 1.05rem;
+}
+.unavailable-intelligence-heading > span {
+  color: var(--muted, #64748b);
+  font-size: .78rem;
+  text-align: right;
+}
+.unavailable-intelligence > .panel-description {
+  margin: .65rem 0 1rem;
+}
+.unavailable-intelligence-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .65rem;
+}
+.unavailable-intelligence-kpis > div {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  min-width: 0;
+  padding: .75rem;
+  border-radius: 10px;
+  background: var(--surface-muted, #f7f8fa);
+}
+.unavailable-intelligence-kpis strong {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+.unavailable-intelligence-kpis span,
+.unavailable-intelligence-row small {
+  color: var(--muted, #64748b);
+  font-size: .76rem;
+}
+.unavailable-intelligence-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.1rem;
+}
+.unavailable-intelligence-columns h4 {
+  margin: 0 0 .55rem;
+  font-size: .9rem;
+}
+.unavailable-intelligence-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .15rem .75rem;
+  align-items: baseline;
+  padding: .55rem 0;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+.unavailable-intelligence-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: .86rem;
+}
+.unavailable-intelligence-row > strong {
+  font-size: .84rem;
+  text-align: right;
+}
+.unavailable-intelligence-row > small {
+  grid-column: 1 / -1;
+}
+@media (max-width: 640px) {
+  .unavailable-intelligence { padding: .8rem; }
+  .unavailable-intelligence-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .unavailable-intelligence-columns { grid-template-columns: 1fr; gap: .9rem; }
+  .unavailable-intelligence-heading { flex-direction: column; gap: .35rem; }
+  .unavailable-intelligence-heading > span { text-align: left; }
+}
