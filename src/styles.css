@@ -405,3 +405,7 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .branch-correction-modal>.primary-button,.branch-correction-modal>.text-button{flex:0 0 auto;width:100%;margin-top:7px}
 .branch-correction-modal>.text-button{justify-content:center;padding:10px}
 @media(max-width:520px){.branch-correction-modal{padding:20px 16px;max-height:92dvh}.branch-correction-modal h2{padding-right:28px}.branch-correction-modal .correction-row{align-items:flex-start;flex-wrap:wrap}.branch-correction-modal .correction-time{width:64px;padding-top:3px}.branch-correction-modal .correction-details{flex:1 1 120px}}
+
+.correction-heading-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.correction-refresh{padding:7px 9px;font-size:10px}
+@media(max-width:520px){.correction-heading-actions{gap:6px}.correction-refresh{padding:7px;font-size:9px}.correction-heading-actions .date-pill{padding:7px}}
