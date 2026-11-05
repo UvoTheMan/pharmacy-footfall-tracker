@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Clock3, X } from "lucide-react";
+import { Check, Clock3, RefreshCw, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type Branch = { id: string; name: string; slug: string };
@@ -36,32 +36,50 @@ export default function BranchCorrectionRequests({ branches, onUpdated, mode = "
   const [visits, setVisits] = useState<Visit[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [verification, setVerification] = useState<Verification | null>(null);
 
   const loadRequests = useCallback(async () => {
     if (!supabase) return;
-    const allRequests: Request[] = [];
-    for (let offset = 0; ; offset += 1000) {
-      const result = await supabase
-        .from("branch_correction_requests")
-        .select("id,source_branch_id,target_branch_id,visit_date,status,created_at,resolved_at")
-        .order("created_at", { ascending: false })
-        .range(offset, offset + 999);
-      if (result.error) {
-        setError(`Could not load branch correction requests: ${result.error.message}`);
-        return;
+    setRefreshing(true);
+    try {
+      const allRequests: Request[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const result = await supabase
+          .from("branch_correction_requests")
+          .select("id,source_branch_id,target_branch_id,visit_date,status,created_at,resolved_at")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + 999);
+        if (result.error) throw result.error;
+        const page = (result.data ?? []) as Request[];
+        allRequests.push(...page);
+        if (page.length < 1000) break;
       }
-      const page = (result.data ?? []) as Request[];
-      allRequests.push(...page);
-      if (page.length < 1000) break;
+      setRequests(allRequests.filter((request) => request.status === "pending").sort((left, right) => left.created_at.localeCompare(right.created_at)));
+      setResolvedRequests(allRequests.filter((request) => request.status !== "pending").sort((left, right) => (right.resolved_at ?? "").localeCompare(left.resolved_at ?? "")));
+      setError("");
+    } catch (caught) {
+      setError(`Could not load branch correction requests: ${caught instanceof Error ? caught.message : "Unknown error"}`);
+    } finally {
+      setRefreshing(false);
     }
-    setRequests(allRequests.filter((request) => request.status === "pending").sort((left, right) => left.created_at.localeCompare(right.created_at)));
-    setResolvedRequests(allRequests.filter((request) => request.status !== "pending").sort((left, right) => (right.resolved_at ?? "").localeCompare(left.resolved_at ?? "")));
   }, []);
 
-  useEffect(() => { void loadRequests(); }, [loadRequests]);
+  useEffect(() => {
+    if (mode !== "requests") return;
+    void loadRequests();
+    const timer = window.setInterval(() => void loadRequests(), 60000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void loadRequests();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [loadRequests, mode]);
 
   async function reviewRequest(request: Request) {
     if (!supabase) return;
@@ -173,7 +191,13 @@ export default function BranchCorrectionRequests({ branches, onUpdated, mode = "
       {mode === "requests" && <>
       <div className="panel-heading">
         <div><p className="eyebrow">ADMIN REVIEW</p><h2>Branch correction requests</h2></div>
-        <span className="date-pill">{requests.length} pending</span>
+        <div className="correction-heading-actions">
+          <span className="date-pill">{requests.length} pending</span>
+          <button className="secondary-button correction-refresh" type="button" onClick={() => void loadRequests()} disabled={refreshing || busy} aria-label="Refresh correction requests">
+            <RefreshCw size={14} className={refreshing ? "admin-refresh-spin" : ""} />
+            {refreshing ? "Refreshing" : "Refresh"}
+          </button>
+        </div>
       </div>
       <p className="panel-description">Review the visits selected for reassignment. No requester or approver identity is recorded.</p>
       {notice && <div className="notice" role="status"><Check size={15} />{notice}</div>}
