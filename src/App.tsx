@@ -646,6 +646,7 @@ export default function App() {
       {profile?.role === "admin" && <AdminDashboardOverview branches={branches} />}
       {profile?.role === "admin" && <BranchCorrectionRequests branches={branches} onUpdated={loadVisits} />}
 
+      {profile?.role === "admin" && <p className="admin-selected-branch-label">SELECTED BRANCH · {branch?.name ?? "No branch selected"}</p>}
       <section className="stats-grid" aria-label="Today's totals">
         <article className="stat-card stat-primary"><div className="stat-top"><span>Total visits</span><span className="stat-icon"><Users size={18} /></span></div><strong className="stat-number">{total}</strong><span className="stat-foot">{loadingVisits ? "Refreshing…" : "Shared records for today"}</span></article>
         <article className="stat-card"><div className="stat-top"><span>Purchases</span><span className="stat-icon green"><ShoppingBag size={18} /></span></div><strong className="stat-number">{purchasers}</strong><span className="stat-foot positive"><ArrowUpRight size={14} /> Completed sales</span></article>
