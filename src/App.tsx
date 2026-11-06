@@ -771,7 +771,7 @@ export default function App() {
 
       {showUnavailablePrompt && (
         <div className="modal-backdrop" role="presentation">
-          <form className="modal" role="dialog" aria-modal="true" aria-labelledby="unavailable-prompt-title" onSubmit={(event) => { event.preventDefault(); void saveUnavailableItem(); }}>
+          <form className="modal unavailable-report-modal" role="dialog" aria-modal="true" aria-labelledby="unavailable-prompt-title" onSubmit={(event) => { event.preventDefault(); void saveUnavailableItem(); }}>
             <button className="modal-close" type="button" aria-label="Close product details prompt" disabled={busy} onClick={deferUnavailablePrompt}><X size={19} /></button>
             <p className="eyebrow">UNAVAILABLE ITEM REPORT</p>
             <h2 id="unavailable-prompt-title">Which items were unavailable?</h2>
@@ -791,7 +791,7 @@ export default function App() {
                 </section>
               ))}
             </div>
-            <button className="text-button" type="button" disabled={busy || unavailableItemsDraft.length >= 10} onClick={addUnavailableDraft}>+ Add another item</button>
+            <button className="add-unavailable-item-button" type="button" disabled={busy || unavailableItemsDraft.length >= 10} onClick={addUnavailableDraft}><span className="add-unavailable-item-icon" aria-hidden="true">+</span><span><strong>Add another item</strong><small>{unavailableItemsDraft.length >= 10 ? "Maximum of 10 items reached" : `${10 - unavailableItemsDraft.length} ${10 - unavailableItemsDraft.length === 1 ? "more item" : "more items"} can be added`}</small></span></button>
             <p className="modal-footnote">Each picture is optional. JPG, PNG or WebP, up to 5 MB per picture. Please don't photograph prescriptions or documents showing patient-identifying details.</p>
             {error && <p className="error-message" role="alert">{error}</p>}
             <button className="primary-button" type="submit" disabled={busy || unavailableItemsDraft.some((item) => !item.name.trim())}>{busy ? "Saving reports…" : `Save ${unavailableItemsDraft.length} ${unavailableItemsDraft.length === 1 ? "item" : "items"}`} <span>→</span></button>
