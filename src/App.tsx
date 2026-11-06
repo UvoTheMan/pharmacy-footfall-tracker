@@ -82,6 +82,7 @@ export default function App() {
   const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
   const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
   const [unavailableItemsDraft, setUnavailableItemsDraft] = useState<Array<{ id: string; name: string; photo: File | null; preview: string }>>([{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }]);
+  const [preparingPhotoIds, setPreparingPhotoIds] = useState<string[]>([]);
   const [showBatch, setShowBatch] = useState(false);
   const [showNoPurchaseReason, setShowNoPurchaseReason] = useState(false);
   const [batchCount, setBatchCount] = useState("5");
@@ -423,7 +424,31 @@ export default function App() {
     });
   }
 
-  function selectUnavailablePhoto(id: string, file: File | null) {
+  async function compressUnavailablePhoto(file: File): Promise<File> {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const maxDimension = 1800;
+      const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) {
+        bitmap.close();
+        return file;
+      }
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      const compressed = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
+      if (!compressed || compressed.size >= file.size * 0.95) return file;
+      const baseName = file.name.replace(/\\.[^.]+$/, "") || "unavailable-item";
+      return new File([compressed], `${baseName}.webp`, { type: "image/webp", lastModified: Date.now() });
+    } catch {
+      return file;
+    }
+  }
+
+  async function selectUnavailablePhoto(id: string, file: File | null) {
     setError("");
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
@@ -434,11 +459,17 @@ export default function App() {
       setError("Each picture must be 5 MB or smaller.");
       return;
     }
-    setUnavailableItemsDraft((current) => current.map((item) => {
-      if (item.id !== id) return item;
-      if (item.preview) URL.revokeObjectURL(item.preview);
-      return { ...item, photo: file, preview: URL.createObjectURL(file) };
-    }));
+    setPreparingPhotoIds((current) => current.includes(id) ? current : [...current, id]);
+    try {
+      const optimizedFile = await compressUnavailablePhoto(file);
+      setUnavailableItemsDraft((current) => current.map((item) => {
+        if (item.id !== id) return item;
+        if (item.preview) URL.revokeObjectURL(item.preview);
+        return { ...item, photo: optimizedFile, preview: URL.createObjectURL(optimizedFile) };
+      }));
+    } finally {
+      setPreparingPhotoIds((current) => current.filter((itemId) => itemId !== id));
+    }
   }
 
   async function deferUnavailablePrompt() {
@@ -787,14 +818,14 @@ export default function App() {
                   <textarea className="unavailable-item-input" id={`unavailable-item-name-${item.id}`} maxLength={180} required value={item.name} onChange={(event) => updateUnavailableItemName(item.id, event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
                   <label className="field-label" htmlFor={`unavailable-item-photo-${item.id}`}>Add a picture <span>Optional</span></label>
                   <input className="unavailable-photo-input" id={`unavailable-item-photo-${item.id}`} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(event) => selectUnavailablePhoto(item.id, event.target.files?.[0] ?? null)} />
-                  {item.preview && <div className="unavailable-photo-preview"><img src={item.preview} alt={`Selected photo for item ${index + 1}`} /><div><strong>{item.photo?.name}</strong><small>Photo ready to attach</small><button className="text-button" type="button" disabled={busy} onClick={() => setUnavailableItemsDraft((current) => current.map((entry) => { if (entry.id !== item.id) return entry; if (entry.preview) URL.revokeObjectURL(entry.preview); return { ...entry, photo: null, preview: "" }; }))}>Remove picture</button></div></div>}
+                  {preparingPhotoIds.includes(item.id) && <small className="photo-preparing-note">Optimizing picture…</small>}{item.preview && <div className="unavailable-photo-preview"><img src={item.preview} alt={`Selected photo for item ${index + 1}`} /><div><strong>{item.photo?.name}</strong><small>Photo ready to attach</small><button className="text-button" type="button" disabled={busy} onClick={() => setUnavailableItemsDraft((current) => current.map((entry) => { if (entry.id !== item.id) return entry; if (entry.preview) URL.revokeObjectURL(entry.preview); return { ...entry, photo: null, preview: "" }; }))}>Remove picture</button></div></div>}
                 </section>
               ))}
             </div>
             <button className="add-unavailable-item-button" type="button" disabled={busy || unavailableItemsDraft.length >= 10} onClick={addUnavailableDraft}><span className="add-unavailable-item-icon" aria-hidden="true">+</span><span><strong>Add another item</strong><small>{unavailableItemsDraft.length >= 10 ? "Maximum of 10 items reached" : `${10 - unavailableItemsDraft.length} ${10 - unavailableItemsDraft.length === 1 ? "more item" : "more items"} can be added`}</small></span></button>
             <p className="modal-footnote">Each picture is optional. JPG, PNG or WebP, up to 5 MB per picture. Please don't photograph prescriptions or documents showing patient-identifying details.</p>
             {error && <p className="error-message" role="alert">{error}</p>}
-            <button className="primary-button" type="submit" disabled={busy || unavailableItemsDraft.some((item) => !item.name.trim())}>{busy ? "Saving reports…" : `Save ${unavailableItemsDraft.length} ${unavailableItemsDraft.length === 1 ? "item" : "items"}`} <span>→</span></button>
+            <button className="primary-button" type="submit" disabled={busy || preparingPhotoIds.length > 0 || unavailableItemsDraft.some((item) => !item.name.trim())}>{busy ? "Saving reports…" : preparingPhotoIds.length > 0 ? "Preparing photos…" : `Save ${unavailableItemsDraft.length} ${unavailableItemsDraft.length === 1 ? "item" : "items"}`} <span>→</span></button>
             <button className="text-button" type="button" disabled={busy} onClick={deferUnavailablePrompt}>Close for now</button>
             <p className="modal-footnote">Closing for now records the customer visit without product details. You can add those details later from Recent visits.</p>
           </form>
