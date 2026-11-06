@@ -441,7 +441,7 @@ export default function App() {
       bitmap.close();
       const compressed = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
       if (!compressed || compressed.size >= file.size * 0.95) return file;
-      const baseName = file.name.replace(/\\.[^.]+$/, "") || "unavailable-item";
+      const baseName = file.name.replace(/\.[^.]+$/, "") || "unavailable-item";
       return new File([compressed], `${baseName}.webp`, { type: "image/webp", lastModified: Date.now() });
     } catch {
       return file;
