@@ -148,7 +148,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     const rows = previousVisits.filter((visit) => visit.branch_id === branch.id);
     const purchases = rows.filter((visit) => visit.outcome === "purchased").length;
     const resolved = rows.filter((visit) => visit.outcome !== "undecided").length;
-    return { id: branch.id, name: branch.name, total: rows.length, purchases, conversion: percent(purchases, resolved) };
+    return { id: branch.id, name: branch.name, total: rows.length, purchases, resolved, conversion: percent(purchases, resolved) };
   }), [analysisBranches, previousVisits]);
 
   const purchases = analysisVisits.filter((visit) => visit.outcome === "purchased").length;
@@ -518,6 +518,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               {branchStats.map((item) => {
                 const previous = previousBranchStats.find((row) => row.id === item.id);
                 const maxVisits = Math.max(1, ...branchStats.map((row) => row.total), ...previousBranchStats.map((row) => row.total));
+                const conversionDelta = previous && previous.resolved > 0 && item.resolved > 0
+                  ? item.conversion - previous.conversion
+                  : null;
                 return <article className="analytics-period-branch" key={item.id}>
                   <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total} visits now · {previous?.total ?? 0} previously</span></div>
                   <span className="analytics-period-metric-label">Visits</span>
@@ -525,10 +528,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                     <span className="analytics-period-current" style={{ width: `${item.total / maxVisits * 100}%` }} />
                     <span className="analytics-period-previous" style={{ width: `${(previous?.total ?? 0) / maxVisits * 100}%` }} />
                   </div>
-                  <span className="analytics-period-metric-label">Conversion: {item.conversion}% now · {previous?.conversion ?? 0}% previously</span>
-                  <div className="analytics-paired-bars" aria-label={`${item.name} conversion: current ${item.conversion} percent, previous ${previous?.conversion ?? 0} percent`}>
-                    <span className="analytics-period-current" style={{ width: `${item.conversion}%` }} />
-                    <span className="analytics-period-previous" style={{ width: `${previous?.conversion ?? 0}%` }} />
+                  <span className="analytics-period-metric-label">Resolved visits: {item.resolved} now · {previous?.resolved ?? 0} previously</span>
+                  <span className="analytics-period-metric-label">
+                    Conversion: {item.resolved > 0 ? item.conversion + "% now" : "No resolved visits now"} · {previous?.resolved ? previous.conversion + "% previously" : "No previous baseline"}
+                    {conversionDelta !== null && <> · {conversionDelta > 0 ? "+" : ""}{conversionDelta} percentage points</>}
+                  </span>
+                  <div className="analytics-paired-bars" aria-label={item.name + " conversion: " + (item.resolved > 0 ? item.conversion + " percent current" : "no current baseline") + ", " + (previous?.resolved ? previous.conversion + " percent previous" : "no previous baseline")}>
+                    {item.resolved > 0 && <span className="analytics-period-current" style={{ width: `${item.conversion}%` }} />}
+                    {previous?.resolved ? <span className="analytics-period-previous" style={{ width: `${previous.conversion}%` }} /> : null}
                   </div>
                 </article>;
               })}
@@ -539,7 +546,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion is purchases divided by resolved visits.</p>
               {branchStats.map((item) => (
                 <div className="analytics-branch-row" key={item.id}>
-                  <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.conversion}% conversion</span></div>
+                  <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.resolved > 0 ? item.conversion + "% conversion" : "No resolved visits"}</span></div>
                   <div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${item.total / maxBranch * 100}%` }} /></div>
                   <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span></div>
                   <div className="analytics-row-meta"><span>{item.unavailable} unavailable-item requests</span></div>
