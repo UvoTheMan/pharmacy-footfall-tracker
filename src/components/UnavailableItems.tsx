@@ -467,7 +467,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       for (let offset = 0; ; offset += pageSize) {
         let query = supabase
           .from("unavailable_items")
-          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,resolved_at,created_by,status,image_path,branches(name)")
+          .select("id,visit_id,branch_id,item_name,brand_name,reported_on,recorded_at,resolved_at,created_by,status,image_path,branches(name)")
           .gte("reported_on", exportFromDate < STOCK_INTELLIGENCE_START ? STOCK_INTELLIGENCE_START : exportFromDate)
           .lte("reported_on", exportToDate)
           .order("reported_on", { ascending: false })
@@ -685,7 +685,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     addSection("Most reported unavailable products");
     if (unavailableIntelligence.topProducts.length === 0) addWrapped("There are not enough verified product reports to rank products for this period.");
     unavailableIntelligence.topProducts.forEach((item, index) => {
-      addLine(`${index + 1}. ${item.name}`, `${item.count} reports`);
+      addLine(`${index + 1}. ${item.name}${item.brand ? ` - ${item.brand}` : ""}`, `${item.count} reports`);
       addWrapped(`Reported across ${item.branchCount} ${item.branchCount === 1 ? "branch" : "branches"}`);
     });
 
@@ -736,7 +736,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       while (hasMore) {
         let query = supabase
           .from("unavailable_items")
-          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,resolved_at,created_by,status,image_path,branches(name)")
+          .select("id,visit_id,branch_id,item_name,brand_name,reported_on,recorded_at,resolved_at,created_by,status,image_path,branches(name)")
           .gte("reported_on", exportFromDate)
           .lte("reported_on", exportToDate)
           .order("reported_on", { ascending: false })
@@ -836,7 +836,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           </div>
           <div>
             <h4>Most reported unavailable items</h4>
-            {unavailableIntelligence.topProducts.length === 0 ? <p className="corrections-empty">No item reports to rank yet.</p> : unavailableIntelligence.topProducts.map((item) => <div className="unavailable-intelligence-row" key={item.name.toLocaleLowerCase()}>
+            {unavailableIntelligence.topProducts.length === 0 ? <p className="corrections-empty">No item reports to rank yet.</p> : unavailableIntelligence.topProducts.map((item) => <div className="unavailable-intelligence-row" key={`${item.name.toLocaleLowerCase()}|${(item.brand ?? "").toLocaleLowerCase()}`}>
               <span>{item.name}{item.brand ? ` · ${item.brand}` : ""}</span><strong>{item.count} {item.count === 1 ? "report" : "reports"}</strong><small>{item.branchCount} {item.branchCount === 1 ? "branch" : "branches"}</small>
             </div>)}
           </div>
