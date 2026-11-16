@@ -46,8 +46,18 @@ const TABS: { id: AnalysisTab; label: string; description: string }[] = [
 export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const [today, setToday] = useState(() => dateKey(new Date()));
   const earliest = laterDate(GO_LIVE_DATE, shiftDate(today, -89));
-  const [startDate, setStartDate] = useState(() => laterDate(GO_LIVE_DATE, shiftDate(today, -29)));
+  const [startDate, setStartDate] = useState(() => laterDate(GO_LIVE_DATE, shiftDate(today, -30)));
   const [endDate, setEndDate] = useState(today);
+  const [includeToday, setIncludeToday] = useState(false);
+  const analysisEndDate = endDate === today && !includeToday ? shiftDate(today, -1) : endDate;
+  const comparisonEndDate = endDate === today ? shiftDate(today, -1) : analysisEndDate;
+  const comparisonRangeDays = comparisonEndDate >= startDate ? Math.round((Date.parse(comparisonEndDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1 : 0;
+  const rawPreviousStartDate = comparisonRangeDays > 0 ? shiftDate(startDate, -comparisonRangeDays) : shiftDate(startDate, -1);
+  const previousStartDate = laterDate(GO_LIVE_DATE, rawPreviousStartDate);
+  const previousEndDate = shiftDate(startDate, -1);
+  const previousPeriodComplete = comparisonRangeDays > 0 && rawPreviousStartDate >= GO_LIVE_DATE;
+  const previousPeriodDays = previousEndDate >= previousStartDate ? Math.round((Date.parse(previousEndDate + "T12:00:00Z") - Date.parse(previousStartDate + "T12:00:00Z")) / 86400000) + 1 : 0;
+  const previousPeriodLabel = previousPeriodDays > 0 ? previousStartDate + " to " + previousEndDate : "No operational previous period";
   const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
   const [visibleData, setVisibleData] = useState<Record<string, boolean>>({});
   const sectionOptions: Record<AnalysisTab, { id: string; label: string }[]> = {
@@ -94,8 +104,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       if (nextToday === today) return;
       const nextEarliest = laterDate(GO_LIVE_DATE, shiftDate(nextToday, -89));
       setToday(nextToday);
-      setStartDate((current) => current === laterDate(GO_LIVE_DATE, shiftDate(today, -29))
-        ? laterDate(GO_LIVE_DATE, shiftDate(nextToday, -29))
+      setStartDate((current) => current === laterDate(GO_LIVE_DATE, shiftDate(today, -30))
+        ? laterDate(GO_LIVE_DATE, shiftDate(nextToday, -30))
         : current < nextEarliest ? nextEarliest : current);
       setEndDate((current) => current === today ? nextToday : current);
     };
@@ -112,8 +122,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       setError("Analytics is unavailable because the database connection is not configured.");
       return;
     }
-    if (!startDate || !endDate || startDate < earliest || startDate < GO_LIVE_DATE || endDate > today || startDate > endDate) {
-      setError(`Choose a valid range from ${earliest} through ${today}, with the start date no later than the end date.`);
+    if (!startDate || !endDate || startDate < earliest || startDate < GO_LIVE_DATE || endDate > today || startDate > analysisEndDate) {
+      setError(`Choose a valid range from ${earliest} through ${analysisEndDate}. To analyse today, turn on Include today.`);
       return;
     }
     setLoading(true);
@@ -123,8 +133,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       const result = await supabase
         .from("visits")
         .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested")
-        .gte("visit_date", laterDate(GO_LIVE_DATE, shiftDate(startDate, -Math.max(1, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1))))
-        .lte("visit_date", endDate)
+        .gte("visit_date", previousStartDate)
+        .lte("visit_date", analysisEndDate)
         .order("visit_date", { ascending: true })
         .order("id", { ascending: true })
         .range(offset, offset + 999);
@@ -139,25 +149,17 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       if (page.length < 1000) break;
     }
     setVisits(rows);
-    setLoadedRange(`${startDate} to ${endDate}`);
+    setLoadedRange(`${startDate} to ${analysisEndDate}`);
     setLoading(false);
-  }, [startDate, endDate, earliest, today]);
+  }, [startDate, analysisEndDate, previousStartDate, earliest, today]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const currentVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= startDate && visit.visit_date <= endDate), [visits, startDate, endDate]);
-  const rangeDays = Math.max(1, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1);
-  const rawPreviousStartDate = shiftDate(startDate, -rangeDays);
-  const previousStartDate = laterDate(GO_LIVE_DATE, rawPreviousStartDate);
-  const previousEndDate = shiftDate(startDate, -1);
-  const previousPeriodComplete = rawPreviousStartDate >= GO_LIVE_DATE;
-  const previousPeriodDays = previousEndDate >= previousStartDate
-    ? Math.round((Date.parse(previousEndDate + "T12:00:00Z") - Date.parse(previousStartDate + "T12:00:00Z")) / 86400000) + 1
-    : 0;
-  const previousPeriodLabel = previousPeriodDays > 0
-    ? `${previousStartDate} to ${previousEndDate}`
-    : "No operational previous period";
+  const currentVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= startDate && visit.visit_date <= analysisEndDate), [visits, startDate, analysisEndDate]);
+  const comparisonCurrentVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= startDate && visit.visit_date <= comparisonEndDate), [visits, startDate, comparisonEndDate]);
+  const rangeDays = comparisonRangeDays;
   const scopedCurrentVisits = useMemo(() => selectedBranchId === "all" ? currentVisits : currentVisits.filter((visit) => visit.branch_id === selectedBranchId), [currentVisits, selectedBranchId]);
+  const scopedComparisonVisits = useMemo(() => selectedBranchId === "all" ? comparisonCurrentVisits : comparisonCurrentVisits.filter((visit) => visit.branch_id === selectedBranchId), [comparisonCurrentVisits, selectedBranchId]);
   const previousVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= previousStartDate && visit.visit_date <= previousEndDate && (selectedBranchId === "all" || visit.branch_id === selectedBranchId)), [visits, previousStartDate, previousEndDate, selectedBranchId]);
   const analysisVisits = scopedCurrentVisits;
   const analysisBranches = useMemo(() => selectedBranchId === "all" ? branches : branches.filter((branch) => branch.id === selectedBranchId), [branches, selectedBranchId]);
@@ -180,6 +182,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     };
   }), [analysisBranches, analysisVisits]);
 
+  const comparisonBranchStats = useMemo(() => analysisBranches.map((branch) => {
+    const rows = scopedComparisonVisits.filter((visit) => visit.branch_id === branch.id);
+    const purchases = rows.filter((visit) => visit.outcome === "purchased").length;
+    const noPurchase = rows.filter((visit) => visit.outcome === "not_purchased").length;
+    const resolved = purchases + noPurchase;
+    return { ...branch, total: rows.length, purchases, noPurchase, resolved, conversion: percent(purchases, resolved) };
+  }), [analysisBranches, scopedComparisonVisits]);
+
   const previousBranchStats = useMemo(() => analysisBranches.map((branch) => {
     const rows = previousVisits.filter((visit) => visit.branch_id === branch.id);
     const purchases = rows.filter((visit) => visit.outcome === "purchased").length;
@@ -195,17 +205,21 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const noPurchaseShare = percent(noPurchase, analysisVisits.length);
   const undecided = analysisVisits.filter((visit) => visit.outcome === "undecided").length;
   const unavailableRequests = analysisVisits.filter((visit) => visit.unavailable_item_requested).length;
+  const comparisonPurchases = scopedComparisonVisits.filter((visit) => visit.outcome === "purchased").length;
+  const comparisonNoPurchase = scopedComparisonVisits.filter((visit) => visit.outcome === "not_purchased").length;
+  const comparisonResolved = comparisonPurchases + comparisonNoPurchase;
+  const comparisonConversion = percent(comparisonPurchases, comparisonResolved);
   const previousPurchases = previousVisits.filter((visit) => visit.outcome === "purchased").length;
   const previousNoPurchase = previousVisits.filter((visit) => visit.outcome === "not_purchased").length;
   const previousResolved = previousVisits.filter((visit) => visit.outcome !== "undecided").length;
   const previousConversion = percent(previousPurchases, previousResolved);
   const comparisonStats = [
-    { label: "Total visits", current: analysisVisits.length, previous: previousVisits.length },
-    { label: "Purchases", current: purchases, previous: previousPurchases },
-    { label: "No purchase", current: noPurchase, previous: previousNoPurchase },
-    { label: "Conversion", current: conversion, previous: previousConversion, percentagePoints: true },
+    { label: "Total visits", current: scopedComparisonVisits.length, previous: previousVisits.length },
+    { label: "Purchases", current: comparisonPurchases, previous: previousPurchases },
+    { label: "No purchase", current: comparisonNoPurchase, previous: previousNoPurchase },
+    { label: "Conversion", current: comparisonConversion, previous: previousConversion, percentagePoints: true },
   ].map((item) => {
-    const baselineAvailable = previousPeriodComplete && (item.percentagePoints ? previousResolved > 0 && resolved > 0 : previousVisits.length > 0);
+    const baselineAvailable = previousPeriodComplete && (item.percentagePoints ? previousResolved > 0 && comparisonResolved > 0 : previousVisits.length > 0);
     const partialBaseline = !previousPeriodComplete && previousPeriodDays > 0;
     const delta = item.current - item.previous;
     const change = baselineAvailable && !item.percentagePoints && item.previous > 0
@@ -231,7 +245,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
   const dailyStats = useMemo(() => {
     const days: { date: string; total: number; purchases: number; noPurchase: number; undecided: number }[] = [];
-    for (let cursor = startDate; cursor <= endDate; cursor = shiftDate(cursor, 1)) {
+    for (let cursor = startDate; cursor <= analysisEndDate; cursor = shiftDate(cursor, 1)) {
       const rows = analysisVisits.filter((visit) => visit.visit_date === cursor);
       days.push({
         date: cursor,
@@ -242,19 +256,20 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       });
     }
     return days;
-  }, [analysisVisits, startDate, endDate]);
+  }, [analysisVisits, startDate, analysisEndDate]);
+  const completedDailyStats = dailyStats.filter((day) => day.date < today);
   const periodDailyComparison = useMemo(() => Array.from({ length: rangeDays }, (_, index) => {
     const currentDate = shiftDate(startDate, index);
     const previousDate = shiftDate(previousStartDate, index);
     return {
       index: index + 1,
-      current: analysisVisits.filter((visit) => visit.visit_date === currentDate).length,
+      current: scopedComparisonVisits.filter((visit) => visit.visit_date === currentDate).length,
       previous: previousVisits.filter((visit) => visit.visit_date === previousDate).length,
     };
-  }), [rangeDays, startDate, previousStartDate, analysisVisits, previousVisits]);
+  }), [rangeDays, startDate, previousStartDate, scopedComparisonVisits, previousVisits]);
   const maxPeriodDaily = Math.max(1, ...periodDailyComparison.flatMap((day) => [day.current, day.previous]));
-  const activeDays = dailyStats.filter((day) => day.total > 0);
-  const averageDailyFootfall = activeDays.length ? analysisVisits.length / activeDays.length : 0;
+  const activeDays = completedDailyStats.filter((day) => day.total > 0);
+  const averageDailyFootfall = activeDays.length ? activeDays.reduce((total, day) => total + day.total, 0) / activeDays.length : 0;
   const busiestDay = [...activeDays].sort((a, b) => b.total - a.total)[0];
   const quietestRecordedDay = [...activeDays].sort((a, b) => a.total - b.total)[0];
 
@@ -572,9 +587,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <section hidden={!isVisible("branch-period-chart")} className="analytics-subpanel analytics-wide-subpanel">
               <h3><GitCompare size={16} /> Branch performance: current vs previous period</h3>
               <p className="analytics-help">{previousPeriodComplete ? "Compare each branch with the same-length period immediately before the selected dates. Visit bars use counts; conversion bars use percentages." : `Only ${previousPeriodDays} operational days are available in the previous window. Previous-period bars are shown for context only and should not be treated as a like-for-like comparison.`}</p>
-              {branchStats.map((item) => {
+              {comparisonBranchStats.map((item) => {
                 const previous = previousBranchStats.find((row) => row.id === item.id);
-                const maxVisits = Math.max(1, ...branchStats.map((row) => row.total), ...previousBranchStats.map((row) => row.total));
+                const maxVisits = Math.max(1, ...comparisonBranchStats.map((row) => row.total), ...previousBranchStats.map((row) => row.total));
                 const conversionDelta = previousPeriodComplete && previous && previous.resolved > 0 && item.resolved > 0
                   ? item.conversion - previous.conversion
                   : null;
