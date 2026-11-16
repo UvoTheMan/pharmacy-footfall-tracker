@@ -73,7 +73,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     ],
     trends: [
       { id: "daily-trend", label: "Daily visit trend" }, { id: "weekday-conversion", label: "Purchase conversion by weekday" },
-      { id: "outcome-totals", label: "Outcome totals" }, { id: "hourly", label: "Busy hours and footfall patterns" },
+      { id: "outcome-totals", label: "Outcome totals" }, { id: "hourly", label: "Record entry times by hour" },
       { id: "daily-averages", label: "Daily averages and peak days" }, { id: "trend-summary", label: "Trend summary totals" },
       { id: "trends-comparison", label: "Previous-period comparison" }, { id: "period-daily-chart", label: "Daily visits: current vs previous period" }, { id: "weekday-outcomes", label: "Purchase outcomes by weekday" },
     ],
@@ -737,14 +737,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               <span>Undecided <strong>{undecided.toLocaleString()}</strong></span>
             </div>
             <section hidden={!isVisible("hourly")} className="analytics-subpanel analytics-pattern-panel">
-              <h3><Clock3 size={16} /> Busy hours &amp; footfall patterns</h3>
+              <h3><Clock3 size={16} /> Individual record-entry times</h3>
               <p className="analytics-help">This chart shows individual record-entry times in Lagos time, not confirmed customer arrival times. Batch-entered visits are excluded because they share an insert timestamp. Entries before opening are also excluded. Closing times are not configured yet, so delayed entries may still affect the pattern.</p>
               <p className="analytics-help">Excluded from this chart: {hourlyAnalysis.batchExcluded} batch-entered records, {hourlyAnalysis.beforeOpeningExcluded} records before opening and {hourlyAnalysis.invalidTimestampExcluded} records with invalid timestamps.</p>
               <label className="analytics-hour-threshold">Show hours with at least
                 <input type="text" inputMode="numeric" pattern="[0-9]*" value={minimumHourlyVisits} onChange={(event) => setMinimumHourlyVisits(event.target.value.replace(/[^0-9]/g, ""))} aria-label="Minimum visits per hour" />
                 visits
               </label>
-              <div className="analytics-hour-chart-scroll"><div className="analytics-hour-chart" role="group" aria-label="Visits by hour of day in Lagos time" style={{ gridTemplateColumns: `repeat(${Math.max(1, visibleBusyHourStats.length)}, minmax(36px, 1fr))`, minWidth: `${Math.max(1, visibleBusyHourStats.length) * 36}px` }}>
+              <div className="analytics-hour-chart-scroll"><div className="analytics-hour-chart" role="group" aria-label="Individual record-entry counts by hour in Lagos time" style={{ gridTemplateColumns: `repeat(${Math.max(1, visibleBusyHourStats.length)}, minmax(36px, 1fr))`, minWidth: `${Math.max(1, visibleBusyHourStats.length) * 36}px` }}>
                 {visibleBusyHourStats.map((hour) => <div className="analytics-hour" key={hour.hour} title={hour.label + ": " + hour.total + " visits"}>
                   <strong>{hour.total.toLocaleString()}</strong><span className="analytics-hour-track"><i style={{ height: (hour.total ? Math.max(5, hour.total / maxHour * 100) : 2) + "%" }} /></span><small>{hour.label.replace(" am","a").replace(" pm","p")}</small>
                 </div>)}
