@@ -721,14 +721,16 @@ export default function App() {
           <div className="counter-footer"><span /><button className="secondary-button" onClick={() => setShowBatch(true)} disabled={!branch || busy || pendingCorrection}>Batch entry <span>+</span></button></div>
         </section>}
 
-        <section className="panel summary-panel">
-          <div className="panel-heading"><div><p className="eyebrow">LIVE SNAPSHOT</p><h2>Today's activity</h2></div><span className="date-pill">Today</span></div>
-          <div className="activity-total"><span className="activity-total-icon"><Users size={20} /></span><div><strong>{total}</strong><small>Total recorded visits</small></div></div>
-          <div className="progress-group"><div className="progress-label"><span><i className="legend-dot purchase-dot" /> Purchases</span><strong>{purchasers} <small>{total ? Math.round(purchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${total ? purchasers / total * 100 : 0}%` }} /></div></div>
-          <div className="progress-group"><div className="progress-label"><span><i className="legend-dot no-purchase-dot" /> No purchase</span><strong>{nonPurchasers} <small>{total ? Math.round(nonPurchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill no-purchase-fill" style={{ width: `${total ? nonPurchasers / total * 100 : 0}%` }} /></div></div>
-          <div className="snapshot-note"><CircleHelp size={16} /><span>Unavailable request despite purchase: <strong>{unavailableDespitePurchase}</strong></span></div>
-          <div className="snapshot-note"><CircleHelp size={16} /><span>Data shown is loaded from the shared database.</span></div>
-        </section>
+{profile?.role !== "admin" && (
+          <section className="panel summary-panel">
+            <div className="panel-heading"><div><p className="eyebrow">LIVE SNAPSHOT</p><h2>Today's activity</h2></div><span className="date-pill">Today</span></div>
+            <div className="activity-total"><span className="activity-total-icon"><Users size={20} /></span><div><strong>{total}</strong><small>Total recorded visits</small></div></div>
+            <div className="progress-group"><div className="progress-label"><span><i className="legend-dot purchase-dot" /> Purchases</span><strong>{purchasers} <small>{total ? Math.round(purchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${total ? purchasers / total * 100 : 0}%` }} /></div></div>
+            <div className="progress-group"><div className="progress-label"><span><i className="legend-dot no-purchase-dot" /> No purchase</span><strong>{nonPurchasers} <small>{total ? Math.round(nonPurchasers / total * 100) : 0}%</small></strong></div><div className="progress-track"><span className="progress-fill no-purchase-fill" style={{ width: `${total ? nonPurchasers / total * 100 : 0}%` }} /></div></div>
+            <div className="snapshot-note"><CircleHelp size={16} /><span>Unavailable request despite purchase: <strong>{unavailableDespitePurchase}</strong></span></div>
+            <div className="snapshot-note"><CircleHelp size={16} /><span>Data shown is loaded from the shared database.</span></div>
+          </section>
+        )}
       </div>
 
 
