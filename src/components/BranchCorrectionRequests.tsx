@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Check, Clock3, RefreshCw, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, Clock3, RefreshCw, Search, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 type Branch = { id: string; name: string; slug: string };
@@ -40,6 +40,12 @@ export default function BranchCorrectionRequests({ branches, onUpdated, mode = "
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [verification, setVerification] = useState<Verification | null>(null);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyStatus, setHistoryStatus] = useState<"all" | "approved" | "rejected">("all");
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
+  const historyPageSize = 10;
 
   const loadRequests = useCallback(async () => {
     if (!supabase) return;
@@ -68,8 +74,8 @@ export default function BranchCorrectionRequests({ branches, onUpdated, mode = "
   }, []);
 
   useEffect(() => {
-    if (mode !== "requests") return;
     void loadRequests();
+    if (mode !== "requests") return;
     const timer = window.setInterval(() => void loadRequests(), 60000);
     const onVisible = () => {
       if (document.visibilityState === "visible") void loadRequests();
@@ -181,6 +187,28 @@ export default function BranchCorrectionRequests({ branches, onUpdated, mode = "
     setBusy(false);
   }
 
+  const filteredHistory = useMemo(() => {
+    const query = historySearch.trim().toLocaleLowerCase();
+    return resolvedRequests.filter((request) => {
+      if (historyStatus !== "all" && request.status !== historyStatus) return false;
+      const decisionDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(request.resolved_at ?? request.created_at));
+      if (historyFrom && decisionDate < historyFrom) return false;
+      if (historyTo && decisionDate > historyTo) return false;
+      if (query) {
+        const searchable = [
+          branches.find((item) => item.id === request.source_branch_id)?.name ?? "Unknown branch",
+          branches.find((item) => item.id === request.target_branch_id)?.name ?? "Unknown branch",
+          request.visit_date,
+          request.status,
+          decisionDate,
+        ].join(" ").toLocaleLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
+      return true;
+    });
+  }, [resolvedRequests, branches, historySearch, historyStatus, historyFrom, historyTo]);
+  const historyPageCount = Math.max(1, Math.ceil(filteredHistory.length / historyPageSize));
+  const pagedHistory = filteredHistory.slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize);
   const branchName = (id: string) => branches.find((item) => item.id === id)?.name ?? "Unknown branch";
   const timeLabel = (value: string) => new Intl.DateTimeFormat("en-NG", {
     timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hour12: true,
@@ -240,19 +268,39 @@ export default function BranchCorrectionRequests({ branches, onUpdated, mode = "
           <span><p className="eyebrow">ADMIN REVIEW</p><strong>Review history</strong></span>
           <span className="date-pill">{resolvedRequests.length} reviewed</span>
         </summary>
-        <p className="panel-description">Previously approved and rejected branch-correction requests, with the decision date. Approver identity is not stored.</p>
-        {resolvedRequests.length === 0 ? (
-          <p className="modal-footnote">No completed branch correction decisions yet.</p>
-        ) : resolvedRequests.map((request) => (
+        <p className="panel-description">Search and filter previously approved and rejected branch-correction requests by decision date. Approver identity is not stored.</p>
+        <div className="correction-history-filters">
+          <label className="correction-history-search">
+            <Search size={15} />
+            <input type="search" value={historySearch} onChange={(event) => { setHistorySearch(event.target.value); setHistoryPage(1); }} placeholder="Search branches or dates" aria-label="Search correction history" />
+          </label>
+          <label><span>Status</span><select value={historyStatus} onChange={(event) => { setHistoryStatus(event.target.value as typeof historyStatus); setHistoryPage(1); }}><option value="all">All decisions</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></label>
+          <label><span>From</span><input type="date" value={historyFrom} max={historyTo || undefined} onChange={(event) => { setHistoryFrom(event.target.value); setHistoryPage(1); }} /></label>
+          <label><span>To</span><input type="date" value={historyTo} min={historyFrom || undefined} onChange={(event) => { setHistoryTo(event.target.value); setHistoryPage(1); }} /></label>
+          <button type="button" className="secondary-button correction-history-clear" onClick={() => { setHistorySearch(""); setHistoryStatus("all"); setHistoryFrom(""); setHistoryTo(""); setHistoryPage(1); }}>Clear filters</button>
+          <button type="button" className="secondary-button correction-refresh" onClick={() => void loadRequests()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "admin-refresh-spin" : ""} />{refreshing ? "Refreshing" : "Refresh"}</button>
+        </div>
+        <p className="correction-history-count">Showing {pagedHistory.length ? (historyPage - 1) * historyPageSize + 1 : 0}–{Math.min(historyPage * historyPageSize, filteredHistory.length)} of {filteredHistory.length} matching decisions</p>
+        {error && <p className="error-message" role="alert">{error}</p>}
+        {refreshing && resolvedRequests.length === 0 ? (
+          <p className="modal-footnote">Loading correction history…</p>
+        ) : filteredHistory.length === 0 ? (
+          <p className="corrections-empty">{resolvedRequests.length === 0 ? "No completed branch correction decisions yet." : "No correction decisions match these filters."}</p>
+        ) : pagedHistory.map((request) => (
           <article className="correction-row" key={request.id}>
             <div className="correction-details">
               <strong>{branchName(request.source_branch_id)} → {branchName(request.target_branch_id)}</strong>
-              <span>{request.visit_date}</span>
+              <span>Visits affected: {request.visit_date}</span>
               <span>{request.status === "approved" ? "Approved" : "Rejected"}{request.resolved_at ? ` · ${new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" }).format(new Date(request.resolved_at))}` : ""}</span>
             </div>
             <span className={request.status === "approved" ? "correction-badge purchased" : "correction-badge not-purchased"}>{request.status === "approved" ? "Approved" : "Rejected"}</span>
           </article>
         ))}
+        {historyPageCount > 1 && <div className="correction-history-pagination">
+          <button type="button" className="secondary-button" onClick={() => setHistoryPage((page) => Math.max(1, page - 1))} disabled={historyPage === 1}><ChevronLeft size={15} /> Previous</button>
+          <span>Page {historyPage} of {historyPageCount}</span>
+          <button type="button" className="secondary-button" onClick={() => setHistoryPage((page) => Math.min(historyPageCount, page + 1))} disabled={historyPage === historyPageCount}>Next <ChevronRight size={15} /></button>
+        </div>}
       </details>}
       {activeRequest && (
         <div className="modal-backdrop" role="presentation">
