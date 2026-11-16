@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import "./AdminAnalytics.css";
 
 const GO_LIVE_DATE = "2026-10-14";
+const MIN_BRANCH_SAMPLE = 30;
 
 type Branch = { id: string; name: string; slug: string };
 type Visit = {
@@ -165,12 +166,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     const rows = analysisVisits.filter((visit) => visit.branch_id === branch.id);
     const purchases = rows.filter((visit) => visit.outcome === "purchased").length;
     const noPurchase = rows.filter((visit) => visit.outcome === "not_purchased").length;
-    const resolved = rows.filter((visit) => visit.outcome !== "undecided").length;
+    const undecided = rows.filter((visit) => visit.outcome === "undecided").length;
+    const resolved = purchases + noPurchase;
     return {
       ...branch,
       total: rows.length,
       purchases,
       noPurchase,
+      undecided,
       resolved,
       conversion: percent(purchases, resolved),
       unavailable: rows.filter((visit) => visit.unavailable_item_requested).length,
@@ -189,6 +192,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const resolved = analysisVisits.filter((visit) => visit.outcome !== "undecided").length;
   const conversion = percent(purchases, resolved);
   const noPurchaseRate = percent(noPurchase, resolved);
+  const noPurchaseShare = percent(noPurchase, analysisVisits.length);
+  const undecided = analysisVisits.filter((visit) => visit.outcome === "undecided").length;
   const unavailableRequests = analysisVisits.filter((visit) => visit.unavailable_item_requested).length;
   const previousPurchases = previousVisits.filter((visit) => visit.outcome === "purchased").length;
   const previousNoPurchase = previousVisits.filter((visit) => visit.outcome === "not_purchased").length;
@@ -225,7 +230,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const quietHour = [...visibleBusyHourStats].filter((hour) => hour.total > 0).sort((a, b) => a.total - b.total)[0];
 
   const dailyStats = useMemo(() => {
-    const days: { date: string; total: number; purchases: number; noPurchase: number }[] = [];
+    const days: { date: string; total: number; purchases: number; noPurchase: number; undecided: number }[] = [];
     for (let cursor = startDate; cursor <= endDate; cursor = shiftDate(cursor, 1)) {
       const rows = analysisVisits.filter((visit) => visit.visit_date === cursor);
       days.push({
@@ -233,6 +238,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         total: rows.length,
         purchases: rows.filter((visit) => visit.outcome === "purchased").length,
         noPurchase: rows.filter((visit) => visit.outcome === "not_purchased").length,
+        undecided: rows.filter((visit) => visit.outcome === "undecided").length,
       });
     }
     return days;
@@ -273,25 +279,28 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
   const weekdayStats = useMemo(() => {
     const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const totals = labels.map((label, index) => ({ label, index, total: 0, purchases: 0, noPurchase: 0 }));
+    const totals = labels.map((label, index) => ({ label, index, total: 0, purchases: 0, noPurchase: 0, undecided: 0, occurrences: 0 }));
     dailyStats.forEach((day) => {
       const weekday = new Date(`${day.date}T12:00:00Z`).getUTCDay();
       totals[weekday].total += day.total;
       totals[weekday].purchases += day.purchases;
       totals[weekday].noPurchase += day.noPurchase;
+      totals[weekday].undecided += day.undecided;
+      totals[weekday].occurrences += 1;
     });
-    return totals;
+    return totals.map((day) => ({ ...day, average: day.occurrences ? day.total / day.occurrences : 0 }));
   }, [dailyStats]);
   const outcomeStats = [
     { label: "Purchased", count: purchases, color: "#23875b" },
     { label: "No purchase", count: noPurchase, color: "#e27b48" },
+    { label: "Undecided", count: undecided, color: "#9aa69e" },
   ];
   const peak = Math.max(1, ...dailyStats.map((day) => day.total));
   const maxHour = Math.max(1, ...visibleBusyHourStats.map((hour) => hour.total));
   const maxBranch = Math.max(1, ...branchStats.map((branch) => branch.total));
-  const topBranch = [...branchStats].filter((item) => item.resolved > 0).sort((a, b) => b.conversion - a.conversion)[0];
+  const topBranch = [...branchStats].filter((item) => item.resolved >= MIN_BRANCH_SAMPLE).sort((a, b) => b.conversion - a.conversion)[0];
   const busiestBranch = [...branchStats].filter((item) => item.total > 0).sort((a, b) => b.total - a.total)[0];
-  const lowestConversionBranch = [...branchStats].filter((item) => item.resolved > 0).sort((a, b) => a.conversion - b.conversion)[0];
+  const lowestConversionBranch = [...branchStats].filter((item) => item.resolved >= MIN_BRANCH_SAMPLE).sort((a, b) => a.conversion - b.conversion)[0];
   const mostNoPurchaseBranch = [...branchStats].filter((item) => item.noPurchase > 0).sort((a, b) => b.noPurchase - a.noPurchase)[0];
   const mostUnavailableBranch = [...branchStats].filter((item) => item.unavailable > 0).sort((a, b) => b.unavailable - a.unavailable)[0];
 
@@ -363,17 +372,17 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " vs " + (item.baselineAvailable ? String(item.previous) + (item.percentagePoints ? "%" : "") + " previous" : item.partialBaseline ? String(item.previous) + (item.percentagePoints ? "%" : "") + " partial previous" : "no baseline") + (item.baselineAvailable ? item.percentagePoints ? " · " + (item.delta > 0 ? "+" : "") + item.delta + " pp" : " · " + (item.delta > 0 ? "+" : "") + item.delta + " change" + (item.change === null ? "" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)") : item.partialBaseline ? " · no like-for-like change" : "")));
     }
     if (activeTab === "overview") {
-      if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]); }
-      if (isVisible("weekday")) { section("Visits by weekday"); bars(weekdayStats.map(day => ({label:day.label,value:day.total}))); }
+      if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]},{label:"Undecided",value:undecided,color:[154,166,158]}]); }
+      if (isVisible("weekday")) { section("Average visits by weekday"); bars(weekdayStats.map(day => ({label:day.label + " · " + day.occurrences + " days",value:Number(day.average.toFixed(1))}))); }
       if (isVisible("branch-snapshot")) { section("Branch snapshot"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total}))); }
-      if (isVisible("insights")) { section("Quick insights"); line("Purchase conversion", conversion + "%"); line("No-purchase rate", noPurchaseRate + "%"); }
+      if (isVisible("insights")) { section("Quick insights"); line("Purchase conversion among resolved visits", conversion + "%"); line("No-purchase rate among resolved visits", noPurchaseRate + "%"); line("No-purchase share of all visits", noPurchaseShare + "%"); line("Undecided visits", String(undecided)); }
       if (topBranch) line("Highest branch conversion", topBranch.name + " · " + topBranch.conversion + "%");
     } else if (activeTab === "branches") {
       if (isVisible("branch-performance")) { section("Branch performance"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total}))); }
       if (isVisible("branch-performance")) branchStats.forEach(item => line(item.name + " · purchases / no purchase", item.purchases + " / " + item.noPurchase));
     } else if (activeTab === "trends") {
       if (isVisible("daily-trend")) { section("Daily visits"); bars(dailyStats.filter(day => day.total > 0).map(day => ({label:day.date,value:day.total}))); }
-      if (isVisible("weekday-conversion")) { section("Purchase conversion by weekday"); bars(weekdayStats.map(day => ({label:day.label,value:percent(day.purchases,day.purchases+day.noPurchase)}))); }
+      if (isVisible("weekday-conversion")) { section("Purchase conversion by weekday"); bars(weekdayStats.map(day => ({label:day.label + " · " + day.occurrences + " days",value:percent(day.purchases,day.purchases+day.noPurchase)}))); }
       if (isVisible("outcome-totals")) { section("Outcome totals"); bars(outcomeStats.map(item => ({label:item.label,value:item.count,color:(item.label === "Purchased" ? [35,135,91] : item.label === "No purchase" ? [226,123,72] : [139,154,144]) as [number,number,number]}))); }
       if (isVisible("daily-averages")) { section("Daily averages and peak days"); line("Average on recorded days", averageDailyFootfall.toFixed(1) + " visits");
       line("Busiest recorded day", busiestDay ? busiestDay.date + " · " + busiestDay.total + " visits" : "No data");
@@ -503,10 +512,10 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </section>
             <section hidden={!isVisible("weekday")} className="analytics-subpanel analytics-chart-card">
               <h3><CalendarDays size={16} /> Visits by weekday</h3>
-              <p className="analytics-help">Combined recorded visits by day of the week within the selected dates.</p>
+              <p className="analytics-help">Average visits per occurrence of each weekday. The count below each bar shows how many days contributed to the average.</p>
               <div className="analytics-weekday-chart">
-                {weekdayStats.map((day) => <div className="analytics-weekday" key={day.label} title={`${day.label}: ${day.total} visits`}>
-                  <strong>{day.total || ""}</strong><span className="analytics-weekday-track"><i style={{ height: `${Math.max(day.total ? 5 : 2, day.total / Math.max(1, ...weekdayStats.map((item) => item.total)) * 100)}%` }} /></span><small>{day.label}</small>
+                {weekdayStats.map((day) => <div className="analytics-weekday" key={day.label} title={`${day.label}: average ${day.average.toFixed(1)} visits across ${day.occurrences} days (${day.total} total)`}>
+                  <strong>{day.average ? day.average.toFixed(1) : ""}</strong><span className="analytics-weekday-track"><i style={{ height: `${Math.max(day.average ? 5 : 2, day.average / Math.max(1, ...weekdayStats.map((item) => item.average)) * 100)}%` }} /></span><small>{day.label}<br />{day.occurrences}d</small>
                 </div>)}
               </div>
               <p className="analytics-help">Patterns are descriptive. Different date coverage can affect comparisons.</p>
@@ -518,13 +527,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <div className="analytics-branch-row" key={item.id}>
                   <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total} visits</span></div>
                   <div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${item.total / maxBranch * 100}%` }} /></div>
-                  <div className="analytics-stacked-bar" aria-label={`${item.name}: ${item.purchases} purchased, ${item.noPurchase} no purchase`}>
+                  <div className="analytics-stacked-bar" aria-label={`${item.name}: ${item.purchases} purchased, ${item.noPurchase} no purchase, ${item.undecided} undecided`}>
                     {[
                       { count: item.purchases, color: "#23875b" },
                       { count: item.noPurchase, color: "#e27b48" },
-                    ].filter((part) => part.count > 0).map((part, index) => <span key={index} style={{ width: `${part.count / Math.max(1, item.purchases + item.noPurchase) * 100}%`, background: part.color }} />)}
+                      { count: item.undecided, color: "#9aa69e" },
+                    ].filter((part) => part.count > 0).map((part, index) => <span key={index} style={{ width: `${part.count / Math.max(1, item.total) * 100}%`, background: part.color }} />)}
                   </div>
-                  <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span></div>
+                  <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span><span>{item.undecided} undecided</span></div>
                 </div>
               ))}
               {branchStats.length === 0 && <p className="corrections-empty">No branches are available for analysis.</p>}
@@ -534,8 +544,10 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               {analysisVisits.length === 0 ? <p className="corrections-empty">No visits were recorded in this reporting period.</p> : (
                 <ul className="analytics-insight-list">
                   <li><strong>{conversion}%</strong> purchase conversion among resolved visits (purchased or no purchase).</li>
-                  <li><strong>{noPurchaseRate}%</strong> of recorded visits ended without a purchase.</li>
-                  <li>{topBranch ? selectedBranchId === "all" ? <><strong>{topBranch.name}</strong> has the highest conversion among branches with resolved visits.</> : <>The selected branch, <strong>{topBranch.name}</strong>, has a conversion rate of <strong>{topBranch.conversion}%</strong>.</> : "There are not yet enough recorded visits to compare branch conversion."}</li>
+                  <li><strong>{noPurchaseRate}%</strong> of resolved visits ended without a purchase.</li>
+                  <li><strong>{noPurchaseShare}%</strong> of all recorded visits ended without a purchase.</li>
+                  <li><strong>{undecided}</strong> visits have an undecided legacy outcome.</li>
+                  <li>{topBranch ? selectedBranchId === "all" ? <><strong>{topBranch.name}</strong> has the highest conversion among branches with at least {MIN_BRANCH_SAMPLE} resolved visits.</> : <>The selected branch, <strong>{topBranch.name}</strong>, has a conversion rate of <strong>{topBranch.conversion}%</strong> from {topBranch.resolved} resolved visits.</> : `No branch has at least ${MIN_BRANCH_SAMPLE} resolved visits, so conversion rankings are withheld.`}</li>
 
                 </ul>
               )}
@@ -551,8 +563,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <div><strong>{branchStats.length}</strong><span>Branches included</span></div>
             <div><strong>{branchStats.filter((item) => item.total > 0).length}</strong><span>Branches with visits</span></div>
             <div><strong>{busiestBranch ? busiestBranch.name + " · " + busiestBranch.total : "No data"}</strong><span>Highest footfall branch (visits)</span></div>
-            <div><strong>{topBranch ? topBranch.name + " · " + topBranch.conversion + "%" : "No data"}</strong><span>Highest conversion</span></div>
-            <div><strong>{lowestConversionBranch ? lowestConversionBranch.name + " · " + lowestConversionBranch.conversion + "%" : "No data"}</strong><span>Lowest active conversion</span></div>
+            <div><strong>{topBranch ? topBranch.name + " · " + topBranch.conversion + "% (n=" + topBranch.resolved + ")" : "Insufficient sample"}</strong><span>Highest conversion (30+ resolved visits)</span></div>
+            <div><strong>{lowestConversionBranch ? lowestConversionBranch.name + " · " + lowestConversionBranch.conversion + "% (n=" + lowestConversionBranch.resolved + ")" : "Insufficient sample"}</strong><span>Lowest conversion (30+ resolved visits)</span></div>
             <div><strong>{mostNoPurchaseBranch ? mostNoPurchaseBranch.name + " · " + mostNoPurchaseBranch.noPurchase : "No data"}</strong><span>Most no-purchase visits</span></div>
             <div><strong>{mostUnavailableBranch ? mostUnavailableBranch.name + " · " + mostUnavailableBranch.unavailable : "No data"}</strong><span>Most unavailable-item requests</span></div>
           </div>
@@ -591,7 +603,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion is purchases divided by resolved visits.</p>
               {branchStats.map((item) => (
                 <div className="analytics-branch-row" key={item.id}>
-                  <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.resolved > 0 ? item.conversion + "% conversion" : "No resolved visits"}</span></div>
+                  <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.resolved} resolved · {item.resolved > 0 ? item.conversion + "% conversion" : "No resolved visits"}{item.resolved > 0 && item.resolved < MIN_BRANCH_SAMPLE ? " · Low sample" : ""}</span></div>
                   <div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${item.total / maxBranch * 100}%` }} /></div>
                   <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span></div>
                   <div className="analytics-row-meta"><span>{item.unavailable} unavailable-item requests</span></div>
@@ -634,17 +646,18 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           </section>
           <section hidden={!isVisible("weekday-outcomes")} className="analytics-subpanel analytics-wide-subpanel">
             <h3><BarChart3 size={16} /> Purchase outcomes by weekday</h3>
-            <p className="analytics-help">See whether visits on each weekday more often result in purchases or no purchase.</p>
+            <p className="analytics-help">See the full outcome mix by weekday. Conversion uses resolved visits, while the stacked bars include undecided records.</p>
             <div className="analytics-weekday-outcomes">
-              {weekdayStats.map((day) => { const total = day.purchases + day.noPurchase; return <div className="analytics-weekday-outcome" key={day.label}>
-                <div className="analytics-row-label"><strong>{day.label}</strong><span>{total} resolved visits · {percent(day.purchases, total)}% conversion</span></div>
-                <div className="analytics-stacked-bar" aria-label={`${day.label}: ${day.purchases} purchases, ${day.noPurchase} no purchase`}>
-                  <span className="analytics-stack-purchased" style={{ width: `${day.purchases / Math.max(1, total) * 100}%` }} />
-                  <span className="analytics-stack-no-purchase" style={{ width: `${day.noPurchase / Math.max(1, total) * 100}%` }} />
+              {weekdayStats.map((day) => { const resolvedWeekday = day.purchases + day.noPurchase; return <div className="analytics-weekday-outcome" key={day.label}>
+                <div className="analytics-row-label"><strong>{day.label}</strong><span>{day.total} visits · {resolvedWeekday} resolved · {day.undecided} undecided · {percent(day.purchases, resolvedWeekday)}% conversion</span></div>
+                <div className="analytics-stacked-bar" aria-label={`${day.label}: ${day.purchases} purchases, ${day.noPurchase} no purchase, ${day.undecided} undecided`}>
+                  <span className="analytics-stack-purchased" style={{ width: `${day.purchases / Math.max(1, day.total) * 100}%` }} />
+                  <span className="analytics-stack-no-purchase" style={{ width: `${day.noPurchase / Math.max(1, day.total) * 100}%` }} />
+                  <span style={{ width: `${day.undecided / Math.max(1, day.total) * 100}%`, background: "#9aa69e" }} />
                 </div>
               </div>; })}
             </div>
-            <div className="analytics-period-legend"><span><i className="analytics-stack-purchased" /> Purchased</span><span><i className="analytics-stack-no-purchase" /> No purchase</span></div>
+            <div className="analytics-period-legend"><span><i className="analytics-stack-purchased" /> Purchased</span><span><i className="analytics-stack-no-purchase" /> No purchase</span><span><i style={{ background: "#9aa69e" }} /> Undecided</span></div>
           </section>
           <div className="analytics-trends-stack">
           <section hidden={!isVisible("daily-trend")} className="analytics-subpanel analytics-trend">
@@ -652,11 +665,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <p className="analytics-help">Each bar shows all recorded visits for that Lagos calendar date. Scroll horizontally on smaller screens to see the full period.</p>
             <div className="analytics-daily-chart analytics-daily-chart-stacked" role="img" aria-label="Daily visit counts by outcome for the selected reporting period">
               {dailyStats.map((day) => (
-                <div className="analytics-day" key={day.date} title={`${day.date}: ${day.total} visits, ${day.purchases} purchases, ${day.noPurchase} no purchase`}>
+                <div className="analytics-day" key={day.date} title={`${day.date}: ${day.total} visits, ${day.purchases} purchases, ${day.noPurchase} no purchase, ${day.undecided} undecided`}>
                   <span className="analytics-day-count">{day.total || ""}</span>
                   <span className="analytics-day-stack" style={{ height: `${Math.max(day.total ? 8 : 2, day.total / peak * 100)}%` }}>
                     {day.purchases > 0 && <i className="analytics-stack-purchased" style={{ height: `${day.purchases / Math.max(1, day.total) * 100}%` }} />}
                     {day.noPurchase > 0 && <i className="analytics-stack-no-purchase" style={{ height: `${day.noPurchase / Math.max(1, day.total) * 100}%` }} />}
+                    {day.undecided > 0 && <i style={{ height: `${day.undecided / Math.max(1, day.total) * 100}%`, background: "#9aa69e" }} />}
                   </span>
                   <span className="analytics-day-label">{day.date.slice(5)}</span>
                 </div>
@@ -672,16 +686,17 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <p className="analytics-help">Purchases divided by resolved visits (purchased or no purchase) for each weekday; undecided visits are excluded.</p>
                 <div className="analytics-weekday-chart">
                   {weekdayStats.map((day) => {
-                    const rate = percent(day.purchases, day.purchases + day.noPurchase);
-                    return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${day.purchases + day.noPurchase} resolved visits`}>
-                      <strong>{day.purchases + day.noPurchase ? `${rate}%` : "—"}</strong><span className="analytics-weekday-track conversion-track"><i style={{ height: `${Math.max(rate ? 5 : 2, rate)}%` }} /></span><small>{day.label}</small>
+                    const resolvedWeekday = day.purchases + day.noPurchase;
+                    const rate = percent(day.purchases, resolvedWeekday);
+                    return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${resolvedWeekday} resolved visits across ${day.occurrences} days`}>
+                      <strong>{resolvedWeekday ? `${rate}%` : "—"}</strong><span className="analytics-weekday-track conversion-track"><i style={{ height: `${Math.max(rate ? 5 : 2, rate)}%` }} /></span><small>{day.label}</small>
                     </div>;
                   })}
                 </div>
               </section>
               <section hidden={!isVisible("outcome-totals")} className="analytics-subpanel analytics-chart-card">
                 <h3><Users size={16} /> Outcome totals</h3>
-                <p className="analytics-help">Counts and share of recorded visits for the two tracked outcomes.</p>
+                <p className="analytics-help">Counts and share of all recorded visits across the three tracked outcomes.</p>
                 <div className="analytics-legend">
                   {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, analysisVisits.length)}%</small></div>)}
                 </div>
@@ -691,6 +706,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               <span>Visits <strong>{analysisVisits.length.toLocaleString()}</strong></span>
               <span>Purchases <strong>{purchases.toLocaleString()}</strong></span>
               <span>No purchase <strong>{noPurchase.toLocaleString()}</strong></span>
+              <span>Undecided <strong>{undecided.toLocaleString()}</strong></span>
             </div>
             <section hidden={!isVisible("hourly")} className="analytics-subpanel analytics-pattern-panel">
               <h3><Clock3 size={16} /> Busy hours &amp; footfall patterns</h3>
