@@ -613,3 +613,19 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
   font-size:11px;
   font-weight:600;
 }
+
+
+/* Searchable, filterable branch correction history */
+.correction-history-filters{display:grid;grid-template-columns:minmax(180px,1.5fr) repeat(3,minmax(115px,1fr)) auto auto;align-items:end;gap:9px;margin:14px 0 8px}
+.correction-history-filters>label{display:flex;flex-direction:column;gap:5px;min-width:0;color:#64756b;font-size:10px;font-weight:700}
+.correction-history-filters input,.correction-history-filters select{width:100%;min-width:0;min-height:38px;padding:8px 10px;border:1px solid #dfe8e1;border-radius:8px;background:#fff;color:#294638;font:inherit;font-size:11px}
+.correction-history-search{position:relative;display:flex;align-items:center}
+.correction-history-search>svg{position:absolute;left:10px;color:#819087;pointer-events:none}
+.correction-history-search input{padding-left:32px}
+.correction-history-clear{min-height:38px;padding:8px 10px;font-size:10px;white-space:nowrap}
+.correction-history-count{margin:9px 0;color:#75847a;font-size:10px}
+.correction-history-pagination{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px}
+.correction-history-pagination>span{color:#68796e;font-size:11px;font-variant-numeric:tabular-nums}
+.correction-history-pagination button{display:inline-flex;align-items:center;gap:4px;padding:8px 10px;font-size:10px}
+@media(max-width:760px){.correction-history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.correction-history-search{grid-column:1/-1}.correction-history-clear{width:100%}}
+@media(max-width:420px){.correction-history-filters{gap:7px}.correction-history-pagination{gap:8px}.correction-history-pagination button{padding:8px 7px}.correction-history-pagination>span{font-size:10px}}
