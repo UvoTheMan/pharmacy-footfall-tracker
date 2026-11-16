@@ -12,7 +12,7 @@ type Visit = {
   branch_id: string;
   visit_date: string;
   recorded_at: string;
-  outcome: "purchased" | "not_purchased" | "undecided";
+  outcome: "purchased" | "not_purchased";
   reason: Reason | null;
   batch_id: string | null;
   created_by: string;
@@ -227,7 +227,7 @@ export default function VisitCorrections({ visits, onUpdated, canEdit = true }: 
                 <span className="correction-time"><Clock3 size={12} />{timeLabel(visit.recorded_at)}</span>
                 <div className="correction-details">
                   <span className={`correction-badge ${visit.outcome === "not_purchased" ? "not-purchased" : "purchased"}`}>
-                    {visit.outcome === "not_purchased" ? "No purchase" : visit.outcome === "undecided" ? "Legacy record" : "Purchased"}
+                    {visit.outcome === "not_purchased" ? "No purchase" : "Purchased"}
                   </span>
                   <strong>{visit.outcome === "not_purchased" ? visit.reason ?? "Reason not recorded" : "Purchase recorded"}</strong>
                   {visit.unavailable_item_requested && !reportedVisitIds.has(visit.id) && <span className="pending-product-label">Product details needed</span>}
