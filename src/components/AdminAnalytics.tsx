@@ -437,22 +437,24 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           </select>
         </label>
         <label className="history-date-field" htmlFor="analytics-start"><span><CalendarDays size={15} /> Start date</span>
-          <input id="analytics-start" type="date" min={earliest} max={endDate || today} value={startDate} onChange={(event) => setStartDate(event.target.value ? laterDate(GO_LIVE_DATE, event.target.value) : "")} />
+          <input id="analytics-start" type="date" min={earliest} max={analysisEndDate} value={startDate} onChange={(event) => setStartDate(event.target.value ? laterDate(GO_LIVE_DATE, event.target.value) : "")} />
         </label>
         <label className="history-date-field" htmlFor="analytics-end"><span><CalendarDays size={15} /> End date</span>
-          <input id="analytics-end" type="date" min={startDate || earliest} max={today} value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+          <input id="analytics-end" type="date" min={startDate || earliest} max={today} value={endDate} onChange={(event) => { setEndDate(event.target.value); if (event.target.value !== today) setIncludeToday(false); }} />
         </label>
         <button type="button" className="secondary-button analytics-refresh" onClick={() => void load()} disabled={loading}><RefreshCw size={14} /> {loading ? "Refreshing…" : "Refresh analysis"}</button>
       </div>
+      <label className="analytics-include-today"><input type="checkbox" checked={includeToday} disabled={endDate !== today} onChange={(event) => { setIncludeToday(event.target.checked); if (!event.target.checked && startDate === today) setStartDate(shiftDate(today, -1)); }} /><span>Include today (in progress)</span></label>
       <div className="analytics-date-presets" aria-label="Quick reporting periods">
         <span>Quick range</span>
-        {[{ label: "7 days", days: 7 }, { label: "30 days", days: 30 }, { label: "90 days", days: 90 }].map((preset) => <button key={preset.days} type="button" className={startDate === laterDate(GO_LIVE_DATE, shiftDate(endDate, -(preset.days - 1))) ? "analytics-preset active" : "analytics-preset"} onClick={() => { setEndDate(today); setStartDate(laterDate(GO_LIVE_DATE, shiftDate(today, -(preset.days - 1)))); }} disabled={loading}>{preset.label}</button>)}
+        {[{ label: "7 days", days: 7 }, { label: "30 days", days: 30 }, { label: "90 days", days: 90 }].map((preset) => <button key={preset.days} type="button" className={startDate === laterDate(GO_LIVE_DATE, shiftDate(analysisEndDate, -(preset.days - 1))) ? "analytics-preset active" : "analytics-preset"} onClick={() => { setEndDate(today); setIncludeToday(false); setStartDate(laterDate(GO_LIVE_DATE, shiftDate(shiftDate(today, -1), -(preset.days - 1)))); }} disabled={loading}>{preset.label}</button>)}
       </div>
       {error && <p className="error-message" role="alert">{error}</p>}
       <div className="analytics-range-row">
         <p className="analytics-range">{loadedRange ? `Reporting period: ${loadedRange}` : "Preparing reporting period…"} · Maximum window: 90 days</p>
         <span className="analytics-record-count">{loading ? "Updating records…" : `${analysisVisits.length.toLocaleString()} visits in view`}</span>
       </div>
+      {includeToday && endDate === today && <p className="analytics-help analytics-comparison-empty">Current-day visits are included in current totals and daily trends. Period comparisons, weekday averages and daily averages use completed days only.</p>}
 
       <nav className="analytics-tabs" aria-label="Analysis sections">
         {TABS.map((tab) => (
@@ -494,10 +496,10 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         </div>
       </details>
       <div className="analytics-action-row analytics-period-label">
-        <span><strong>Period comparison</strong><small>{previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " · partial" : ""} vs {startDate} to {endDate}</small></span>
+        <span><strong>Period comparison · completed days</strong><small>{previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " · partial" : ""} vs {startDate} to {comparisonEndDate}</small></span>
       </div>
       {isVisible(activeTab + "-comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
-        <p className="analytics-comparison-period">Previous period: {previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " (partial operational period)" : ""}. Current period: {startDate} to {endDate}.</p>
+        <p className="analytics-comparison-period">Previous period: {previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " (partial operational period)" : ""}. Completed current period: {startDate} to {comparisonEndDate}. Today is excluded from comparisons.</p>
         {!previousPeriodComplete && <p className="analytics-help analytics-comparison-empty">Only {previousPeriodDays} operational days are available in the previous window. Records before 14 October 2026 are excluded, so this partial period is shown for context and no like-for-like change is calculated.</p>}
         {previousPeriodComplete && previousVisits.length === 0 && <p className="analytics-help analytics-comparison-empty">No saved visits were found in the previous period for this branch scope. There is no previous-period baseline.</p>}
         {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
