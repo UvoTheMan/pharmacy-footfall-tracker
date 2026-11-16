@@ -557,12 +557,12 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       }
 
       const escapeCell = (value: string) => {
-        const safe = /^[=+\-@\\t\\r]/.test(value) ? "'" + value : value;
+        const safe = /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
         return '"' + safe.replace(/"/g, '""') + '"';
       };
-      const csv = "\\uFEFF" + [columns, ...exportRows]
+      const csv = "\uFEFF" + [columns, ...exportRows]
         .map((row) => row.map((cell) => escapeCell(String(cell ?? ""))).join(","))
-        .join("\\r\\n");
+        .join("\r\n");
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
       const link = document.createElement("a");
       link.href = url;
