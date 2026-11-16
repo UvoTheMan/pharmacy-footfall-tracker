@@ -395,7 +395,7 @@ export default function App() {
     }
     setUnavailableOutcome(outcome);
     setReason(reason ?? "");
-    setUnavailableItemsDraft([{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }]);
+    setUnavailableItemsDraft([{ id: crypto.randomUUID(), name: "", brandName: "", photo: null, preview: "" }]);
     setError("");
     setShowUnavailablePrompt(true);
   }
@@ -424,7 +424,7 @@ export default function App() {
       const item = current.find((entry) => entry.id === id);
       if (item?.preview) URL.revokeObjectURL(item.preview);
       const next = current.filter((entry) => entry.id !== id);
-      return next.length ? next : [{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }];
+      return next.length ? next : [{ id: crypto.randomUUID(), name: "", brandName: "", photo: null, preview: "" }];
     });
   }
 
