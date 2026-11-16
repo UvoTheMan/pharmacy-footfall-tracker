@@ -75,7 +75,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       { id: "daily-trend", label: "Daily visit trend" }, { id: "weekday-conversion", label: "Purchase conversion by weekday" },
       { id: "outcome-totals", label: "Outcome totals" }, { id: "hourly", label: "Record entry times by hour" },
       { id: "daily-averages", label: "Daily averages and peak days" }, { id: "trend-summary", label: "Trend summary totals" },
-      { id: "trends-comparison", label: "Previous-period comparison" }, { id: "period-daily-chart", label: "Daily visits: current vs previous period" }, { id: "weekday-outcomes", label: "Purchase outcomes by weekday" },
+      { id: "trends-comparison", label: "Previous-period comparison" }, { id: "period-daily-chart", label: "Daily visits: current vs previous period" }, { id: "weekday-outcomes", label: "Visit outcomes by weekday" },
     ],
     reasons: [
       { id: "reason-kpis", label: "Reason summary metrics" }, { id: "reason-breakdown", label: "No-purchase reasons" },
@@ -673,11 +673,11 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <div className="analytics-period-legend"><span><i className="analytics-period-current" /> Current period</span><span><i className="analytics-period-previous" /> Previous period</span></div>
           </section>
           <section hidden={!isVisible("weekday-outcomes")} className="analytics-subpanel analytics-wide-subpanel">
-            <h3><BarChart3 size={16} /> Purchase outcomes by weekday</h3>
+            <h3><BarChart3 size={16} /> Visit outcomes by weekday</h3>
             <p className="analytics-help">See the full outcome mix by weekday. Conversion uses resolved visits, while the stacked bars include undecided records.</p>
             <div className="analytics-weekday-outcomes">
               {weekdayStats.map((day) => { const resolvedWeekday = day.purchases + day.noPurchase; return <div className="analytics-weekday-outcome" key={day.label}>
-                <div className="analytics-row-label"><strong>{day.label}</strong><span>{day.total} visits · {resolvedWeekday} resolved · {day.undecided} undecided · {percent(day.purchases, resolvedWeekday)}% conversion</span></div>
+                <div className="analytics-row-label"><strong>{day.label}</strong><span>{day.total} visits across {day.occurrences} days · {resolvedWeekday} resolved · {day.undecided} undecided · {percent(day.purchases, resolvedWeekday)}% conversion</span></div>
                 <div className="analytics-stacked-bar" aria-label={`${day.label}: ${day.purchases} purchases, ${day.noPurchase} no purchase, ${day.undecided} undecided`}>
                   <span className="analytics-stack-purchased" style={{ width: `${day.purchases / Math.max(1, day.total) * 100}%` }} />
                   <span className="analytics-stack-no-purchase" style={{ width: `${day.noPurchase / Math.max(1, day.total) * 100}%` }} />
@@ -690,7 +690,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           <div className="analytics-trends-stack">
           <section hidden={!isVisible("daily-trend")} className="analytics-subpanel analytics-trend">
             <h3><CalendarDays size={16} /> Daily visit trend</h3>
-            <p className="analytics-help">Each bar shows all recorded visits for that Lagos calendar date. When Include today is on, the final bar is marked in progress. Scroll horizontally on smaller screens to see the full period.</p>
+            <p className="analytics-help">Each bar shows all recorded visits for that Lagos calendar date. When Include today is on, the final bar is labelled Today* to show it is still in progress. Scroll horizontally on smaller screens to see the full period.</p>
             <div className="analytics-daily-chart analytics-daily-chart-stacked" role="img" aria-label="Daily visit counts by outcome for the selected reporting period">
               {dailyStats.map((day) => (
                 <div className="analytics-day" key={day.date} title={`${day.date}: ${day.total} visits, ${day.purchases} purchases, ${day.noPurchase} no purchase, ${day.undecided} undecided${day.date === today ? " · in progress" : ""}`}>
@@ -700,7 +700,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                     {day.noPurchase > 0 && <i className="analytics-stack-no-purchase" style={{ height: `${day.noPurchase / Math.max(1, day.total) * 100}%` }} />}
                     {day.undecided > 0 && <i style={{ height: `${day.undecided / Math.max(1, day.total) * 100}%`, background: "#9aa69e" }} />}
                   </span>
-                  <span className="analytics-day-label">{day.date === today ? "Today" : day.date.slice(5)}</span>
+                  <span className="analytics-day-label">{day.date === today ? "Today*" : day.date.slice(5)}</span>
                 </div>
               ))}
             </div>
@@ -717,7 +717,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                     const resolvedWeekday = day.purchases + day.noPurchase;
                     const rate = percent(day.purchases, resolvedWeekday);
                     return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${resolvedWeekday} resolved visits across ${day.occurrences} days`}>
-                      <strong>{resolvedWeekday ? `${rate}%` : "—"}</strong><span className="analytics-weekday-track conversion-track"><i style={{ height: `${Math.max(rate ? 5 : 2, rate)}%` }} /></span><small>{day.label}</small>
+                      <strong>{resolvedWeekday ? `${rate}%` : "—"}</strong><span className="analytics-weekday-track conversion-track"><i style={{ height: `${Math.max(rate ? 5 : 2, rate)}%` }} /></span><small>{day.label}<br />{day.occurrences}d</small>
                     </div>;
                   })}
                 </div>
