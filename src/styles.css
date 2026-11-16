@@ -765,3 +765,39 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
   .unavailable-report-scroll h2{font-size:18px}
   .unavailable-report-actions{padding-top:6px}
 }
+
+
+/* Anchor unavailable-item entry to Android Chrome's visible viewport, which
+   shrinks when the software keyboard opens. The action row stays in view. */
+.unavailable-report-backdrop{
+  inset:auto 0 auto 0;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  overflow-y:auto;
+  padding:6px 12px;
+  overscroll-behavior:contain;
+}
+.unavailable-report-modal{
+  flex:0 1 520px;
+  width:min(100%,520px);
+  max-height:calc(100% - 12px);
+  min-height:0;
+  margin:0;
+}
+.unavailable-report-scroll{
+  flex:1 1 0;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+}
+.unavailable-report-actions{
+  flex:0 0 auto;
+  position:relative;
+  z-index:1;
+}
+@media(max-width:520px){
+  .unavailable-report-backdrop{padding:6px 10px}
+  .unavailable-report-modal{max-height:calc(100% - 12px)}
+}
