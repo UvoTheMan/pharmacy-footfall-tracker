@@ -441,7 +441,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           <input id="analytics-start" type="date" min={earliest} max={analysisEndDate} value={startDate} onChange={(event) => setStartDate(event.target.value ? laterDate(GO_LIVE_DATE, event.target.value) : "")} />
         </label>
         <label className="history-date-field" htmlFor="analytics-end"><span><CalendarDays size={15} /> End date</span>
-          <input id="analytics-end" type="date" min={startDate || earliest} max={today} value={endDate} onChange={(event) => { setEndDate(event.target.value); if (event.target.value !== today) setIncludeToday(false); }} />
+          <input id="analytics-end" type="date" min={startDate || earliest} max={today} value={endDate} onChange={(event) => { const nextEnd = event.target.value; setEndDate(nextEnd); if (nextEnd !== today) setIncludeToday(false); setStartDate((current) => current > (nextEnd === today && !includeToday ? shiftDate(today, -1) : nextEnd) ? (nextEnd === today && !includeToday ? shiftDate(today, -1) : nextEnd) : current); }} />
         </label>
         <button type="button" className="secondary-button analytics-refresh" onClick={() => void load()} disabled={loading}><RefreshCw size={14} /> {loading ? "Refreshing…" : "Refresh analysis"}</button>
       </div>
@@ -455,7 +455,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         <p className="analytics-range">{loadedRange ? `Reporting period: ${loadedRange}` : "Preparing reporting period…"} · Maximum window: 90 days</p>
         <span className="analytics-record-count">{loading ? "Updating records…" : `${analysisVisits.length.toLocaleString()} visits in view`}</span>
       </div>
-      {includeToday && endDate === today && <p className="analytics-help analytics-comparison-empty">Current-day visits are included in current totals and daily trends. Period comparisons, weekday averages and daily averages use completed days only.</p>}
+      {endDate === today && (includeToday ? <p className="analytics-help analytics-comparison-empty">Current-day visits are included in current totals and daily trends. Period comparisons, weekday averages and daily averages use completed days only.</p> : <p className="analytics-help analytics-comparison-empty">Today is excluded by default because its figures may be incomplete. Turn on Include today to add it to current totals and the daily trend.</p>)}
 
       <nav className="analytics-tabs" aria-label="Analysis sections">
         {TABS.map((tab) => (
@@ -680,7 +680,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           <div className="analytics-trends-stack">
           <section hidden={!isVisible("daily-trend")} className="analytics-subpanel analytics-trend">
             <h3><CalendarDays size={16} /> Daily visit trend</h3>
-            <p className="analytics-help">Each bar shows all recorded visits for that Lagos calendar date. Scroll horizontally on smaller screens to see the full period.</p>
+            <p className="analytics-help">Each bar shows all recorded visits for that Lagos calendar date. When Include today is on, the final bar is marked in progress. Scroll horizontally on smaller screens to see the full period.</p>
             <div className="analytics-daily-chart analytics-daily-chart-stacked" role="img" aria-label="Daily visit counts by outcome for the selected reporting period">
               {dailyStats.map((day) => (
                 <div className="analytics-day" key={day.date} title={`${day.date}: ${day.total} visits, ${day.purchases} purchases, ${day.noPurchase} no purchase, ${day.undecided} undecided${day.date === today ? " · in progress" : ""}`}>
@@ -701,7 +701,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <div className="analytics-grid analytics-secondary-trends">
               <section hidden={!isVisible("weekday-conversion")} className="analytics-subpanel analytics-chart-card">
                 <h3><TrendingUp size={16} /> Purchase conversion by weekday</h3>
-                <p className="analytics-help">Purchases divided by resolved visits (purchased or no purchase) for each weekday; undecided visits are excluded.</p>
+                <p className="analytics-help">Purchases divided by resolved visits for each weekday. Weekday averages use completed days only, with undecided visits excluded from conversion.</p>
                 <div className="analytics-weekday-chart">
                   {weekdayStats.map((day) => {
                     const resolvedWeekday = day.purchases + day.noPurchase;
