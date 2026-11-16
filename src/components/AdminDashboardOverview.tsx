@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import "./AdminDashboardOverview.css";
 
 type Branch = { id: string; name: string };
-type Visit = { branch_id: string; outcome: "purchased" | "not_purchased" | "undecided" };
+type Visit = { branch_id: string; outcome: "purchased" | "not_purchased" };
 
 type BranchSummary = Branch & {
   total: number;
@@ -139,7 +139,7 @@ export default function AdminDashboardOverview({ branches }: { branches: Branch[
         <article><span><Users size={15} /> Total visits</span><strong>{loading ? "…" : totals.visits}</strong><small>All branches today</small></article>
         <article><span><ShoppingBag size={15} /> Purchases</span><strong>{loading ? "…" : totals.purchases}</strong><small>Completed purchases</small></article>
         <article><span><Activity size={15} /> No purchase</span><strong>{loading ? "…" : totals.noPurchase}</strong><small>Visits without a sale</small></article>
-        <article><span><CheckCircle2 size={15} /> Conversion</span><strong>{loading ? "…" : conversion === null ? "—" : `${conversion}%`}</strong><small>Purchases ÷ resolved visits</small></article>
+        <article><span><CheckCircle2 size={15} /> Conversion</span><strong>{loading ? "…" : conversion === null ? "—" : `${conversion}%`}</strong><small>Purchases ÷ visits</small></article>
       </div>
 
       <div className="admin-overview-lower">
@@ -171,7 +171,7 @@ export default function AdminDashboardOverview({ branches }: { branches: Branch[
           </article>
         </div>
       </div>
-      <p className="admin-overview-footnote">Conversion excludes visits marked undecided. Counts refresh automatically every minute while this page is open.</p>
+      <p className="admin-overview-footnote">Every visit is recorded as a purchase or no purchase. Counts refresh automatically every minute while this page is open.</p>
     </section>
   );
 }
