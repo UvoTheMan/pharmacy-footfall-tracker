@@ -80,7 +80,6 @@ export default function App() {
   const [showUnavailablePage, setShowUnavailablePage] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
-  const [unavailableViewport, setUnavailableViewport] = useState(() => ({ top: 0, height: typeof window === "undefined" ? 0 : window.innerHeight }));
   const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
   const [unavailableItemsDraft, setUnavailableItemsDraft] = useState<Array<{ id: string; name: string; photo: File | null; preview: string }>>([{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }]);
   const [preparingPhotoIds, setPreparingPhotoIds] = useState<string[]>([]);
@@ -103,28 +102,6 @@ export default function App() {
   const [error, setError] = useState("");
   const today = lagosDateKey();
 
-  // Android Chrome keeps the layout viewport taller than the visible area when
-  // the on-screen keyboard opens. Track VisualViewport so the report modal and
-  // its Save action stay inside the area the user can actually see.
-  useEffect(() => {
-    if (!showUnavailablePrompt) return;
-    const viewport = window.visualViewport;
-    const syncVisibleViewport = () => {
-      setUnavailableViewport({
-        top: viewport?.offsetTop ?? 0,
-        height: viewport?.height ?? window.innerHeight,
-      });
-    };
-    syncVisibleViewport();
-    viewport?.addEventListener("resize", syncVisibleViewport);
-    viewport?.addEventListener("scroll", syncVisibleViewport);
-    window.addEventListener("resize", syncVisibleViewport);
-    return () => {
-      viewport?.removeEventListener("resize", syncVisibleViewport);
-      viewport?.removeEventListener("scroll", syncVisibleViewport);
-      window.removeEventListener("resize", syncVisibleViewport);
-    };
-  }, [showUnavailablePrompt]);
 
   const flash = (message: string) => {
     setNotice(message);
@@ -824,7 +801,7 @@ export default function App() {
       )}
 
       {showUnavailablePrompt && (
-        <div className="modal-backdrop unavailable-report-backdrop" role="presentation" style={{ top: `${unavailableViewport.top}px`, height: `${unavailableViewport.height}px` }}>
+        <div className="modal-backdrop" role="presentation">
           <form className="modal unavailable-report-modal" role="dialog" aria-modal="true" aria-labelledby="unavailable-prompt-title" onSubmit={(event) => { event.preventDefault(); void saveUnavailableItem(); }}>
             <button className="modal-close" type="button" aria-label="Close product details prompt" disabled={busy} onClick={deferUnavailablePrompt}><X size={19} /></button>
             <div className="unavailable-report-scroll">
