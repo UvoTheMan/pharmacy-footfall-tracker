@@ -24,7 +24,7 @@ type Visit = {
   branch_id: string;
   visit_date: string;
   recorded_at: string;
-  outcome: Outcome | "undecided";
+  outcome: Outcome;
   reason: Reason | null;
   unavailable_item_requested: boolean;
   batch_id: string | null;
@@ -548,10 +548,8 @@ export default function App() {
   const purchasers = todaysVisits.filter((visit) => visit.outcome === "purchased").length;
   const nonPurchasers = todaysVisits.filter((visit) => visit.outcome === "not_purchased").length;
   const unavailableDespitePurchase = todaysVisits.filter((visit) => visit.outcome === "purchased" && visit.unavailable_item_requested).length;
-  const undecided = todaysVisits.filter((visit) => visit.outcome === "undecided").length;
   const total = todaysVisits.length;
-  const resolvedVisits = total - undecided;
-  const conversion = resolvedVisits > 0 ? Math.round((purchasers / resolvedVisits) * 100) : null;
+  const conversion = total > 0 ? Math.round((purchasers / total) * 100) : null;
 
   if (!hasSupabaseConfig) return (
     <main className="setup-screen">
