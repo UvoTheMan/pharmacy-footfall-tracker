@@ -242,14 +242,23 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       : branchId === activeBranchId;
     const visitContextById = new Map(itemVisitContexts.map((visit) => [visit.id, visit]));
     const inOperationalPeriod = (item: UnavailableItem) => item.reported_on >= STOCK_INTELLIGENCE_START;
-    const validItems = intelligenceItems.filter((item) =>
-      inOperationalPeriod(item) && visitContextById.get(item.visit_id)?.unavailable_item_requested === true
-    );
+    const isStockoutVisit = (visit: StockVisit) =>
+      visit.outcome === "purchased" ||
+      (visit.outcome === "not_purchased" && visit.reason === "Item unavailable");
+    const validItems = intelligenceItems.filter((item) => {
+      const visit = visitContextById.get(item.visit_id);
+      return inOperationalPeriod(item) && visit?.unavailable_item_requested === true && isStockoutVisit(visit);
+    });
     const mismatchedItems = intelligenceItems.filter((item) => {
       const visit = visitContextById.get(item.visit_id);
-      return inOperationalPeriod(item) && visit !== undefined && visit.unavailable_item_requested !== true;
+      return inOperationalPeriod(item) && visit !== undefined &&
+        (visit.unavailable_item_requested !== true || !isStockoutVisit(visit));
     });
-    const visibleStockVisits = stockVisits.filter((visit) => branchAllowed(visit.branch_id));
+    const visibleFlaggedVisits = stockVisits.filter((visit) => branchAllowed(visit.branch_id));
+    const visibleStockVisits = visibleFlaggedVisits.filter(isStockoutVisit);
+    const flaggedVisitsWithOtherReason = visibleFlaggedVisits.filter((visit) =>
+      visit.outcome === "not_purchased" && visit.reason !== "Item unavailable"
+    );
     const reportedVisitIds = new Set(validItems.map((item) => item.visit_id));
     const flaggedVisitsWithoutItems = visibleStockVisits.filter((visit) => !reportedVisitIds.has(visit.id));
     const statusCounts = {
@@ -296,6 +305,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       noPurchaseStockouts,
       partialPurchaseVisits,
       flaggedVisitsWithoutItems: flaggedVisitsWithoutItems.length,
+      flaggedVisitsWithOtherReason: flaggedVisitsWithOtherReason.length,
       mismatchedItems: mismatchedItems.length,
       pendingOlderThan7Days,
     };
@@ -512,10 +522,10 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           <span>{unavailableIntelligence.statusCounts.resolved.toLocaleString()} resolved</span>
           <span>{unavailableIntelligence.pendingOlderThan7Days.toLocaleString()} pending over 7 days</span>
         </div>
-        {(unavailableIntelligence.flaggedVisitsWithoutItems > 0 || unavailableIntelligence.mismatchedItems > 0) && (
+        {(unavailableIntelligence.flaggedVisitsWithoutItems > 0 || unavailableIntelligence.mismatchedItems > 0 || unavailableIntelligence.flaggedVisitsWithOtherReason > 0) && (
           <div className="unavailable-data-quality" role="status">
             <strong>Data checks need review</strong>
-            <p>{unavailableIntelligence.flaggedVisitsWithoutItems.toLocaleString()} flagged stockout visits have no linked product report. {unavailableIntelligence.mismatchedItems.toLocaleString()} product reports are linked to visits without the stockout flag. These records are excluded from product rankings until reviewed. No historical records have been changed.</p>
+            <p>{unavailableIntelligence.flaggedVisitsWithoutItems.toLocaleString()} stockout visits have no linked product report. {unavailableIntelligence.mismatchedItems.toLocaleString()} product reports have inconsistent visit classification. {unavailableIntelligence.flaggedVisitsWithOtherReason.toLocaleString()} flagged visits have a different no-purchase reason. These records are excluded from product rankings until reviewed. No historical records have been changed.</p>
           </div>
         )}
         <div className="unavailable-intelligence-columns">
