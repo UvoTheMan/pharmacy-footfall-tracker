@@ -57,7 +57,6 @@
 .analytics-day-stack i{display:block;flex-shrink:0;width:100%;min-height:1px}
 .analytics-stack-purchased{background:#23875b}
 .analytics-stack-no-purchase{background:#e27b48}
-.analytics-stack-undecided{background:#7b83d8}
 .analytics-daily-chart-stacked .analytics-day{align-items:center}
 .analytics-trend-legend{display:flex;gap:12px 18px;flex-wrap:wrap}
 .analytics-trend-legend>div{flex:0 0 auto}
