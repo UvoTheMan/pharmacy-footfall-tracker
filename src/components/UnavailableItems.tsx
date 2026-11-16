@@ -10,6 +10,7 @@ type UnavailableItem = {
   visit_id: string;
   branch_id: string;
   item_name: string;
+  brand_name: string | null;
   reported_on: string;
   recorded_at: string;
   resolved_at: string | null;
@@ -134,7 +135,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       for (let offset = 0; ; offset += pageSize) {
         let query = supabase
           .from("unavailable_items")
-          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,resolved_at,created_by,status,image_path,branches(name)")
+          .select("id,visit_id,branch_id,item_name,brand_name,reported_on,recorded_at,resolved_at,created_by,status,image_path,branches(name)")
           .gte("reported_on", safeFrom)
           .lte("reported_on", safeTo);
         if (profile.role !== "admin") query = query.eq("branch_id", activeBranchId!);
@@ -305,12 +306,13 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       };
     }).filter((branch) => branch.total > 0 || branch.stockoutVisits > 0)
       .sort((a, b) => b.stockoutVisits - a.stockoutVisits || b.total - a.total);
-    const productCounts = new Map<string, { name: string; count: number; branches: Set<string> }>();
+    const productCounts = new Map<string, { name: string; brand: string | null; count: number; branches: Set<string> }>();
     validItems.forEach((item) => {
       const cleanName = item.item_name.trim().replace(/\\s+/g, " ");
-      const key = cleanName.toLocaleLowerCase();
-      if (!key) return;
-      const current = productCounts.get(key) ?? { name: cleanName, count: 0, branches: new Set<string>() };
+      const cleanBrand = (item.brand_name ?? "").trim().replace(/\\s+/g, " ");
+      const key = `${cleanName.toLocaleLowerCase()}|${cleanBrand.toLocaleLowerCase()}`;
+      if (!cleanName) return;
+      const current = productCounts.get(key) ?? { name: cleanName, brand: cleanBrand || null, count: 0, branches: new Set<string>() };
       current.count += 1;
       current.branches.add(item.branch_id);
       productCounts.set(key, current);
@@ -517,7 +519,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
         visit.unavailable_item_requested &&
         (visit.outcome === "purchased" || (visit.outcome === "not_purchased" && visit.reason === "Item unavailable"));
       const columns = [
-        "Record type", "Product name", "Branch", "Report date", "Visit date", "Reported time",
+        "Record type", "Product name", "Preferred brand", "Branch", "Report date", "Visit date", "Reported time",
         "Visit outcome", "No-purchase reason", "Stockout classification", "Assessment status",
         "Resolved at", "Resolution time (hours)", "Photo attached", "Visit ID", "Report ID",
       ];
@@ -535,6 +537,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
         return [
           verified ? "Product report" : "Data-quality exception",
           item.item_name,
+          item.brand_name ?? "",
           branchName(item.branch_id, item.branches?.name),
           item.reported_on,
           visit?.visit_date ?? "",
@@ -755,7 +758,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
         return;
       }
 
-      const columns = ["Product name", "Branch", "Unavailable date", "Reported time", "Assessment status", "Resolved at", "Resolution time (hours)", "Photo attached"];
+      const columns = ["Product name", "Preferred brand", "Branch", "Unavailable date", "Reported time", "Assessment status", "Resolved at", "Resolution time (hours)", "Photo attached"];
       const escapeCell = (value: string) => {
         // Prevent spreadsheet formulas from running when the CSV is opened.
         const safe = /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
@@ -763,6 +766,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       };
       const rows = exportRows.map((item) => [
         item.item_name,
+        item.brand_name ?? "",
         item.branches?.name ?? registerBranches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable",
         item.reported_on,
         new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(item.recorded_at)),
@@ -833,7 +837,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           <div>
             <h4>Most reported unavailable items</h4>
             {unavailableIntelligence.topProducts.length === 0 ? <p className="corrections-empty">No item reports to rank yet.</p> : unavailableIntelligence.topProducts.map((item) => <div className="unavailable-intelligence-row" key={item.name.toLocaleLowerCase()}>
-              <span>{item.name}</span><strong>{item.count} {item.count === 1 ? "report" : "reports"}</strong><small>{item.branchCount} {item.branchCount === 1 ? "branch" : "branches"}</small>
+              <span>{item.name}{item.brand ? ` · ${item.brand}` : ""}</span><strong>{item.count} {item.count === 1 ? "report" : "reports"}</strong><small>{item.branchCount} {item.branchCount === 1 ? "branch" : "branches"}</small>
             </div>)}
           </div>
         </div>
@@ -865,7 +869,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
               {profile.role === "admin" && <label className="unavailable-record-select"><input type="checkbox" checked={selectedIds.has(item.id)} onChange={(event) => toggleSelected(item.id, event.target.checked)} aria-label={`Select ${item.item_name}`} /></label>}
               {item.photo_url && <a className="unavailable-record-photo" href={item.photo_url} target="_blank" rel="noreferrer"><img src={item.photo_url} alt={`Photo of ${item.item_name}`} loading="lazy" /></a>}
               <div className="unavailable-record-main">
-                <div className="unavailable-record-title"><strong>{item.item_name}</strong><span className={`unavailable-status ${item.status}`}>{item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved"}</span></div>
+                <div className="unavailable-record-title"><strong>{item.item_name}{item.brand_name ? ` · ${item.brand_name}` : ""}</strong><span className={`unavailable-status ${item.status}`}>{item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved"}</span></div>
                 <div className="unavailable-record-meta"><span>{item.branches?.name ?? registerBranches.find((branch) => branch.id === item.branch_id)?.name ?? "Branch unavailable"}</span><span>Unavailable on {displayDate(item.reported_on)}</span><span>Reported {new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" }).format(new Date(item.recorded_at))}</span></div>
               </div>
               <div className="unavailable-record-actions">
