@@ -295,7 +295,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const weekdayStats = useMemo(() => {
     const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const totals = labels.map((label, index) => ({ label, index, total: 0, purchases: 0, noPurchase: 0, undecided: 0, occurrences: 0 }));
-    dailyStats.forEach((day) => {
+    completedDailyStats.forEach((day) => {
       const weekday = new Date(`${day.date}T12:00:00Z`).getUTCDay();
       totals[weekday].total += day.total;
       totals[weekday].purchases += day.purchases;
@@ -304,7 +304,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       totals[weekday].occurrences += 1;
     });
     return totals.map((day) => ({ ...day, average: day.occurrences ? day.total / day.occurrences : 0 }));
-  }, [dailyStats]);
+  }, [completedDailyStats]);
   const outcomeStats = [
     { label: "Purchased", count: purchases, color: "#23875b" },
     { label: "No purchase", count: noPurchase, color: "#e27b48" },
@@ -356,8 +356,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("FOOTLYTICS", margin, 15);
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text("PHARMACY FOOTFALL INTELLIGENCE", margin, 22);
     doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text((TABS.find(tab => tab.id === activeTab)?.label || "Analysis") + " report", margin, 30);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(startDate + " to " + endDate + " | " + (selectedBranchId === "all" ? "All branches combined" : (analysisBranches[0]?.name || "Selected branch")), margin, 36);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(startDate + " to " + analysisEndDate + " | " + (selectedBranchId === "all" ? "All branches combined" : (analysisBranches[0]?.name || "Selected branch")), margin, 36);
     doc.setFontSize(8); doc.setTextColor(muted[0], muted[1], muted[2]); doc.text("Prepared from saved records. Comparisons are descriptive, not causal.", margin, y); y += 10;
+    line("Current day", includeToday && endDate === today ? "Included in current totals and daily trend; excluded from comparisons and daily averages" : "Excluded from current reporting period");
     line("Opening schedule", "Mon-Sat 8:00 AM · Sunday 2:00 PM");
     line("Hourly analysis", "Pre-opening records excluded; closing time not configured");
     if (activeTab === "overview" && ["kpi-visits","kpi-purchases","kpi-no-purchase","kpi-conversion","kpi-unavailable"].some(isVisible)) {
@@ -418,7 +419,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(muted[0], muted[1], muted[2]);
       doc.text("FOOTLYTICS · INTERNAL MANAGEMENT REPORT", margin, pageHeight - 6); doc.text("Page " + page + " of " + pages, pageWidth - margin, pageHeight - 6, { align: "right" });
     }
-    doc.save("Footlytics-" + activeTab + "-" + startDate + "-to-" + endDate + ".pdf");
+    doc.save("Footlytics-" + activeTab + "-" + startDate + "-to-" + analysisEndDate + ".pdf");
   };
 
   return (
@@ -682,14 +683,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <p className="analytics-help">Each bar shows all recorded visits for that Lagos calendar date. Scroll horizontally on smaller screens to see the full period.</p>
             <div className="analytics-daily-chart analytics-daily-chart-stacked" role="img" aria-label="Daily visit counts by outcome for the selected reporting period">
               {dailyStats.map((day) => (
-                <div className="analytics-day" key={day.date} title={`${day.date}: ${day.total} visits, ${day.purchases} purchases, ${day.noPurchase} no purchase, ${day.undecided} undecided`}>
+                <div className="analytics-day" key={day.date} title={`${day.date}: ${day.total} visits, ${day.purchases} purchases, ${day.noPurchase} no purchase, ${day.undecided} undecided${day.date === today ? " · in progress" : ""}`}>
                   <span className="analytics-day-count">{day.total || ""}</span>
                   <span className="analytics-day-stack" style={{ height: `${Math.max(day.total ? 8 : 2, day.total / peak * 100)}%` }}>
                     {day.purchases > 0 && <i className="analytics-stack-purchased" style={{ height: `${day.purchases / Math.max(1, day.total) * 100}%` }} />}
                     {day.noPurchase > 0 && <i className="analytics-stack-no-purchase" style={{ height: `${day.noPurchase / Math.max(1, day.total) * 100}%` }} />}
                     {day.undecided > 0 && <i style={{ height: `${day.undecided / Math.max(1, day.total) * 100}%`, background: "#9aa69e" }} />}
                   </span>
-                  <span className="analytics-day-label">{day.date.slice(5)}</span>
+                  <span className="analytics-day-label">{day.date === today ? "Today" : day.date.slice(5)}</span>
                 </div>
               ))}
             </div>
@@ -745,14 +746,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </section>
             <section hidden={!isVisible("daily-averages")} className="analytics-subpanel analytics-daily-summary">
               <h3><TrendingUp size={16} /> Daily averages &amp; peak days</h3>
-              <p className="analytics-help">The average uses days with at least one recorded visit. Dates with no records are not assumed to be closed or zero-footfall days.</p>
+              <p className="analytics-help">The average and peak-day figures use completed days with at least one recorded visit. Today is excluded because its figures may still be incomplete.</p>
               <div className="analytics-pattern-highlights">
                 <div><span>Average on recorded days</span><strong>{averageDailyFootfall.toFixed(1)}</strong><small>visits per active recorded day</small></div>
                 <div><span>Busiest recorded day</span><strong>{busiestDay?.date ?? "No data"}</strong><small>{busiestDay ? busiestDay.total + " visits" : "No visits in range"}</small></div>
                 <div><span>Quietest recorded day</span><strong>{quietestRecordedDay?.date ?? "No data"}</strong><small>{quietestRecordedDay ? quietestRecordedDay.total + " visits" : "No visits in range"}</small></div>
               </div>
               <div className="analytics-daily-average-chart">
-                {dailyStats.map(day => <div key={day.date} title={day.date + ": " + day.total + " visits"}><span style={{height: Math.max(day.total ? 4 : 1, day.total / Math.max(1,...dailyStats.map(item=>item.total))*100) + "%" }} /><small>{day.date.slice(8)}</small></div>)}
+                {completedDailyStats.map(day => <div key={day.date} title={day.date + ": " + day.total + " visits"}><span style={{height: Math.max(day.total ? 4 : 1, day.total / Math.max(1,...completedDailyStats.map(item=>item.total))*100) + "%" }} /><small>{day.date.slice(8)}</small></div>)}
               </div>
             </section>
           </div>
