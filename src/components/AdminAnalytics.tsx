@@ -19,6 +19,13 @@ type Visit = {
 };
 type AnalysisTab = "overview" | "branches" | "trends" | "reasons";
 
+const REASON_GROUPS = [
+  { id: "stock", label: "Stock", action: "Review stock levels, reorder points and suitable alternatives.", reasons: ["Item unavailable", "Preferred brand unavailable"] },
+  { id: "price", label: "Price", action: "Review pricing and suitable lower-cost alternatives.", reasons: ["Price too high"] },
+  { id: "intent", label: "Customer intent", action: "Review counselling, product information and follow-up.", reasons: ["Only enquiring", "Will buy later", "Customer changed mind"] },
+  { id: "unknown", label: "Other / unknown", action: "Improve reason capture so recurring issues can be identified.", reasons: ["Other / Unknown"] },
+] as const;
+
 function dateKey(date: Date) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
@@ -68,6 +75,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     ],
     branches: [
       { id: "branch-kpis", label: "Branch summary metrics" }, { id: "branch-performance", label: "Branch performance breakdown" },
+      { id: "branch-recording", label: "Branch recording activity" },
       { id: "branches-comparison", label: "Previous-period comparison" }, { id: "branch-period-chart", label: "Branch current vs previous comparison chart" },
     ],
     trends: [
@@ -275,14 +283,37 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const busiestDay = [...activeDays].sort((a, b) => b.total - a.total)[0];
   const quietestRecordedDay = [...activeDays].sort((a, b) => a.total - b.total)[0];
 
+  const noPurchaseVisits = useMemo(() => analysisVisits.filter((visit) => visit.outcome === "not_purchased"), [analysisVisits]);
   const reasonStats = useMemo(() => {
     const counts = new Map<string, number>();
-    analysisVisits.filter((visit) => visit.outcome === "not_purchased").forEach((visit) => {
-      const reason = visit.reason?.trim() || "Other / Unknown";
+    noPurchaseVisits.forEach((visit) => {
+      const reason = visit.reason?.trim() || "Not recorded";
       counts.set(reason, (counts.get(reason) ?? 0) + 1);
     });
     return [...counts.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
-  }, [analysisVisits]);
+  }, [noPurchaseVisits]);
+  const reasonGroupStats = useMemo(() => REASON_GROUPS.map((group) => {
+    const reasons = reasonStats.filter((item) => (group.reasons as readonly string[]).includes(item.reason));
+    const count = reasons.reduce((total, item) => total + item.count, 0);
+    return { ...group, count, shareOfNoPurchase: percent(count, noPurchaseVisits.length), reasons };
+  }), [reasonStats, noPurchaseVisits.length]);
+  const stockRelatedNoPurchase = reasonStats.filter((item) => item.reason === "Item unavailable" || item.reason === "Preferred brand unavailable").reduce((total, item) => total + item.count, 0);
+  const priceRelatedNoPurchase = reasonStats.find((item) => item.reason === "Price too high")?.count ?? 0;
+  const stockRelatedNoPurchaseRate = percent(stockRelatedNoPurchase, analysisVisits.length);
+  const priceRelatedNoPurchaseRate = percent(priceRelatedNoPurchase, analysisVisits.length);
+
+  const branchRecordingStats = useMemo(() => {
+    const completedEndDate = analysisEndDate < today ? analysisEndDate : shiftDate(today, -1);
+    const completedDays = completedEndDate >= startDate
+      ? Math.round((Date.parse(completedEndDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1
+      : 0;
+    return analysisBranches.map((branch) => {
+      const recordedDays = new Set(analysisVisits
+        .filter((visit) => visit.branch_id === branch.id && visit.visit_date >= startDate && visit.visit_date <= completedEndDate)
+        .map((visit) => visit.visit_date)).size;
+      return { ...branch, recordedDays, completedDays };
+    });
+  }, [analysisBranches, analysisVisits, startDate, analysisEndDate, today]);
 
   const reasonBranchStats = useMemo(() => analysisBranches.map((branch) => {
     const branchNoPurchase = analysisVisits.filter((visit) => visit.branch_id === branch.id && visit.outcome === "not_purchased");
@@ -384,6 +415,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     if (activeTab === "reasons" && isVisible("reason-kpis")) {
       section("Reason summary metrics"); line("No-purchase visits", noPurchase.toLocaleString());
       line("Reason categories", String(reasonStats.length)); line("Most frequent reason", String(reasonStats[0]?.count ?? 0));
+      line("Stock-related no-purchase rate", stockRelatedNoPurchaseRate + "% (" + stockRelatedNoPurchase + " / " + analysisVisits.length + " visits)");
+      line("Price-related no-purchase rate", priceRelatedNoPurchaseRate + "% (" + priceRelatedNoPurchase + " / " + analysisVisits.length + " visits)");
+      reasonGroupStats.forEach(group => { line(group.label + " · " + group.count + " visits", group.action); });
     }
     if (activeTab === "overview") {
       if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]); }
@@ -569,6 +603,17 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <div><strong>{mostNoPurchaseBranch ? mostNoPurchaseBranch.name + " · " + mostNoPurchaseBranch.noPurchase : "No data"}</strong><span>Most no-purchase visits</span></div>
             <div><strong>{mostUnavailableBranch ? mostUnavailableBranch.name + " · " + mostUnavailableBranch.unavailable : "No data"}</strong><span>Most unavailable-item requests</span></div>
           </div>
+          <section hidden={!isVisible("branch-recording")} className="analytics-subpanel analytics-recording-panel">
+            <h3><CalendarDays size={16} /> Branch recording activity</h3>
+            <p className="analytics-help">Shows completed calendar days with at least one saved visit. A day without records may mean the branch was closed or that visits weren't entered, so this is a recording-coverage signal rather than proof of opening hours or staff attendance.</p>
+            <div className="analytics-recording-grid">
+              {branchRecordingStats.map((item) => <article key={item.id} className="analytics-recording-card">
+                <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.recordedDays} / {item.completedDays} days</span></div>
+                <div className="progress-track"><span style={{ width: item.completedDays ? `${item.recordedDays / item.completedDays * 100}%` : "0%" }} /></div>
+                <small>{item.completedDays ? percent(item.recordedDays, item.completedDays) + "% of completed calendar days had records" : "No completed days in range"}</small>
+              </article>)}
+            </div>
+          </section>
           <div className="analytics-grid">
             <section hidden={!isVisible("branch-period-chart")} className="analytics-subpanel analytics-wide-subpanel">
               <h3><GitCompare size={16} /> Branch performance: current vs previous period</h3>
@@ -730,13 +775,27 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
       {activeTab === "reasons" && (
         <div className="analytics-tab-content">
-          <div hidden={!isVisible("reason-kpis")} className="history-summary analytics-kpis">
-            <div><strong>{noPurchase > 0 ? reasonStats.length : "—"}</strong><span>Reason categories</span></div>
+          <div hidden={!isVisible("reason-kpis")} className="history-summary analytics-kpis analytics-reason-kpis">
+            <div><strong>{noPurchase > 0 ? reasonStats.length : "—"}</strong><span>Recorded reason categories</span></div>
             <div><strong>{reasonStats[0]?.reason ?? (noPurchase > 0 ? "Not recorded" : "No data")}</strong><span>Most frequent reason</span><small>{reasonStats[0] ? reasonStats[0].count + " visits" : noPurchase > 0 ? "No reason values saved" : "No no-purchase visits"}</small></div>
+            <div><strong>{stockRelatedNoPurchaseRate}%</strong><span>Stock-related no-purchase rate</span><small>{stockRelatedNoPurchase} visits / {analysisVisits.length} total visits</small></div>
+            <div><strong>{priceRelatedNoPurchaseRate}%</strong><span>Price-related no-purchase rate</span><small>{priceRelatedNoPurchase} visits / {analysisVisits.length} total visits</small></div>
           </div>
           <section hidden={!isVisible("reason-breakdown")} className="analytics-subpanel analytics-reasons-panel">
+            <h3><BarChart3 size={16} /> Operational action groups</h3>
+            <p className="analytics-help">Groups are based on the saved no-purchase reason. Rates below use all visits in the selected scope as the denominator.</p>
+            <div className="analytics-action-group-grid">
+              {reasonGroupStats.map((group) => <article className="analytics-action-group" key={group.id}>
+                <div className="analytics-row-label"><strong>{group.label}</strong><span>{group.count} · {group.shareOfNoPurchase}% of no-purchase visits</span></div>
+                <p>{group.action}</p>
+                {group.reasons.map((item) => <div className="analytics-action-reason" key={item.reason}><span>{item.reason}</span><strong>{item.count}</strong></div>)}
+                {group.id === "unknown" && reasonStats.some((item) => item.reason === "Not recorded") && <div className="analytics-action-reason"><span>Not recorded</span><strong>{reasonStats.find((item) => item.reason === "Not recorded")?.count ?? 0}</strong></div>}
+              </article>)}
+            </div>
+          </section>
+          <section hidden={!isVisible("reason-breakdown")} className="analytics-subpanel analytics-reasons-panel">
             <h3><Search size={16} /> No-purchase reasons</h3>
-            <p className="analytics-help">Counts and percentages are based on no-purchase visits in the selected period. Blank reasons are grouped as Other / Unknown.</p>
+            <p className="analytics-help">Counts and percentages are based on no-purchase visits in the selected period. Explicitly selected Other / Unknown is kept separate from visits where no reason was saved.</p>
             {noPurchase === 0 && <p className="corrections-empty">No no-purchase visits were recorded in this period, so there are no reason metrics to summarise.</p>}
             {reasonStats.length === 0 && noPurchase > 0 && <p className="corrections-empty">No reasons were saved for the no-purchase visits in this period.</p>}
             {reasonStats.length > 0 && reasonStats.map((item, index) => {
