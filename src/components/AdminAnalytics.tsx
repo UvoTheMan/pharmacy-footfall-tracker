@@ -153,6 +153,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const previousPeriodDays = previousEndDate >= previousStartDate
     ? Math.round((Date.parse(previousEndDate + "T12:00:00Z") - Date.parse(previousStartDate + "T12:00:00Z")) / 86400000) + 1
     : 0;
+  const previousPeriodLabel = previousPeriodDays > 0
+    ? `${previousStartDate} to ${previousEndDate}`
+    : "No operational previous period";
   const scopedCurrentVisits = useMemo(() => selectedBranchId === "all" ? currentVisits : currentVisits.filter((visit) => visit.branch_id === selectedBranchId), [currentVisits, selectedBranchId]);
   const previousVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= previousStartDate && visit.visit_date <= previousEndDate && (selectedBranchId === "all" || visit.branch_id === selectedBranchId)), [visits, previousStartDate, previousEndDate, selectedBranchId]);
   const analysisVisits = scopedCurrentVisits;
@@ -356,7 +359,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     }
     if (isVisible(activeTab + "-comparison")) section("Previous-period comparison");
     if (isVisible(activeTab + "-comparison")) {
-      line("Previous period", previousStartDate + " to " + previousEndDate + (previousPeriodComplete ? "" : " · partial operational period"));
+      line("Previous period", previousPeriodLabel + (previousPeriodComplete ? "" : previousPeriodDays > 0 ? " · partial operational period" : ""));
       comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " vs " + (item.baselineAvailable ? String(item.previous) + (item.percentagePoints ? "%" : "") + " previous" : item.partialBaseline ? String(item.previous) + (item.percentagePoints ? "%" : "") + " partial previous" : "no baseline") + (item.baselineAvailable ? item.percentagePoints ? " · " + (item.delta > 0 ? "+" : "") + item.delta + " pp" : " · " + (item.delta > 0 ? "+" : "") + item.delta + " change" + (item.change === null ? "" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)") : item.partialBaseline ? " · no like-for-like change" : "")));
     }
     if (activeTab === "overview") {
@@ -467,10 +470,10 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         </div>
       </details>
       <div className="analytics-action-row analytics-period-label">
-        <span><strong>Period comparison</strong><small>{previousStartDate} to {previousEndDate} vs {startDate} to {endDate}</small></span>
+        <span><strong>Period comparison</strong><small>{previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " · partial" : ""} vs {startDate} to {endDate}</small></span>
       </div>
       {isVisible(activeTab + "-comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
-        <p className="analytics-comparison-period">Previous period: {previousStartDate} to {previousEndDate}. Current period: {startDate} to {endDate}.</p>
+        <p className="analytics-comparison-period">Previous period: {previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " (partial operational period)" : ""}. Current period: {startDate} to {endDate}.</p>
         {!previousPeriodComplete && <p className="analytics-help analytics-comparison-empty">Only {previousPeriodDays} operational days are available in the previous window. Records before 14 October 2026 are excluded, so this partial period is shown for context and no like-for-like change is calculated.</p>}
         {previousPeriodComplete && previousVisits.length === 0 && <p className="analytics-help analytics-comparison-empty">No saved visits were found in the previous period for this branch scope. There is no previous-period baseline.</p>}
         {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
@@ -619,12 +622,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           <section hidden={!isVisible("period-daily-chart")} className="analytics-subpanel analytics-wide-subpanel">
             <h3><TrendingUp size={16} /> Daily visits: current vs previous period</h3>
             <p className="analytics-help">Each pair compares the same position in two equal-length periods. Scroll horizontally on mobile for longer ranges.</p>
-            <div className="analytics-period-daily-chart" role="img" aria-label="Daily visits comparison, current period versus previous period">
-              {periodDailyComparison.map((day) => <div className="analytics-period-day" key={day.index} title={`Day ${day.index}: current ${day.current} visits; previous ${day.previous} visits`}>
-                <div className="analytics-period-day-bars"><span className="analytics-period-current" style={{ height: `${day.current / maxPeriodDaily * 100}%` }} /><span className="analytics-period-previous" style={{ height: `${day.previous / maxPeriodDaily * 100}%` }} /></div>
-                <small>{day.index % 5 === 1 || day.index === 1 || day.index === rangeDays ? day.index : ""}</small>
-              </div>)}
-            </div>
+            {!previousPeriodComplete
+              ? <p className="analytics-help analytics-comparison-empty">A daily comparison is unavailable because the full previous period falls partly before the 14 October 2026 operational start date.</p>
+              : <div className="analytics-period-daily-chart" role="img" aria-label="Daily visits comparison, current period versus previous period">
+                {periodDailyComparison.map((day) => <div className="analytics-period-day" key={day.index} title={`Day ${day.index}: current ${day.current} visits; previous ${day.previous} visits`}>
+                  <div className="analytics-period-day-bars"><span className="analytics-period-current" style={{ height: `${day.current / maxPeriodDaily * 100}%` }} /><span className="analytics-period-previous" style={{ height: `${day.previous / maxPeriodDaily * 100}%` }} /></div>
+                  <small>{day.index % 5 === 1 || day.index === 1 || day.index === rangeDays ? day.index : ""}</small>
+                </div>)}
+              </div>}
             <div className="analytics-period-legend"><span><i className="analytics-period-current" /> Current period</span><span><i className="analytics-period-previous" /> Previous period</span></div>
           </section>
           <section hidden={!isVisible("weekday-outcomes")} className="analytics-subpanel analytics-wide-subpanel">
