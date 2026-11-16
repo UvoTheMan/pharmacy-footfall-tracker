@@ -460,9 +460,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       if (isVisible("daily-averages")) { section("Daily averages and peak days"); line("Average on recorded days", averageDailyFootfall.toFixed(1) + " visits");
       line("Busiest recorded day", busiestDay ? busiestDay.date + " · " + busiestDay.total + " visits" : "No data");
       line("Quietest recorded day", quietestRecordedDay ? quietestRecordedDay.date + " · " + quietestRecordedDay.total + " visits" : "No data");
-      line("Days with visits", String(activeDays.length)); } if (isVisible("hourly")) section("Busy hours · Lagos time");
-      if (isVisible("hourly")) bars(busyHourStats.filter(hour => hour.total > 0).map(hour => ({label:hour.label,value:hour.total,color:[226,123,72]})));
-      line("Peak hour", peakHour ? peakHour.label + " · " + peakHour.total + " visits" : "No timestamped visits");
+      line("Days with visits", String(activeDays.length)); }
+      if (isVisible("hourly")) {
+        section("Busy hours · Lagos time");
+        bars(busyHourStats.filter(hour => hour.total > 0).map(hour => ({label:hour.label,value:hour.total,color:[226,123,72]})));
+        line("Peak hour", peakHour ? peakHour.label + " · " + peakHour.total + " visits" : "No timestamped visits");
+      }
     }
     if (fullReport || activeTab === "reasons") {
       chapter("04", "Reasons", "The recorded reasons behind no-purchase visits, grouped into practical areas for pharmacy management action.");
