@@ -308,8 +308,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       .sort((a, b) => b.stockoutVisits - a.stockoutVisits || b.total - a.total);
     const productCounts = new Map<string, { name: string; brand: string | null; count: number; branches: Set<string> }>();
     validItems.forEach((item) => {
-      const cleanName = item.item_name.trim().replace(/\\s+/g, " ");
-      const cleanBrand = (item.brand_name ?? "").trim().replace(/\\s+/g, " ");
+      const cleanName = item.item_name.trim().replace(/\s+/g, " ");
+      const cleanBrand = (item.brand_name ?? "").trim().replace(/\s+/g, " ");
       const key = `${cleanName.toLocaleLowerCase()}|${cleanBrand.toLocaleLowerCase()}`;
       if (!cleanName) return;
       const current = productCounts.get(key) ?? { name: cleanName, brand: cleanBrand || null, count: 0, branches: new Set<string>() };
