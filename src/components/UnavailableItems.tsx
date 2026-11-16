@@ -868,6 +868,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           <button className="secondary-button" type="button" onClick={() => { setExportFromDate(dateMinusDays(29)); setExportToDate(todayKey()); }} disabled={exporting}>Last 30 days</button>
         </div>
         <div className="unavailable-export-actions">
+          {profile.role === "admin" && <>
           <article className="unavailable-export-card unavailable-export-card-pdf">
             <span className="unavailable-export-icon"><Download size={19} /></span>
             <div><h4>Stock Intelligence PDF</h4><p>Management-ready summary with key figures, branch comparison, product rankings, assessment status and data-quality notes.</p><small>Uses the Management Snapshot filters above.</small></div>
@@ -878,10 +879,11 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
             <div><h4>Stock Intelligence CSV</h4><p>Detailed stockout dataset, including partial purchases, complete stockouts, visits without product details and data-quality exceptions.</p><small>Uses the export dates and selected branch.</small></div>
             <button className="secondary-button" type="button" onClick={() => void exportStockIntelligenceCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey() || exportToDate < STOCK_INTELLIGENCE_START}>{exporting ? "Preparing CSV…" : "Export Stock Intelligence CSV"}</button>
           </article>
+          </>}
           <article className="unavailable-export-card unavailable-export-card-operational">
             <span className="unavailable-export-icon"><Download size={19} /></span>
             <div><h4>Unavailable Items CSV</h4><p>Individual unavailable-item reports for operational follow-up, including product name, branch, report date, assessment status and photo indicator.</p><small>Uses the export dates, branch and item-name search filters.</small></div>
-            <button className="outline-button" type="button" onClick={() => void exportCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey()}>{exporting ? "Preparing CSV…" : "Export Unavailable Items CSV"}</button>
+            <button className="secondary-button" type="button" onClick={() => void exportCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey()}>{exporting ? "Preparing CSV…" : "Export Unavailable Items CSV"}</button>
           </article>
         </div>
       </section>
