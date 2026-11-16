@@ -350,7 +350,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const mostNoPurchaseBranch = [...branchStats].filter((item) => item.noPurchase > 0).sort((a, b) => b.noPurchase - a.noPurchase)[0];
   const mostUnavailableBranch = [...branchStats].filter((item) => item.unavailable > 0).sort((a, b) => b.unavailable - a.unavailable)[0];
 
-  const downloadAnalysisPdf = async () => {
+  const downloadAnalysisPdf = async (fullReport = false) => {
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -386,7 +386,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     doc.setFillColor(23, 77, 59); doc.rect(0, 0, pageWidth, 40, "F");
     doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("FOOTLYTICS", margin, 15);
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text("PHARMACY FOOTFALL INTELLIGENCE", margin, 22);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text((TABS.find(tab => tab.id === activeTab)?.label || "Analysis") + " report", margin, 30);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(fullReport ? "Complete analytics report" : (TABS.find(tab => tab.id === activeTab)?.label || "Analysis") + " report", margin, 30);
     doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(startDate + " to " + analysisEndDate + " | " + (selectedBranchId === "all" ? "All branches combined" : (analysisBranches[0]?.name || "Selected branch")), margin, 36);
     doc.setFontSize(8); doc.setTextColor(muted[0], muted[1], muted[2]); doc.text("Prepared from saved records. Comparisons are descriptive, not causal.", margin, y); y += 10;
     line("Current day", includeToday && endDate === today ? "Included in current totals and daily trend; excluded from comparisons and daily averages" : "Excluded from current reporting period");
@@ -395,7 +395,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     line("Batch-entered records excluded", String(hourlyAnalysis.batchExcluded));
     line("Before-opening records excluded", String(hourlyAnalysis.beforeOpeningExcluded));
     line("Invalid timestamps excluded", String(hourlyAnalysis.invalidTimestampExcluded));
-    if (activeTab === "overview" && ["kpi-visits","kpi-purchases","kpi-no-purchase","kpi-conversion","kpi-unavailable"].some(isVisible)) {
+    if ((fullReport || activeTab === "overview") && ["kpi-visits","kpi-purchases","kpi-no-purchase","kpi-conversion","kpi-unavailable"].some(isVisible)) {
       section("Performance at a glance");
       if (isVisible("kpi-visits")) line("Total visits", analysisVisits.length.toLocaleString());
       if (isVisible("kpi-purchases")) line("Purchases", purchases.toLocaleString());
@@ -403,7 +403,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       if (isVisible("kpi-conversion")) line("Purchase conversion", conversion + "%");
       if (isVisible("kpi-unavailable")) line("Unavailable-item requests", unavailableRequests.toLocaleString());
     }
-    if (activeTab === "branches" && isVisible("branch-kpis")) {
+    if ((fullReport || activeTab === "branches") && isVisible("branch-kpis")) {
       section("Branch summary metrics"); line("Branches included", String(branchStats.length));
       line("Branches with visits", String(branchStats.filter(item => item.total > 0).length));
       line("Highest footfall branch", busiestBranch ? busiestBranch.name + " · " + busiestBranch.total + " visits" : "No data");
@@ -412,28 +412,30 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       line("Most no-purchase visits", mostNoPurchaseBranch ? mostNoPurchaseBranch.name + " · " + mostNoPurchaseBranch.noPurchase : "No data");
       line("Most unavailable-item requests", mostUnavailableBranch ? mostUnavailableBranch.name + " · " + mostUnavailableBranch.unavailable : "No data");
     }
-    if (activeTab === "branches" && isVisible("branch-recording")) {
+    if ((fullReport || activeTab === "branches") && isVisible("branch-recording")) {
       section("Branch recording activity");
       branchRecordingStats.forEach(item => line(item.name, item.recordedDays + " of " + item.completedDays + " completed calendar days had records"));
       line("Interpretation", "A day without records may reflect closure or missing entry, not necessarily low footfall.");
     }
-    if (activeTab === "reasons" && isVisible("reason-kpis")) {
+    if ((fullReport || activeTab === "reasons") && isVisible("reason-kpis")) {
       section("Reason summary metrics"); line("No-purchase visits", noPurchase.toLocaleString());
       line("Reason categories", String(reasonStats.length)); line("Most frequent reason", String(reasonStats[0]?.count ?? 0));
       line("Stock-related no-purchase rate", stockRelatedNoPurchaseRate + "% (" + stockRelatedNoPurchase + " / " + analysisVisits.length + " visits)");
       line("Price-related no-purchase rate", priceRelatedNoPurchaseRate + "% (" + priceRelatedNoPurchase + " / " + analysisVisits.length + " visits)");
       reasonGroupStats.forEach(group => { line(group.label + " · " + group.count + " visits", group.action); });
     }
-    if (activeTab === "overview") {
+    if (fullReport || activeTab === "overview") {
       if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]); }
       if (isVisible("weekday")) { section("Average visits by weekday"); bars(weekdayStats.map(day => ({label:day.label + " · " + day.occurrences + " days",value:Number(day.average.toFixed(1))}))); }
       if (isVisible("branch-snapshot")) { section("Branch snapshot"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total}))); }
       if (isVisible("insights")) { section("Quick insights"); line("Purchase conversion", conversion + "%"); line("No-purchase rate", noPurchaseRate + "%"); line("No-purchase share of all visits", noPurchaseShare + "%"); }
       if (topBranch) line("Highest branch conversion", topBranch.name + " · " + topBranch.conversion + "%");
-    } else if (activeTab === "branches") {
+    }
+    if (fullReport || activeTab === "branches") {
       if (isVisible("branch-performance")) { section("Branch performance"); bars(branchStats.map(item => ({label:item.name + " · " + item.conversion + "% conversion",value:item.total}))); }
       if (isVisible("branch-performance")) branchStats.forEach(item => line(item.name + " · purchases / no purchase", item.purchases + " / " + item.noPurchase));
-    } else if (activeTab === "trends") {
+    }
+    if (fullReport || activeTab === "trends") {
       if (isVisible("daily-trend")) { section("Daily visits"); bars(dailyStats.filter(day => day.total > 0).map(day => ({label:day.date,value:day.total}))); }
       if (isVisible("weekday-conversion")) { section("Purchase conversion by weekday"); bars(weekdayStats.map(day => ({label:day.label + " · " + day.occurrences + " days",value:percent(day.purchases,day.purchases+day.noPurchase)}))); }
       if (isVisible("daily-averages")) { section("Daily averages and peak days"); line("Average on recorded days", averageDailyFootfall.toFixed(1) + " visits");
@@ -442,7 +444,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       line("Days with visits", String(activeDays.length)); } if (isVisible("hourly")) section("Busy hours · Lagos time");
       if (isVisible("hourly")) bars(busyHourStats.filter(hour => hour.total > 0).map(hour => ({label:hour.label,value:hour.total,color:[226,123,72]})));
       line("Peak hour", peakHour ? peakHour.label + " · " + peakHour.total + " visits" : "No timestamped visits");
-    } else {
+    }
+    if (fullReport || activeTab === "reasons") {
       if (isVisible("reason-breakdown")) section("No-purchase reasons");
       const colors: [number,number,number][] = [[226,123,72],[123,131,216],[35,149,168],[200,94,145],[123,155,69],[186,138,56]];
       if (isVisible("reason-breakdown")) bars(reasonStats.map((item,index) => ({label:item.reason + " · " + percent(item.count,noPurchase) + "%",value:item.count,color:colors[index % colors.length]})));
@@ -455,7 +458,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(muted[0], muted[1], muted[2]);
       doc.text("FOOTLYTICS · INTERNAL MANAGEMENT REPORT", margin, pageHeight - 6); doc.text("Page " + page + " of " + pages, pageWidth - margin, pageHeight - 6, { align: "right" });
     }
-    doc.save("Footlytics-" + activeTab + "-" + startDate + "-to-" + analysisEndDate + ".pdf");
+    doc.save("Footlytics-" + (fullReport ? "Complete-Analytics" : activeTab) + "-" + startDate + "-to-" + analysisEndDate + ".pdf");
   };
 
   return (
@@ -831,7 +834,10 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         </div>
       )}
       <div className="analytics-export-bottom">
-        <button type="button" className="analytics-export-button" onClick={downloadAnalysisPdf} disabled={loading || Boolean(error)}><Download size={15} /> Export current view to PDF</button>
+        <div className="analytics-export-actions">
+         <button type="button" className="analytics-export-button" onClick={() => downloadAnalysisPdf(false)} disabled={loading || Boolean(error)}><Download size={15} /> Export current view to PDF</button>
+         <button type="button" className="analytics-export-button analytics-export-complete" onClick={() => downloadAnalysisPdf(true)} disabled={loading || Boolean(error)}><Download size={15} /> Download all 4 sections in one PDF</button>
+       </div>
       </div>
       <p className="history-footnote">Analytics use saved visit records only. This view does not edit, move, or delete data.</p>
       <p className="analytics-hours-note"><Clock3 size={12} /> Opening hours: Mon–Sat 8:00 AM · Sunday 2:00 PM. Hourly charts exclude pre-opening records; daily totals remain unchanged.</p>
