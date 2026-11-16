@@ -12,6 +12,7 @@ type UnavailableItem = {
   item_name: string;
   reported_on: string;
   recorded_at: string;
+  resolved_at: string | null;
   created_by: string;
   status: "pending" | "reviewed" | "resolved";
   image_path: string | null;
@@ -44,6 +45,13 @@ function dateMinusDays(days: number) {
   const today = todayKey().split("-").map(Number);
   const date = new Date(Date.UTC(today[0], today[1] - 1, today[2] - days, 12));
   return dateKey(date);
+}
+
+function formatResolutionHours(hours: number | null) {
+  if (hours === null) return "Not available";
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min`;
+  if (hours < 48) return `${hours.toFixed(1)} hours`;
+  return `${(hours / 24).toFixed(1)} days`;
 }
 
 function displayDate(value: string) {
@@ -126,7 +134,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       for (let offset = 0; ; offset += pageSize) {
         let query = supabase
           .from("unavailable_items")
-          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
+          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,resolved_at,created_by,status,image_path,branches(name)")
           .gte("reported_on", safeFrom)
           .lte("reported_on", safeTo);
         if (profile.role !== "admin") query = query.eq("branch_id", activeBranchId!);
@@ -268,6 +276,14 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       reviewed: validItems.filter((item) => item.status === "reviewed").length,
       resolved: validItems.filter((item) => item.status === "resolved").length,
     };
+    const resolutionDurationsHours = validItems
+      .filter((item) => item.status === "resolved" && item.resolved_at)
+      .map((item) => Math.max(0, (new Date(item.resolved_at!).getTime() - new Date(item.recorded_at).getTime()) / 3600000))
+      .sort((a, b) => a - b);
+    const medianResolutionHours = resolutionDurationsHours.length === 0 ? null :
+      resolutionDurationsHours.length % 2 === 1
+        ? resolutionDurationsHours[Math.floor(resolutionDurationsHours.length / 2)]
+        : (resolutionDurationsHours[resolutionDurationsHours.length / 2 - 1] + resolutionDurationsHours[resolutionDurationsHours.length / 2]) / 2;
     const pendingOlderThan7Days = validItems.filter((item) => {
       if (item.status !== "pending") return false;
       const age = Math.floor((Date.now() - new Date(item.reported_on + "T00:00:00Z").getTime()) / 86400000);
@@ -305,6 +321,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       .slice(0, 5);
     return {
       statusCounts, byBranch, topProducts,
+      resolvedWithTimestampCount: resolutionDurationsHours.length,
+      medianResolutionHours,
       stockoutVisitCount: visibleStockVisits.length,
       noPurchaseStockouts,
       partialPurchaseVisits,
@@ -447,7 +465,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       for (let offset = 0; ; offset += pageSize) {
         let query = supabase
           .from("unavailable_items")
-          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
+          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,resolved_at,created_by,status,image_path,branches(name)")
           .gte("reported_on", exportFromDate < STOCK_INTELLIGENCE_START ? STOCK_INTELLIGENCE_START : exportFromDate)
           .lte("reported_on", exportToDate)
           .order("reported_on", { ascending: false })
@@ -501,7 +519,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       const columns = [
         "Record type", "Product name", "Branch", "Report date", "Visit date", "Reported time",
         "Visit outcome", "No-purchase reason", "Stockout classification", "Assessment status",
-        "Photo attached", "Visit ID", "Report ID",
+        "Resolved at", "Resolution time (hours)", "Photo attached", "Visit ID", "Report ID",
       ];
       const exportRows: string[][] = exportItems.map((item) => {
         const visit = visitById.get(item.visit_id);
@@ -525,6 +543,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           visit?.reason ?? "",
           classification,
           item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved",
+          item.resolved_at ?? "",
+          item.resolved_at ? ((new Date(item.resolved_at).getTime() - new Date(item.recorded_at).getTime()) / 3600000).toFixed(2) : "",
           item.image_path ? "Yes" : "No",
           item.visit_id,
           item.id,
@@ -545,6 +565,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           visit.outcome === "purchased" ? "Purchase" : "No purchase",
           visit.reason ?? "",
           verified ? "Confirmed stockout visit - product not specified" : "Data review required - visit reason inconsistent",
+          "",
+          "",
           "",
           "",
           visit.id,
@@ -647,6 +669,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     addLine("Reviewed", unavailableIntelligence.statusCounts.reviewed);
     addLine("Resolved", unavailableIntelligence.statusCounts.resolved);
     addLine("Pending for more than 7 days", unavailableIntelligence.pendingOlderThan7Days);
+    addLine("Resolved reports with tracked timestamps", unavailableIntelligence.resolvedWithTimestampCount);
+    addLine("Median resolution time", formatResolutionHours(unavailableIntelligence.medianResolutionHours));
 
     addSection("Branch comparison");
     if (unavailableIntelligence.byBranch.length === 0) addWrapped("No branch stockout activity was recorded in this reporting period.");
@@ -787,6 +811,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           <span>{unavailableIntelligence.statusCounts.reviewed.toLocaleString()} reviewed</span>
           <span>{unavailableIntelligence.statusCounts.resolved.toLocaleString()} resolved</span>
           <span>{unavailableIntelligence.pendingOlderThan7Days.toLocaleString()} pending over 7 days</span>
+          <span>{unavailableIntelligence.resolvedWithTimestampCount.toLocaleString()} resolutions time-tracked</span>
+          <span>Median resolution: {formatResolutionHours(unavailableIntelligence.medianResolutionHours)}</span>
         </div>
         {(unavailableIntelligence.flaggedVisitsWithoutItems > 0 || unavailableIntelligence.mismatchedItems > 0 || unavailableIntelligence.flaggedVisitsWithOtherReason > 0) && (
           <div className="unavailable-data-quality" role="status">
