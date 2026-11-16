@@ -629,3 +629,22 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
 .correction-history-pagination button{display:inline-flex;align-items:center;gap:4px;padding:8px 10px;font-size:10px}
 @media(max-width:760px){.correction-history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.correction-history-search{grid-column:1/-1}.correction-history-clear{width:100%}}
 @media(max-width:420px){.correction-history-filters{gap:7px}.correction-history-pagination{gap:8px}.correction-history-pagination button{padding:8px 7px}.correction-history-pagination>span{font-size:10px}}
+
+
+/* Historical visit browsing by date or date range. */
+.history-view-controls{display:grid;gap:12px;margin:16px 0}
+.history-view-mode,.history-quick-durations{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.history-view-mode{width:fit-content;padding:4px;border:1px solid #e1e9e2;border-radius:10px;background:#f7faf7}
+.history-view-mode button,.history-quick-durations button{min-height:34px;padding:8px 12px;border:1px solid transparent;border-radius:7px;background:transparent;color:#63756a;font-size:11px;font-weight:700}
+.history-view-mode button.active,.history-quick-durations button.active{border-color:#cfe3d3;background:#e7f3e9;color:#1c6845}
+.history-view-mode button:hover,.history-quick-durations button:hover{color:#185b3c}
+.history-quick-durations>span{margin-right:3px;color:#78877d;font-size:11px;font-weight:700}
+.history-quick-durations button{border-color:#dfe8e1;background:#fff}
+.history-view-controls .history-filters{margin:0}
+@media(max-width:520px){
+  .history-view-mode{width:100%}
+  .history-view-mode button{flex:1}
+  .history-quick-durations{gap:6px}
+  .history-quick-durations>span{width:100%}
+  .history-quick-durations button{flex:1;padding:8px 9px}
+}
