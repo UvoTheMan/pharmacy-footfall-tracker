@@ -9,7 +9,7 @@ type Visit = {
   branch_id: string;
   visit_date: string;
   recorded_at: string;
-  outcome: "purchased" | "not_purchased" | "undecided";
+  outcome: "purchased" | "not_purchased";
   reason: string | null;
   unavailable_item_requested: boolean;
   batch_id: string | null;
@@ -348,7 +348,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
                 <tr key={visit.id}>
                   <td>{formatTime(visit.recorded_at)}</td>
                   <td>{branchNames.get(visit.branch_id) ?? "Unknown branch"}</td>
-                  <td><span className={`correction-badge ${visit.outcome === "not_purchased" ? "not-purchased" : "purchased"}`}>{visit.outcome === "purchased" ? "Purchased" : visit.outcome === "not_purchased" ? "No purchase" : "Legacy record"}</span></td>
+                  <td><span className={`correction-badge ${visit.outcome === "not_purchased" ? "not-purchased" : "purchased"}`}>{visit.outcome === "purchased" ? "Purchased" : "No purchase"}</span></td>
                   <td>{visit.reason ?? "—"}</td>
                   <td>{visit.outcome === "purchased" && visit.unavailable_item_requested ? "Yes" : "—"}</td>
                   <td><code>{visit.id}</code></td>
