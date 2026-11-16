@@ -213,3 +213,19 @@
 .analytics-include-today{display:flex;align-items:center;gap:8px;margin:10px 0 2px;color:#53695c;font-size:11px;font-weight:700}
 .analytics-include-today input{width:16px;height:16px;accent-color:#18794e}
 .analytics-include-today input:disabled{opacity:.45;cursor:not-allowed}
+
+
+/* Phase 3: action-oriented pharmacy operations summaries. */
+.analytics-action-group-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.analytics-action-group{min-width:0;padding:13px;border:1px solid #e5ece6;border-radius:11px;background:#fbfdfb}
+.analytics-action-group>p{margin:9px 0;color:#6d7e71;font-size:11px;line-height:1.5}
+.analytics-action-reason{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #edf1ed;color:#53685a;font-size:11px}
+.analytics-action-reason strong{color:#294e38;font-variant-numeric:tabular-nums}
+.analytics-reason-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+.analytics-recording-panel{margin:0 0 14px}
+.analytics-recording-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:13px}
+.analytics-recording-card{min-width:0;padding:12px;border:1px solid #e6eee7;border-radius:10px;background:#fcfdfc}
+.analytics-recording-card .progress-track{height:7px;margin:10px 0 7px}
+.analytics-recording-card .progress-track>span{display:block;height:100%;border-radius:999px;background:#398b5c}
+.analytics-recording-card>small{color:#7b8c80;font-size:10px;line-height:1.4}
+@media(max-width:700px){.analytics-action-group-grid{grid-template-columns:1fr}.analytics-reason-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-recording-grid{grid-template-columns:1fr}}
