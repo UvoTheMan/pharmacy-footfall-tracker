@@ -57,7 +57,10 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
   const today = useMemo(() => lagosDateKey(), []);
   const minDate = dateOffset(today, -90);
   const maxDate = dateOffset(today, -1);
+  const [viewMode, setViewMode] = useState<"date" | "range">("date");
   const [selectedDate, setSelectedDate] = useState(maxDate);
+  const [rangeStartDate, setRangeStartDate] = useState(dateOffset(maxDate, -6));
+  const [rangeEndDate, setRangeEndDate] = useState(maxDate);
   const [exportStartDate, setExportStartDate] = useState(maxDate);
   const [exportEndDate, setExportEndDate] = useState(maxDate);
   const [adminBranchFilter, setAdminBranchFilter] = useState("all");
@@ -74,8 +77,17 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
 
   async function loadHistory() {
     if (!supabase || !profile || (profile.role !== "admin" && !branch)) return;
-    if (!validHistoricalDate(selectedDate)) {
+    if (viewMode === "date" && !validHistoricalDate(selectedDate)) {
       setError("Choose a date from the previous 90 days through yesterday.");
+      setVisits([]);
+      return;
+    }
+    if (viewMode === "range" && (
+      !validHistoricalDate(rangeStartDate) ||
+      !validHistoricalDate(rangeEndDate) ||
+      rangeStartDate > rangeEndDate
+    )) {
+      setError("Choose a valid date range from the previous 90 days through yesterday.");
       setVisits([]);
       return;
     }
@@ -87,10 +99,14 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
       let query = supabase
         .from("visits")
         .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested,batch_id,created_by,created_at,updated_at")
-        .eq("visit_date", selectedDate)
+        .order("visit_date", { ascending: false })
         .order("recorded_at", { ascending: false })
         .order("id", { ascending: true })
         .range(offset, offset + 999);
+
+      query = viewMode === "date"
+        ? query.eq("visit_date", selectedDate)
+        : query.gte("visit_date", rangeStartDate).lte("visit_date", rangeEndDate);
 
       if (profile.role !== "admin") {
         query = query.eq("branch_id", branch!.id);
@@ -115,9 +131,34 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
 
   useEffect(() => {
     void loadHistory();
-    // Refresh when the date or authorized branch filter changes.
+    // Refresh when the view period or authorized branch filter changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, adminBranchFilter, branch?.id, profile?.role]);
+  }, [viewMode, selectedDate, rangeStartDate, rangeEndDate, adminBranchFilter, branch?.id, profile?.role]);
+
+  function applyHistoricalRangeStart(value: string) {
+    if (!validHistoricalDate(value) || value > rangeEndDate) {
+      setError("The start date must be within the previous 90 days and cannot be later than the end date.");
+      return;
+    }
+    setError("");
+    setRangeStartDate(value);
+  }
+
+  function applyHistoricalRangeEnd(value: string) {
+    if (!validHistoricalDate(value) || value < rangeStartDate) {
+      setError("The end date must be within the previous 90 days and cannot be earlier than the start date.");
+      return;
+    }
+    setError("");
+    setRangeEndDate(value);
+  }
+
+  function applyQuickDuration(days: 7 | 30) {
+    setError("");
+    setRangeStartDate(dateOffset(maxDate, -(days - 1)));
+    setRangeEndDate(maxDate);
+    setViewMode("range");
+  }
 
   function applyHistoricalDate(value: string) {
     if (!validHistoricalDate(value)) {
@@ -231,11 +272,39 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
       </div>
       <p className="panel-description">Choose a past date to review visits. Historical viewing ends yesterday; CSV exports can include today and any date within the previous 90 days. Older records remain stored in the database.</p>
 
+      <div className="history-view-controls">
+        <div className="history-view-mode" role="group" aria-label="Historical view mode">
+          <button type="button" className={viewMode === "date" ? "active" : ""} onClick={() => { setError(""); setViewMode("date"); }}>Specific date</button>
+          <button type="button" className={viewMode === "range" ? "active" : ""} onClick={() => { setError(""); setViewMode("range"); }}>Date range</button>
+        </div>
+        {viewMode === "date" ? (
+          <div className="history-filters">
+            <label className="history-date-field" htmlFor="history-date">
+              <span><CalendarDays size={15} /> View date</span>
+              <input id="history-date" type="date" min={minDate} max={maxDate} value={selectedDate} onChange={(event) => applyHistoricalDate(event.target.value)} />
+            </label>
+          </div>
+        ) : (
+          <>
+            <div className="history-quick-durations" role="group" aria-label="Quick date ranges">
+              <span>Quick view</span>
+              <button type="button" onClick={() => applyQuickDuration(7)} className={rangeStartDate === dateOffset(maxDate, -6) && rangeEndDate === maxDate ? "active" : ""}>Last 7 days</button>
+              <button type="button" onClick={() => applyQuickDuration(30)} className={rangeStartDate === dateOffset(maxDate, -29) && rangeEndDate === maxDate ? "active" : ""}>Last 30 days</button>
+            </div>
+            <div className="history-filters">
+              <label className="history-date-field" htmlFor="history-range-start">
+                <span><CalendarDays size={15} /> Start date</span>
+                <input id="history-range-start" type="date" min={minDate} max={maxDate} value={rangeStartDate} onChange={(event) => applyHistoricalRangeStart(event.target.value)} />
+              </label>
+              <label className="history-date-field" htmlFor="history-range-end">
+                <span><CalendarDays size={15} /> End date</span>
+                <input id="history-range-end" type="date" min={minDate} max={maxDate} value={rangeEndDate} onChange={(event) => applyHistoricalRangeEnd(event.target.value)} />
+              </label>
+            </div>
+          </>
+        )}
+      </div>
       <div className="history-filters">
-        <label className="history-date-field" htmlFor="history-date">
-          <span><CalendarDays size={15} /> View date</span>
-          <input id="history-date" type="date" min={minDate} max={maxDate} value={selectedDate} onChange={(event) => applyHistoricalDate(event.target.value)} />
-        </label>
         {profile?.role === "admin" && (
           <label className="history-date-field" htmlFor="history-branch">
             <span><Search size={15} /> Branch</span>
@@ -258,14 +327,16 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
       </div>
 
       <div className="history-toolbar">
-        <span>{loading ? "Loading records…" : `${visits.length} ${visits.length === 1 ? "record" : "records"} for ${selectedDate}`}</span>
+        <span>{loading ? "Loading records…" : viewMode === "date"
+          ? `${visits.length} ${visits.length === 1 ? "record" : "records"} for ${selectedDate}`
+          : `${visits.length} ${visits.length === 1 ? "record" : "records"} from ${rangeStartDate} to ${rangeEndDate}`}</span>
         <div>
           <button type="button" className="secondary-button" onClick={() => void loadHistory()} disabled={!canLoad || loading}><RefreshCw size={14} /> Refresh</button>
         </div>
       </div>
 
       {!loading && visits.length === 0 ? (
-        <div className="corrections-empty">No visits found for this date and branch selection.</div>
+        <div className="corrections-empty">No visits found for this ${viewMode === "date" ? "date" : "date range"} and branch selection.</div>
       ) : (
         <div className="history-table-wrap">
           <table className="history-table">
