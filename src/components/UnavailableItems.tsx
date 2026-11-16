@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, Check, Download, Edit3, Search, X } from "lucide-react";
+import { jsPDF } from "jspdf";
 import { supabase } from "../lib/supabase";
 
 type Branch = { id: string; name: string };
@@ -579,6 +580,111 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     }
   }
 
+  function exportStockIntelligencePdf() {
+    if (profile.role !== "admin") return;
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 16;
+    const contentWidth = pageWidth - margin * 2;
+    let y = 18;
+    const branchLabel = branchFilter === "all"
+      ? "All branches"
+      : registerBranches.find((branch) => branch.id === branchFilter)?.name ?? "Selected branch";
+    const periodStart = fromDate < STOCK_INTELLIGENCE_START ? STOCK_INTELLIGENCE_START : fromDate;
+    const addSection = (heading: string) => {
+      if (y > 260) { doc.addPage(); y = 18; }
+      y += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(heading, margin, y);
+      y += 7;
+    };
+    const addLine = (label: string, value: string | number) => {
+      if (y > 275) { doc.addPage(); y = 18; }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(String(label), margin, y);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(value), pageWidth - margin, y, { align: "right" });
+      y += 6;
+    };
+    const addWrapped = (value: string) => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const lines = doc.splitTextToSize(value, contentWidth);
+      if (y + lines.length * 4.5 > 278) { doc.addPage(); y = 18; }
+      doc.text(lines, margin, y);
+      y += lines.length * 4.5 + 2;
+    };
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text("FOOTLYTICS", margin, y);
+    y += 8;
+    doc.setFontSize(15);
+    doc.text("Stock Intelligence Report", margin, y);
+    y += 7;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Reporting period: ${periodStart} to ${toDate}`, margin, y);
+    y += 5;
+    doc.text(`Scope: ${branchLabel}`, margin, y);
+    y += 5;
+    doc.text(`Generated: ${new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" }).format(new Date())}`, margin, y);
+    y += 4;
+    doc.setDrawColor(190, 205, 194);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4;
+
+    addSection("Executive summary");
+    addLine("Stockout visits", unavailableIntelligence.stockoutVisitCount);
+    addLine("Verified product reports", unavailableIntelligence.statusCounts.total);
+    addLine("No-purchase stockouts", unavailableIntelligence.noPurchaseStockouts);
+    addLine("Partial purchases with stock gaps", unavailableIntelligence.partialPurchaseVisits);
+
+    addSection("Assessment status");
+    addLine("Pending", unavailableIntelligence.statusCounts.pending);
+    addLine("Reviewed", unavailableIntelligence.statusCounts.reviewed);
+    addLine("Resolved", unavailableIntelligence.statusCounts.resolved);
+    addLine("Pending for more than 7 days", unavailableIntelligence.pendingOlderThan7Days);
+
+    addSection("Branch comparison");
+    if (unavailableIntelligence.byBranch.length === 0) addWrapped("No branch stockout activity was recorded in this reporting period.");
+    unavailableIntelligence.byBranch.forEach((branch) => {
+      addLine(branch.name, `${branch.stockoutVisits} stockout visits`);
+      addWrapped(`${branch.total} verified product reports, ${branch.pending} pending`);
+    });
+
+    addSection("Most reported unavailable products");
+    if (unavailableIntelligence.topProducts.length === 0) addWrapped("There are not enough verified product reports to rank products for this period.");
+    unavailableIntelligence.topProducts.forEach((item, index) => {
+      addLine(`${index + 1}. ${item.name}`, `${item.count} reports`);
+      addWrapped(`Reported across ${item.branchCount} ${item.branchCount === 1 ? "branch" : "branches"}`);
+    });
+
+    addSection("Data quality checks");
+    addLine("Stockout visits without linked product details", unavailableIntelligence.flaggedVisitsWithoutItems);
+    addLine("Product reports with inconsistent visit classification", unavailableIntelligence.mismatchedItems);
+    addLine("Flagged visits with a different no-purchase reason", unavailableIntelligence.flaggedVisitsWithOtherReason);
+    addWrapped("These exceptions are shown for investigation and are excluded from verified product rankings where appropriate. Historical records have not been automatically changed.");
+
+    addSection("Management notes");
+    addWrapped("Use repeated product reports and branch patterns as prompts to check current stock records, purchasing history and supplier lead times. Report counts represent customer visits and product reports, not units of demand.");
+    addWrapped("This report reflects the current Management Snapshot filters. Product names are grouped only by case-insensitive matching and whitespace normalisation. Similar names, strengths and formulations may still appear separately.");
+    addWrapped("Recommendations should be confirmed against inventory balances and sales data. This report does not calculate lost revenue or recommended order quantities.");
+
+    const pageCount = doc.getNumberOfPages();
+    for (let page = 1; page <= pageCount; page += 1) {
+      doc.setPage(page);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(110, 120, 112);
+      doc.text(`Footlytics | Confidential management report | Page ${page} of ${pageCount}`, margin, 289);
+    }
+    doc.save(`footlytics-stock-intelligence-${periodStart}-to-${toDate}.pdf`);
+    setNotice("Stock Intelligence PDF generated using the current Management Snapshot date and branch filters.");
+  }
+
   async function exportCsv() {
     if (!supabase || exporting) return;
     if (!exportFromDate || !exportToDate || exportFromDate > exportToDate) {
@@ -750,26 +856,36 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           </div>
         </div>
       )}
-      <details className="admin-record-rollup unavailable-export-rollup">
-        <summary><span className="admin-record-rollup-title"><span className="eyebrow">CSV EXPORT</span><strong>Export unavailable-item reports</strong><small>Choose a separate date range for the CSV export.</small></span><span className="admin-record-rollup-meta">{exportFromDate && exportToDate ? `${exportFromDate} → ${exportToDate}` : "Choose dates"} <Download size={15} /></span></summary>
-        <div className="admin-record-rollup-content">
-          <p className="panel-description">Choose the reporting period for this export. The date range is independent of the records currently shown above, and can include older reports. Branch and item-name filters still apply.</p>
-          <div className="unavailable-search">
-            <label className="history-date-field"><span><CalendarDays size={14} /> Export from</span><input type="date" max={todayKey()} value={exportFromDate} onChange={(event) => setExportFromDate(event.target.value)} /></label>
-            <label className="history-date-field"><span>Export to</span><input type="date" max={todayKey()} value={exportToDate} onChange={(event) => setExportToDate(event.target.value)} /></label>
-          </div>
-          <div className="history-toolbar">
-            <span>{exportFromDate && exportToDate && exportFromDate <= exportToDate ? `Export period: ${exportFromDate} to ${exportToDate}` : "Choose a valid date range"}</span>
-            <button className="secondary-button" type="button" onClick={() => { setExportFromDate(dateMinusDays(29)); setExportToDate(todayKey()); }} disabled={exporting}>Last 30 days</button>
-          </div>
-          <button className="secondary-button" type="button" onClick={() => void exportCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey()}><Download size={14} /> {exporting ? "Preparing CSV…" : "Export unavailable-item CSV"}</button>
-          {profile.role === "admin" && <div className="unavailable-stock-export">
-            <p className="panel-description">The stock intelligence export includes verified product reports, partial-purchase and no-purchase stockouts, assessment status, visits with no product details, and records that need data-quality review. It follows the selected branch and export dates.</p>
-            <button className="primary-button" type="button" onClick={() => void exportStockIntelligenceCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey()}><Download size={14} /> {exporting ? "Preparing CSV…" : "Export stock intelligence"}</button>
-          </div>}
+      <section className="unavailable-export-panel" aria-label="Export reports">
+        <div className="unavailable-export-heading">
+          <div><p className="eyebrow">DOWNLOAD REPORTS</p><h3>Export stock and unavailable-item data</h3></div>
+          <span>Choose dates below</span>
         </div>
-      </details>
-      <p className="history-footnote">The list shows up to 90 days of records, including today. Older reports remain stored for future analysis and aren't deleted by this filter.</p>
+        <p className="panel-description">The two CSV exports use the export date range below. The Stock Intelligence PDF uses the date range and branch currently selected in the Management Snapshot above.</p>
+        <div className="unavailable-search unavailable-export-dates">
+          <label className="history-date-field"><span><CalendarDays size={14} /> Export from</span><input type="date" max={todayKey()} value={exportFromDate} onChange={(event) => setExportFromDate(event.target.value)} /></label>
+          <label className="history-date-field"><span>Export to</span><input type="date" max={todayKey()} value={exportToDate} onChange={(event) => setExportToDate(event.target.value)} /></label>
+          <button className="secondary-button" type="button" onClick={() => { setExportFromDate(dateMinusDays(29)); setExportToDate(todayKey()); }} disabled={exporting}>Last 30 days</button>
+        </div>
+        <div className="unavailable-export-actions">
+          <article className="unavailable-export-card unavailable-export-card-pdf">
+            <span className="unavailable-export-icon"><Download size={19} /></span>
+            <div><h4>Stock Intelligence PDF</h4><p>Management-ready summary with key figures, branch comparison, product rankings, assessment status and data-quality notes.</p><small>Uses the Management Snapshot filters above.</small></div>
+            <button className="primary-button" type="button" onClick={exportStockIntelligencePdf} disabled={loading || profile.role !== "admin"}>Export Stock Intelligence PDF</button>
+          </article>
+          <article className="unavailable-export-card unavailable-export-card-data">
+            <span className="unavailable-export-icon"><Download size={19} /></span>
+            <div><h4>Stock Intelligence CSV</h4><p>Detailed stockout dataset, including partial purchases, complete stockouts, visits without product details and data-quality exceptions.</p><small>Uses the export dates and selected branch.</small></div>
+            <button className="secondary-button" type="button" onClick={() => void exportStockIntelligenceCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey() || exportToDate < STOCK_INTELLIGENCE_START}>{exporting ? "Preparing CSV…" : "Export Stock Intelligence CSV"}</button>
+          </article>
+          <article className="unavailable-export-card unavailable-export-card-operational">
+            <span className="unavailable-export-icon"><Download size={19} /></span>
+            <div><h4>Unavailable Items CSV</h4><p>Individual unavailable-item reports for operational follow-up, including product name, branch, report date, assessment status and photo indicator.</p><small>Uses the export dates, branch and item-name search filters.</small></div>
+            <button className="outline-button" type="button" onClick={() => void exportCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey()}>{exporting ? "Preparing CSV…" : "Export Unavailable Items CSV"}</button>
+          </article>
+        </div>
+      </section>
+      <p className="history-footnote">The list shows up to 90 days of records, including today. Older reports remain stored for future analysis and aren't deleted by this filter.</p>The list shows up to 90 days of records, including today. Older reports remain stored for future analysis and aren't deleted by this filter.</p>
       {editing && (
         <div className="modal-backdrop" role="presentation">
           <form className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-unavailable-title" onSubmit={saveEdit}>
