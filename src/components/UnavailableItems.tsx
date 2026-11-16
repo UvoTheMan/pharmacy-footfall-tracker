@@ -695,6 +695,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     addSection("Management notes");
     addWrapped("Use repeated product reports and branch patterns as prompts to check current stock records, purchasing history and supplier lead times. Report counts represent customer visits and product reports, not units of demand.");
     addWrapped("This report reflects the current Management Snapshot filters. Product names are grouped only by case-insensitive matching and whitespace normalisation. Similar names, strengths and formulations may still appear separately.");
+    addWrapped("Resolution-time metrics include only reports moved into Resolved after reliable timestamp tracking was introduced. Existing resolved reports have no reconstructed resolution time and are excluded from the median.");
     addWrapped("Recommendations should be confirmed against inventory balances and sales data. This report does not calculate lost revenue or recommended order quantities.");
 
     const pageCount = doc.getNumberOfPages();
@@ -732,7 +733,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       while (hasMore) {
         let query = supabase
           .from("unavailable_items")
-          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
+          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,resolved_at,created_by,status,image_path,branches(name)")
           .gte("reported_on", exportFromDate)
           .lte("reported_on", exportToDate)
           .order("reported_on", { ascending: false })
@@ -754,7 +755,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
         return;
       }
 
-      const columns = ["Product name", "Branch", "Unavailable date", "Reported time", "Assessment status", "Photo attached"];
+      const columns = ["Product name", "Branch", "Unavailable date", "Reported time", "Assessment status", "Resolved at", "Resolution time (hours)", "Photo attached"];
       const escapeCell = (value: string) => {
         // Prevent spreadsheet formulas from running when the CSV is opened.
         const safe = /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
@@ -766,6 +767,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
         item.reported_on,
         new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(item.recorded_at)),
         item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved",
+        item.resolved_at ?? "",
+        item.resolved_at ? ((new Date(item.resolved_at).getTime() - new Date(item.recorded_at).getTime()) / 3600000).toFixed(2) : "",
         item.image_path ? "Yes" : "No",
       ]);
       const csv = "\uFEFF" + [columns, ...rows].map((row) => row.map((cell) => escapeCell(String(cell ?? ""))).join(",")).join("\r\n");
