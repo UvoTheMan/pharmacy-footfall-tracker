@@ -65,7 +65,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     overview: [
       { id: "kpi-unavailable", label: "Unavailable-item requests" }, { id: "outcomes", label: "Outcome distribution chart" },
       { id: "weekday", label: "Visits by weekday" }, { id: "branch-snapshot", label: "Branch snapshot" },
-      { id: "insights", label: "Quick insights" }, { id: "overview-comparison", label: "Previous-period comparison" },
+      { id: "insights", label: "Quick insights" },
     ],
     branches: [
       { id: "branch-kpis", label: "Branch summary metrics" }, { id: "branch-performance", label: "Branch performance breakdown" },
@@ -473,21 +473,19 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       </nav>
       <p className="analytics-tab-description">{TABS.find((tab) => tab.id === activeTab)?.description}</p>
 
-      {activeTab === "overview" && (
-        <div className="history-summary analytics-kpis analytics-shared-kpis" aria-label="Key performance metrics">
-          {comparisonStats.map((item) => <article className="analytics-shared-kpi" key={item.label}>
-            <span className="analytics-shared-kpi-label">{item.label === "Total visits" ? <><Users size={13} /> Total visits</> : item.label}</span>
-            <strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
-            <small>{item.baselineAvailable ? `Previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : item.partialBaseline ? `Partial previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : "No previous baseline"}</small>
-            <small className={item.baselineAvailable && item.delta > 0 ? "comparison-up" : item.baselineAvailable && item.delta < 0 ? "comparison-down" : ""}>
-              {item.baselineAvailable ? item.percentagePoints
-                ? `${item.delta > 0 ? "+" : ""}${item.delta} pp change`
-                : `${item.delta > 0 ? "+" : ""}${item.delta} change${item.change === null ? "" : ` (${item.change > 0 ? "+" : ""}${item.change}%)`}`
-                : item.partialBaseline ? "Partial period, no like-for-like change" : "No previous baseline"}
-            </small>
-          </article>)}
-        </div>
-      )}
+      <div className="history-summary analytics-kpis analytics-shared-kpis" aria-label="Key performance metrics">
+        {comparisonStats.map((item) => <article className="analytics-shared-kpi" key={item.label}>
+          <span className="analytics-shared-kpi-label">{item.label === "Total visits" ? <><Users size={13} /> Total visits</> : item.label}</span>
+          <strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
+          <small>{item.baselineAvailable ? `Previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : item.partialBaseline ? `Partial previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : "No previous baseline"}</small>
+          <small className={item.baselineAvailable && item.delta > 0 ? "comparison-up" : item.baselineAvailable && item.delta < 0 ? "comparison-down" : ""}>
+            {item.baselineAvailable ? item.percentagePoints
+              ? `${item.delta > 0 ? "+" : ""}${item.delta} pp change`
+              : `${item.delta > 0 ? "+" : ""}${item.delta} change${item.change === null ? "" : ` (${item.change > 0 ? "+" : ""}${item.change}%)`}`
+              : item.partialBaseline ? "Partial period, no like-for-like change" : "No previous baseline"}
+          </small>
+        </article>)}
+      </div>
 
       <details className="analytics-customise-panel">
         <summary><span><strong>Customise view</strong><small>Choose exactly which data to display in this section</small></span><span className="analytics-customise-count">{sectionOptions[activeTab].filter((item) => isVisible(item.id)).length} of {sectionOptions[activeTab].length} selected</span></summary>
@@ -502,24 +500,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           </label>)}
         </div>
       </details>
-      {activeTab === "overview" && (
-        <>
-          <div className="analytics-action-row analytics-period-label">
-            <span><strong>Period comparison · completed days</strong><small>{previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " · partial" : ""} vs {startDate} to {comparisonEndDate}</small></span>
-          </div>
-          {isVisible("overview-comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
-        <p className="analytics-comparison-period">Previous period: {previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " (partial operational period)" : ""}. Completed current period: {startDate} to {comparisonEndDate}. Today is excluded from comparisons.</p>
-        {!previousPeriodComplete && previousPeriodDays > 0 && <p className="analytics-help analytics-comparison-empty">Only {previousPeriodDays} operational days are available in the previous window. Records before 14 October 2026 are excluded, so this partial period is shown for context and no like-for-like change is calculated.</p>}
-        {!previousPeriodComplete && previousPeriodDays === 0 && <p className="analytics-help analytics-comparison-empty">No completed days are available for a previous-period comparison in this selected range.</p>}
-        {previousPeriodComplete && previousVisits.length === 0 && <p className="analytics-help analytics-comparison-empty">No saved visits were found in the previous period for this branch scope. There is no previous-period baseline.</p>}
-          {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
-            <span>{item.label}</span><strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
-            <small>{item.baselineAvailable ? `Previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : item.partialBaseline ? `Partial previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : "No previous baseline"}</small>
-            <small className={item.baselineAvailable && item.delta > 0 ? "comparison-up" : item.baselineAvailable && item.delta < 0 ? "comparison-down" : ""}>{item.baselineAvailable ? item.percentagePoints ? `${item.delta > 0 ? "+" : ""}${item.delta} pp change` : `${item.delta > 0 ? "+" : ""}${item.delta} change${item.change === null ? "" : ` (${item.change > 0 ? "+" : ""}${item.change}%)`}` : item.partialBaseline ? "Partial period, no like-for-like change" : "No previous baseline"}</small>
-          </article>)}
-          </section>}
-        </>
-      )}
+
 
       {activeTab === "overview" && (
         <div className="analytics-tab-content">
