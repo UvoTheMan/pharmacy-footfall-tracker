@@ -624,7 +624,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Each conversion rate shows its visit sample size. Rates below {MIN_BRANCH_SAMPLE} visits are marked low sample.</p>
               {branchStats.map((item) => (
                 <div className="analytics-branch-row" key={item.id}>
-                  <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.resolved} resolved · {item.resolved > 0 ? item.conversion + "% conversion" : "No visits"}{item.resolved > 0 && item.resolved < MIN_BRANCH_SAMPLE ? " · Low sample" : ""}</span></div>
+                  <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.resolved > 0 ? item.conversion + "% conversion" : "No visits"}{item.resolved > 0 && item.resolved < MIN_BRANCH_SAMPLE ? " · Low sample" : ""}</span></div>
                   <div className="progress-track"><span className="progress-fill purchase-fill" style={{ width: `${item.total / maxBranch * 100}%` }} /></div>
                   <div className="analytics-row-meta"><span>{item.purchases} purchases</span><span>{item.noPurchase} no purchase</span></div>
                   <div className="analytics-row-meta"><span>{item.unavailable} unavailable-item requests</span></div>
@@ -669,7 +669,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <h3><BarChart3 size={16} /> Visit outcomes by weekday</h3>
             <p className="analytics-help">Each visit is counted as either a purchase or no purchase.</p>
             <div className="analytics-weekday-outcomes">
-              {weekdayStats.map((day) => { const resolvedWeekday = day.purchases + day.noPurchase; return <div className="analytics-weekday-outcome" key={day.label}>
+              {weekdayStats.map((day) => { return <div className="analytics-weekday-outcome" key={day.label}>
                 <div className="analytics-row-label"><strong>{day.label}</strong><span>{day.total} visits across {day.occurrences} days · {percent(day.purchases, day.total)}% conversion</span></div>
                 <div className="analytics-stacked-bar" aria-label={`${day.label}: ${day.purchases} purchases, ${day.noPurchase} no purchase`}>
                   <span className="analytics-stack-purchased" style={{ width: `${day.purchases / Math.max(1, day.total) * 100}%` }} />
@@ -705,10 +705,9 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <p className="analytics-help">Purchases divided by all visits for each weekday. Weekday averages use completed days only.</p>
                 <div className="analytics-weekday-chart">
                   {weekdayStats.map((day) => {
-                    const resolvedWeekday = day.purchases + day.noPurchase;
-                    const rate = percent(day.purchases, resolvedWeekday);
-                    return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${resolvedWeekday} visits across ${day.occurrences} days`}>
-                      <strong>{resolvedWeekday ? `${rate}%` : "—"}</strong><span className="analytics-weekday-track conversion-track"><i style={{ height: `${Math.max(rate ? 5 : 2, rate)}%` }} /></span><small>{day.label}<br />{day.occurrences}d</small>
+                    const rate = percent(day.purchases, day.total);
+                    return <div className="analytics-weekday" key={day.label} title={`${day.label}: ${rate}% conversion from ${day.total} visits across ${day.occurrences} days`}>
+                      <strong>{day.total ? `${rate}%` : "—"}</strong><span className="analytics-weekday-track conversion-track"><i style={{ height: `${Math.max(rate ? 5 : 2, rate)}%` }} /></span><small>{day.label}<br />{day.occurrences}d</small>
                     </div>;
                   })}
                 </div>
