@@ -58,7 +58,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const previousEndDate = shiftDate(startDate, -1);
   const previousPeriodComplete = comparisonRangeDays > 0 && rawPreviousStartDate >= GO_LIVE_DATE;
   const previousPeriodDays = previousEndDate >= previousStartDate ? Math.round((Date.parse(previousEndDate + "T12:00:00Z") - Date.parse(previousStartDate + "T12:00:00Z")) / 86400000) + 1 : 0;
-  const previousPeriodLabel = previousPeriodDays > 0 ? previousStartDate + " to " + previousEndDate : "No operational previous period";
   const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
   const [visibleData, setVisibleData] = useState<Record<string, boolean>>({});
   const sectionOptions: Record<AnalysisTab, { id: string; label: string }[]> = {
