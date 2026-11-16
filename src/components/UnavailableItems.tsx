@@ -422,6 +422,163 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     }
   }
 
+  async function exportStockIntelligenceCsv() {
+    if (!supabase || exporting || profile.role !== "admin") return;
+    if (!exportFromDate || !exportToDate || exportFromDate > exportToDate) {
+      setError("Choose a valid export date range. The From date must be on or before the To date.");
+      return;
+    }
+    if (exportToDate > todayKey()) {
+      setError("The export To date cannot be in the future.");
+      return;
+    }
+    if (exportToDate < STOCK_INTELLIGENCE_START) {
+      setError("Stock intelligence exports start from 14 October 2026, the operational launch date.");
+      return;
+    }
+
+    setExporting(true);
+    setError("");
+    setNotice("");
+    try {
+      const pageSize = 1000;
+      const exportItems: UnavailableItem[] = [];
+      for (let offset = 0; ; offset += pageSize) {
+        let query = supabase
+          .from("unavailable_items")
+          .select("id,visit_id,branch_id,item_name,reported_on,recorded_at,created_by,status,image_path,branches(name)")
+          .gte("reported_on", exportFromDate < STOCK_INTELLIGENCE_START ? STOCK_INTELLIGENCE_START : exportFromDate)
+          .lte("reported_on", exportToDate)
+          .order("reported_on", { ascending: false })
+          .order("recorded_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (branchFilter !== "all") query = query.eq("branch_id", branchFilter);
+        const result = await query;
+        if (result.error) throw result.error;
+        const page = (result.data ?? []) as unknown as UnavailableItem[];
+        exportItems.push(...page);
+        if (page.length < pageSize) break;
+      }
+
+      const flaggedVisits: StockVisit[] = [];
+      for (let offset = 0; ; offset += pageSize) {
+        let query = supabase
+          .from("visits")
+          .select("id,branch_id,visit_date,outcome,reason,unavailable_item_requested")
+          .eq("unavailable_item_requested", true)
+          .gte("visit_date", exportFromDate < STOCK_INTELLIGENCE_START ? STOCK_INTELLIGENCE_START : exportFromDate)
+          .lte("visit_date", exportToDate)
+          .order("visit_date", { ascending: false })
+          .order("recorded_at", { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (branchFilter !== "all") query = query.eq("branch_id", branchFilter);
+        const result = await query;
+        if (result.error) throw result.error;
+        const page = (result.data ?? []) as StockVisit[];
+        flaggedVisits.push(...page);
+        if (page.length < pageSize) break;
+      }
+
+      const visitContexts: StockVisit[] = [];
+      const visitIds = [...new Set(exportItems.map((item) => item.visit_id))];
+      for (let index = 0; index < visitIds.length; index += 500) {
+        const result = await supabase
+          .from("visits")
+          .select("id,branch_id,visit_date,outcome,reason,unavailable_item_requested")
+          .in("id", visitIds.slice(index, index + 500));
+        if (result.error) throw result.error;
+        visitContexts.push(...((result.data ?? []) as StockVisit[]));
+      }
+
+      const visitById = new Map(visitContexts.map((visit) => [visit.id, visit]));
+      const branchName = (branchId: string, fallback?: string | null) =>
+        fallback ?? registerBranches.find((branch) => branch.id === branchId)?.name ?? "Branch unavailable";
+      const isConfirmedStockout = (visit: StockVisit) =>
+        visit.unavailable_item_requested &&
+        (visit.outcome === "purchased" || (visit.outcome === "not_purchased" && visit.reason === "Item unavailable"));
+      const columns = [
+        "Record type", "Product name", "Branch", "Report date", "Visit date", "Reported time",
+        "Visit outcome", "No-purchase reason", "Stockout classification", "Assessment status",
+        "Photo attached", "Visit ID", "Report ID",
+      ];
+      const exportRows: string[][] = exportItems.map((item) => {
+        const visit = visitById.get(item.visit_id);
+        const verified = !!visit && isConfirmedStockout(visit);
+        const visitOutcome = visit?.outcome === "purchased" ? "Purchase" : visit?.outcome === "not_purchased" ? "No purchase" : "Unknown";
+        const classification = !visit || !visit.unavailable_item_requested
+          ? "Data review required - visit flag missing"
+          : !verified
+            ? "Data review required - visit reason inconsistent"
+            : visit.outcome === "purchased"
+              ? "Partial purchase with stock gap"
+              : "Complete stockout - no purchase";
+        return [
+          verified ? "Product report" : "Data-quality exception",
+          item.item_name,
+          branchName(item.branch_id, item.branches?.name),
+          item.reported_on,
+          visit?.visit_date ?? "",
+          new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(item.recorded_at)),
+          visitOutcome,
+          visit?.reason ?? "",
+          classification,
+          item.status === "pending" ? "Pending assessment" : item.status === "reviewed" ? "Reviewed" : "Resolved",
+          item.image_path ? "Yes" : "No",
+          item.visit_id,
+          item.id,
+        ];
+      });
+
+      const itemVisitIds = new Set(exportItems.map((item) => item.visit_id));
+      flaggedVisits.forEach((visit) => {
+        if (itemVisitIds.has(visit.id)) return;
+        const verified = isConfirmedStockout(visit);
+        exportRows.push([
+          verified ? "Stockout visit without product detail" : "Data-quality exception",
+          "",
+          branchName(visit.branch_id),
+          "",
+          visit.visit_date,
+          "",
+          visit.outcome === "purchased" ? "Purchase" : "No purchase",
+          visit.reason ?? "",
+          verified ? "Confirmed stockout visit - product not specified" : "Data review required - visit reason inconsistent",
+          "",
+          "",
+          visit.id,
+          "",
+        ]);
+      });
+
+      if (exportRows.length === 0) {
+        setNotice("No stock intelligence records were found for that date range and branch.");
+        return;
+      }
+
+      const escapeCell = (value: string) => {
+        const safe = /^[=+\-@\\t\\r]/.test(value) ? "'" + value : value;
+        return '"' + safe.replace(/"/g, '""') + '"';
+      };
+      const csv = "\\uFEFF" + [columns, ...exportRows]
+        .map((row) => row.map((cell) => escapeCell(String(cell ?? ""))).join(","))
+        .join("\\r\\n");
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `footlytics-stock-intelligence-${exportFromDate}-to-${exportToDate}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setNotice(`Exported ${exportRows.length} stock intelligence records for ${exportFromDate} to ${exportToDate} as CSV. Data-quality exceptions and visits without product details are included for follow-up.`);
+    } catch (exportError) {
+      setError("Could not export stock intelligence: " + (exportError instanceof Error ? exportError.message : "Please try again."));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function exportCsv() {
     if (!supabase || exporting) return;
     if (!exportFromDate || !exportToDate || exportFromDate > exportToDate) {
@@ -605,7 +762,11 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
             <span>{exportFromDate && exportToDate && exportFromDate <= exportToDate ? `Export period: ${exportFromDate} to ${exportToDate}` : "Choose a valid date range"}</span>
             <button className="secondary-button" type="button" onClick={() => { setExportFromDate(dateMinusDays(29)); setExportToDate(todayKey()); }} disabled={exporting}>Last 30 days</button>
           </div>
-          <button className="secondary-button" type="button" onClick={() => void exportCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey()}><Download size={14} /> {exporting ? "Preparing CSV…" : "Export CSV"}</button>
+          <button className="secondary-button" type="button" onClick={() => void exportCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey()}><Download size={14} /> {exporting ? "Preparing CSV…" : "Export unavailable-item CSV"}</button>
+          {profile.role === "admin" && <div className="unavailable-stock-export">
+            <p className="panel-description">The stock intelligence export includes verified product reports, partial-purchase and no-purchase stockouts, assessment status, visits with no product details, and records that need data-quality review. It follows the selected branch and export dates.</p>
+            <button className="primary-button" type="button" onClick={() => void exportStockIntelligenceCsv()} disabled={exporting || !exportFromDate || !exportToDate || exportFromDate > exportToDate || exportToDate > todayKey()}><Download size={14} /> {exporting ? "Preparing CSV…" : "Export stock intelligence"}</button>
+          </div>}
         </div>
       </details>
       <p className="history-footnote">The list shows up to 90 days of records, including today. Older reports remain stored for future analysis and aren't deleted by this filter.</p>
