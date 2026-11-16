@@ -412,6 +412,11 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       line("Most no-purchase visits", mostNoPurchaseBranch ? mostNoPurchaseBranch.name + " · " + mostNoPurchaseBranch.noPurchase : "No data");
       line("Most unavailable-item requests", mostUnavailableBranch ? mostUnavailableBranch.name + " · " + mostUnavailableBranch.unavailable : "No data");
     }
+    if (activeTab === "branches" && isVisible("branch-recording")) {
+      section("Branch recording activity");
+      branchRecordingStats.forEach(item => line(item.name, item.recordedDays + " of " + item.completedDays + " completed calendar days had records"));
+      line("Interpretation", "A day without records may reflect closure or missing entry, not necessarily low footfall.");
+    }
     if (activeTab === "reasons" && isVisible("reason-kpis")) {
       section("Reason summary metrics"); line("No-purchase visits", noPurchase.toLocaleString());
       line("Reason categories", String(reasonStats.length)); line("Most frequent reason", String(reasonStats[0]?.count ?? 0));
