@@ -18,6 +18,15 @@ type UnavailableItem = {
   branches?: { name: string } | null;
 };
 
+type StockVisit = {
+  id: string;
+  branch_id: string;
+  visit_date: string;
+  outcome: "purchased" | "not_purchased";
+  reason: string | null;
+  unavailable_item_requested: boolean;
+};
+
 type Props = { branches: Branch[]; profile: Profile; userId: string; activeBranchId: string | null };
 
 const dateKey = (date: Date) => {
@@ -43,6 +52,8 @@ function displayDate(value: string) {
 
 export default function UnavailableItems({ branches, profile, userId, activeBranchId }: Props) {
   const [items, setItems] = useState<UnavailableItem[]>([]);
+  const [stockVisits, setStockVisits] = useState<StockVisit[]>([]);
+  const [itemVisitContexts, setItemVisitContexts] = useState<StockVisit[]>([]);
   const [registerBranches, setRegisterBranches] = useState<Branch[]>(branches);
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
@@ -91,6 +102,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     if (!supabase) {
       setError("The database connection is unavailable. Please try opening the register again.");
       setItems([]);
+      setStockVisits([]);
+      setItemVisitContexts([]);
       setLoading(false);
       return;
     }
@@ -101,6 +114,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       const safeTo = toDate > latest ? latest : toDate;
       if (safeFrom > safeTo) {
         setItems([]);
+        setStockVisits([]);
+        setItemVisitContexts([]);
         setError("Choose a valid date range within the last 90 days.");
         return;
       }
@@ -120,6 +135,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           .range(offset, offset + pageSize - 1);
         if (result.error) {
           setItems([]);
+          setStockVisits([]);
+          setItemVisitContexts([]);
           setError("Could not load unavailable items: " + result.error.message);
           return;
         }
@@ -127,6 +144,39 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
         records.push(...page);
         if (page.length < pageSize) break;
       }
+      const flaggedVisits: StockVisit[] = [];
+      for (let offset = 0; ; offset += pageSize) {
+        let visitQuery = supabase
+          .from("visits")
+          .select("id,branch_id,visit_date,outcome,reason,unavailable_item_requested")
+          .eq("unavailable_item_requested", true)
+          .gte("visit_date", safeFrom)
+          .lte("visit_date", safeTo);
+        if (profile.role !== "admin") visitQuery = visitQuery.eq("branch_id", activeBranchId!);
+        const visitResult = await visitQuery
+          .order("visit_date", { ascending: false })
+          .order("recorded_at", { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (visitResult.error) throw visitResult.error;
+        const page = (visitResult.data ?? []) as StockVisit[];
+        flaggedVisits.push(...page);
+        if (page.length < pageSize) break;
+      }
+
+      const visitContexts: StockVisit[] = [];
+      const visitIds = [...new Set(records.map((item) => item.visit_id))];
+      for (let index = 0; index < visitIds.length; index += 500) {
+        const visitResult = await supabase
+          .from("visits")
+          .select("id,branch_id,visit_date,outcome,reason,unavailable_item_requested")
+          .in("id", visitIds.slice(index, index + 500));
+        if (visitResult.error) throw visitResult.error;
+        visitContexts.push(...((visitResult.data ?? []) as StockVisit[]));
+      }
+
+      setStockVisits(flaggedVisits);
+      setItemVisitContexts(visitContexts);
+
       const paths = records.flatMap((item) => item.image_path ? [item.image_path] : []);
       const photoUrls = new Map<string, string>();
       for (let index = 0; index < paths.length; index += 100) {
@@ -142,6 +192,8 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       setItems(records.map((item) => ({ ...item, photo_url: item.image_path ? photoUrls.get(item.image_path) : undefined })));
     } catch {
       setItems([]);
+      setStockVisits([]);
+      setItemVisitContexts([]);
       setError("The unavailable-items register could not be restored. Please try again.");
     } finally {
       setLoading(false);
@@ -184,14 +236,37 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
   ), [items, profile.role, branchFilter]);
 
   const unavailableIntelligence = useMemo(() => {
+    const branchAllowed = (branchId: string) => profile.role === "admin"
+      ? branchFilter === "all" || branchId === branchFilter
+      : branchId === activeBranchId;
+    const visitContextById = new Map(itemVisitContexts.map((visit) => [visit.id, visit]));
+    const validItems = intelligenceItems.filter((item) =>
+      visitContextById.get(item.visit_id)?.unavailable_item_requested === true
+    );
+    const mismatchedItems = intelligenceItems.filter((item) => {
+      const visit = visitContextById.get(item.visit_id);
+      return visit !== undefined && visit.unavailable_item_requested !== true;
+    });
+    const visibleStockVisits = stockVisits.filter((visit) => branchAllowed(visit.branch_id));
+    const reportedVisitIds = new Set(validItems.map((item) => item.visit_id));
+    const flaggedVisitsWithoutItems = visibleStockVisits.filter((visit) => !reportedVisitIds.has(visit.id));
     const statusCounts = {
-      total: intelligenceItems.length,
-      pending: intelligenceItems.filter((item) => item.status === "pending").length,
-      reviewed: intelligenceItems.filter((item) => item.status === "reviewed").length,
-      resolved: intelligenceItems.filter((item) => item.status === "resolved").length,
+      total: validItems.length,
+      pending: validItems.filter((item) => item.status === "pending").length,
+      reviewed: validItems.filter((item) => item.status === "reviewed").length,
+      resolved: validItems.filter((item) => item.status === "resolved").length,
     };
+    const pendingOlderThan7Days = validItems.filter((item) => {
+      if (item.status !== "pending") return false;
+      const age = Math.floor((Date.now() - new Date(item.reported_on + "T00:00:00Z").getTime()) / 86400000);
+      return age > 7;
+    }).length;
+    const noPurchaseStockouts = visibleStockVisits.filter((visit) =>
+      visit.outcome === "not_purchased" && visit.reason === "Item unavailable"
+    ).length;
+    const partialPurchaseVisits = visibleStockVisits.filter((visit) => visit.outcome === "purchased").length;
     const byBranch = registerBranches.map((branch) => {
-      const rows = intelligenceItems.filter((item) => item.branch_id === branch.id);
+      const rows = validItems.filter((item) => item.branch_id === branch.id);
       return {
         id: branch.id,
         name: branch.name,
@@ -200,10 +275,11 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       };
     }).filter((branch) => branch.total > 0).sort((a, b) => b.total - a.total);
     const productCounts = new Map<string, { name: string; count: number; branches: Set<string> }>();
-    intelligenceItems.forEach((item) => {
-      const key = item.item_name.trim().toLocaleLowerCase();
+    validItems.forEach((item) => {
+      const cleanName = item.item_name.trim().replace(/\\s+/g, " ");
+      const key = cleanName.toLocaleLowerCase();
       if (!key) return;
-      const current = productCounts.get(key) ?? { name: item.item_name.trim(), count: 0, branches: new Set<string>() };
+      const current = productCounts.get(key) ?? { name: cleanName, count: 0, branches: new Set<string>() };
       current.count += 1;
       current.branches.add(item.branch_id);
       productCounts.set(key, current);
@@ -212,8 +288,16 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       .map((item) => ({ ...item, branchCount: item.branches.size }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .slice(0, 5);
-    return { statusCounts, byBranch, topProducts };
-  }, [intelligenceItems, registerBranches]);
+    return {
+      statusCounts, byBranch, topProducts,
+      stockoutVisitCount: visibleStockVisits.length,
+      noPurchaseStockouts,
+      partialPurchaseVisits,
+      flaggedVisitsWithoutItems: flaggedVisitsWithoutItems.length,
+      mismatchedItems: mismatchedItems.length,
+      pendingOlderThan7Days,
+    };
+  }, [intelligenceItems, registerBranches, itemVisitContexts, stockVisits, profile.role, branchFilter, activeBranchId]);
 
   const filteredItems = useMemo(() => items.filter((item) => {
     const matchesName = !appliedSearch || item.item_name.toLowerCase().includes(appliedSearch.toLowerCase());
@@ -415,11 +499,23 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
         </div>
         <p className="panel-description">A summary of customer visits where an item was reported unavailable. Repeated reports can reflect repeated visits and should be checked against branch stock records.</p>
         <div className="unavailable-intelligence-kpis">
-          <div><strong>{unavailableIntelligence.statusCounts.total.toLocaleString()}</strong><span>Total reports</span></div>
-          <div><strong>{unavailableIntelligence.statusCounts.pending.toLocaleString()}</strong><span>Pending assessment</span></div>
-          <div><strong>{unavailableIntelligence.statusCounts.reviewed.toLocaleString()}</strong><span>Reviewed</span></div>
-          <div><strong>{unavailableIntelligence.statusCounts.resolved.toLocaleString()}</strong><span>Resolved</span></div>
+          <div><strong>{unavailableIntelligence.stockoutVisitCount.toLocaleString()}</strong><span>Stockout visits</span></div>
+          <div><strong>{unavailableIntelligence.statusCounts.total.toLocaleString()}</strong><span>Verified product reports</span></div>
+          <div><strong>{unavailableIntelligence.noPurchaseStockouts.toLocaleString()}</strong><span>No-purchase stockouts</span></div>
+          <div><strong>{unavailableIntelligence.partialPurchaseVisits.toLocaleString()}</strong><span>Partial purchases with stock gaps</span></div>
         </div>
+        <div className="unavailable-intelligence-status">
+          <span>{unavailableIntelligence.statusCounts.pending.toLocaleString()} pending</span>
+          <span>{unavailableIntelligence.statusCounts.reviewed.toLocaleString()} reviewed</span>
+          <span>{unavailableIntelligence.statusCounts.resolved.toLocaleString()} resolved</span>
+          <span>{unavailableIntelligence.pendingOlderThan7Days.toLocaleString()} pending over 7 days</span>
+        </div>
+        {(unavailableIntelligence.flaggedVisitsWithoutItems > 0 || unavailableIntelligence.mismatchedItems > 0) && (
+          <div className="unavailable-data-quality" role="status">
+            <strong>Data checks need review</strong>
+            <p>{unavailableIntelligence.flaggedVisitsWithoutItems.toLocaleString()} flagged stockout visits have no linked product report. {unavailableIntelligence.mismatchedItems.toLocaleString()} product reports are linked to visits without the stockout flag. These records are excluded from product rankings until reviewed. No historical records have been changed.</p>
+          </div>
+        )}
         <div className="unavailable-intelligence-columns">
           <div>
             <h4>Reports by branch</h4>
