@@ -73,13 +73,13 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     ],
     trends: [
       { id: "daily-trend", label: "Daily visit trend" }, { id: "weekday-conversion", label: "Purchase conversion by weekday" },
-      { id: "outcome-totals", label: "Outcome totals" }, { id: "hourly", label: "Record entry times by hour" },
-      { id: "daily-averages", label: "Daily averages and peak days" }, { id: "trend-summary", label: "Trend summary totals" },
+      { id: "hourly", label: "Record entry times by hour" },
+      { id: "daily-averages", label: "Daily averages and peak days" },
       { id: "trends-comparison", label: "Previous-period comparison" }, { id: "period-daily-chart", label: "Daily visits: current vs previous period" }, { id: "weekday-outcomes", label: "Visit outcomes by weekday" },
     ],
     reasons: [
       { id: "reason-kpis", label: "Reason summary metrics" }, { id: "reason-breakdown", label: "No-purchase reasons" },
-      { id: "reason-branches", label: "Reasons by branch" }, { id: "reasons-comparison", label: "Previous-period comparison" },
+      { id: "reason-branches", label: "Reasons by branch" },
     ],
   };
   const isVisible = (id: string) => visibleData[id] !== false;
@@ -386,8 +386,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       section("Reason summary metrics"); line("No-purchase visits", noPurchase.toLocaleString());
       line("Reason categories", String(reasonStats.length)); line("Most frequent reason", String(reasonStats[0]?.count ?? 0));
     }
-    if (isVisible(activeTab + "-comparison")) section("Previous-period comparison");
-    if (isVisible(activeTab + "-comparison")) {
+    if (activeTab === "overview" && isVisible("overview-comparison")) section("Previous-period comparison");
+    if (activeTab === "overview" && isVisible("overview-comparison")) {
       line("Previous period", previousPeriodLabel + (previousPeriodComplete ? "" : previousPeriodDays > 0 ? " · partial operational period" : ""));
       comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " vs " + (item.baselineAvailable ? String(item.previous) + (item.percentagePoints ? "%" : "") + " previous" : item.partialBaseline ? String(item.previous) + (item.percentagePoints ? "%" : "") + " partial previous" : "no baseline") + (item.baselineAvailable ? item.percentagePoints ? " · " + (item.delta > 0 ? "+" : "") + item.delta + " pp" : " · " + (item.delta > 0 ? "+" : "") + item.delta + " change" + (item.change === null ? "" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)") : item.partialBaseline ? " · no like-for-like change" : "")));
     }
@@ -473,19 +473,21 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       </nav>
       <p className="analytics-tab-description">{TABS.find((tab) => tab.id === activeTab)?.description}</p>
 
-      <div className="history-summary analytics-kpis analytics-shared-kpis" aria-label="Key performance metrics">
-        {comparisonStats.map((item) => <article className="analytics-shared-kpi" key={item.label}>
-          <span className="analytics-shared-kpi-label">{item.label === "Total visits" ? <><Users size={13} /> Total visits</> : item.label}</span>
-          <strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
-          <small>{item.baselineAvailable ? `Previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : item.partialBaseline ? `Partial previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : "No previous baseline"}</small>
-          <small className={item.baselineAvailable && item.delta > 0 ? "comparison-up" : item.baselineAvailable && item.delta < 0 ? "comparison-down" : ""}>
-            {item.baselineAvailable ? item.percentagePoints
-              ? `${item.delta > 0 ? "+" : ""}${item.delta} pp change`
-              : `${item.delta > 0 ? "+" : ""}${item.delta} change${item.change === null ? "" : ` (${item.change > 0 ? "+" : ""}${item.change}%)`}`
-              : item.partialBaseline ? "Partial period, no like-for-like change" : "No previous baseline"}
-          </small>
-        </article>)}
-      </div>
+      {activeTab === "overview" && (
+        <div className="history-summary analytics-kpis analytics-shared-kpis" aria-label="Key performance metrics">
+          {comparisonStats.map((item) => <article className="analytics-shared-kpi" key={item.label}>
+            <span className="analytics-shared-kpi-label">{item.label === "Total visits" ? <><Users size={13} /> Total visits</> : item.label}</span>
+            <strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
+            <small>{item.baselineAvailable ? `Previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : item.partialBaseline ? `Partial previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : "No previous baseline"}</small>
+            <small className={item.baselineAvailable && item.delta > 0 ? "comparison-up" : item.baselineAvailable && item.delta < 0 ? "comparison-down" : ""}>
+              {item.baselineAvailable ? item.percentagePoints
+                ? `${item.delta > 0 ? "+" : ""}${item.delta} pp change`
+                : `${item.delta > 0 ? "+" : ""}${item.delta} change${item.change === null ? "" : ` (${item.change > 0 ? "+" : ""}${item.change}%)`}`
+                : item.partialBaseline ? "Partial period, no like-for-like change" : "No previous baseline"}
+            </small>
+          </article>)}
+        </div>
+      )}
 
       <details className="analytics-customise-panel">
         <summary><span><strong>Customise view</strong><small>Choose exactly which data to display in this section</small></span><span className="analytics-customise-count">{sectionOptions[activeTab].filter((item) => isVisible(item.id)).length} of {sectionOptions[activeTab].length} selected</span></summary>
@@ -500,20 +502,24 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           </label>)}
         </div>
       </details>
-      <div className="analytics-action-row analytics-period-label">
-        <span><strong>Period comparison · completed days</strong><small>{previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " · partial" : ""} vs {startDate} to {comparisonEndDate}</small></span>
-      </div>
-      {isVisible(activeTab + "-comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
+      {activeTab === "overview" && (
+        <>
+          <div className="analytics-action-row analytics-period-label">
+            <span><strong>Period comparison · completed days</strong><small>{previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " · partial" : ""} vs {startDate} to {comparisonEndDate}</small></span>
+          </div>
+          {isVisible("overview-comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
         <p className="analytics-comparison-period">Previous period: {previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " (partial operational period)" : ""}. Completed current period: {startDate} to {comparisonEndDate}. Today is excluded from comparisons.</p>
         {!previousPeriodComplete && previousPeriodDays > 0 && <p className="analytics-help analytics-comparison-empty">Only {previousPeriodDays} operational days are available in the previous window. Records before 14 October 2026 are excluded, so this partial period is shown for context and no like-for-like change is calculated.</p>}
         {!previousPeriodComplete && previousPeriodDays === 0 && <p className="analytics-help analytics-comparison-empty">No completed days are available for a previous-period comparison in this selected range.</p>}
         {previousPeriodComplete && previousVisits.length === 0 && <p className="analytics-help analytics-comparison-empty">No saved visits were found in the previous period for this branch scope. There is no previous-period baseline.</p>}
-        {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
-          <span>{item.label}</span><strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
-          <small>{item.baselineAvailable ? `Previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : item.partialBaseline ? `Partial previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : "No previous baseline"}</small>
-          <small className={item.baselineAvailable && item.delta > 0 ? "comparison-up" : item.baselineAvailable && item.delta < 0 ? "comparison-down" : ""}>{item.baselineAvailable ? item.percentagePoints ? `${item.delta > 0 ? "+" : ""}${item.delta} pp change` : `${item.delta > 0 ? "+" : ""}${item.delta} change${item.change === null ? "" : ` (${item.change > 0 ? "+" : ""}${item.change}%)`}` : item.partialBaseline ? "Partial period, no like-for-like change" : "No previous baseline"}</small>
-        </article>)}
-      </section>}
+          {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
+            <span>{item.label}</span><strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
+            <small>{item.baselineAvailable ? `Previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : item.partialBaseline ? `Partial previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : "No previous baseline"}</small>
+            <small className={item.baselineAvailable && item.delta > 0 ? "comparison-up" : item.baselineAvailable && item.delta < 0 ? "comparison-down" : ""}>{item.baselineAvailable ? item.percentagePoints ? `${item.delta > 0 ? "+" : ""}${item.delta} pp change` : `${item.delta > 0 ? "+" : ""}${item.delta} change${item.change === null ? "" : ` (${item.change > 0 ? "+" : ""}${item.change}%)`}` : item.partialBaseline ? "Partial period, no like-for-like change" : "No previous baseline"}</small>
+          </article>)}
+          </section>}
+        </>
+      )}
 
       {activeTab === "overview" && (
         <div className="analytics-tab-content">
@@ -712,18 +718,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                   })}
                 </div>
               </section>
-              <section hidden={!isVisible("outcome-totals")} className="analytics-subpanel analytics-chart-card">
-                <h3><Users size={16} /> Outcome totals</h3>
-                <p className="analytics-help">Counts and share of all recorded visits across the two possible outcomes.</p>
-                <div className="analytics-legend">
-                  {outcomeStats.map((item) => <div key={item.label}><span className="analytics-legend-dot" style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count.toLocaleString()}</strong><small>{percent(item.count, analysisVisits.length)}%</small></div>)}
-                </div>
-              </section>
-            </div>
-            <div hidden={!isVisible("trend-summary")} className="analytics-trend-summary">
-              <span>Visits <strong>{analysisVisits.length.toLocaleString()}</strong></span>
-              <span>Purchases <strong>{purchases.toLocaleString()}</strong></span>
-              <span>No purchase <strong>{noPurchase.toLocaleString()}</strong></span>
             </div>
             <section hidden={!isVisible("hourly")} className="analytics-subpanel analytics-pattern-panel">
               <h3><Clock3 size={16} /> Individual record-entry times</h3>
@@ -763,7 +757,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       {activeTab === "reasons" && (
         <div className="analytics-tab-content">
           <div hidden={!isVisible("reason-kpis")} className="history-summary analytics-kpis">
-            <div><strong>{noPurchase.toLocaleString()}</strong><span>No-purchase visits</span></div>
             <div><strong>{noPurchase > 0 ? reasonStats.length : "—"}</strong><span>Reason categories</span></div>
             <div><strong>{reasonStats[0]?.reason ?? (noPurchase > 0 ? "Not recorded" : "No data")}</strong><span>Most frequent reason</span><small>{reasonStats[0] ? reasonStats[0].count + " visits" : noPurchase > 0 ? "No reason values saved" : "No no-purchase visits"}</small></div>
           </div>
