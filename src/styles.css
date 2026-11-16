@@ -668,3 +668,34 @@ h1{font:800 27px Manrope,sans-serif;letter-spacing:-1px;margin-bottom:8px;color:
   .history-quick-durations>span{width:100%}
   .history-quick-durations button{flex:1;padding:8px 9px}
 }
+
+
+/* Clearly differentiated stock intelligence and operational export actions. */
+.unavailable-export-panel{margin:20px 0;padding:18px;border:1px solid #dce7de;border-radius:14px;background:#fbfdfb}
+.unavailable-export-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.unavailable-export-heading h3{margin:3px 0 0;color:#294638;font-size:16px}
+.unavailable-export-heading>span{color:#78877d;font-size:10px}
+.unavailable-export-panel>.panel-description{margin:10px 0 14px;line-height:1.6}
+.unavailable-export-dates{grid-template-columns:repeat(2,minmax(0,1fr)) auto;margin:0 0 16px}
+.unavailable-export-dates>button{align-self:end;min-height:40px}
+.unavailable-export-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.unavailable-export-card{display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0;padding:15px;border:1px solid #dfe8e1;border-radius:12px;background:#fff}
+.unavailable-export-card-pdf{border-top:4px solid #b74747}
+.unavailable-export-card-data{border-top:4px solid #24794d}
+.unavailable-export-card-operational{border-top:4px solid #4777a8}
+.unavailable-export-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:#eef3ef;color:#345c45}
+.unavailable-export-card-pdf .unavailable-export-icon{background:#fff0f0;color:#a83b3b}
+.unavailable-export-card-data .unavailable-export-icon{background:#eaf6ee;color:#24794d}
+.unavailable-export-card-operational .unavailable-export-icon{background:#edf4fb;color:#376b9d}
+.unavailable-export-card h4{margin:0 0 6px;color:#294638;font-size:13px}
+.unavailable-export-card p{margin:0;color:#68796e;font-size:11px;line-height:1.55}
+.unavailable-export-card small{display:block;margin-top:8px;color:#87958b;font-size:10px;line-height:1.45}
+.unavailable-export-card>button{width:100%;justify-content:center;margin-top:auto;min-height:40px;font-size:10px}
+.unavailable-export-card-pdf>button{background:#a83b3b;border-color:#a83b3b;color:#fff}
+.unavailable-export-card-pdf>button:hover:not(:disabled){background:#8f3030;border-color:#8f3030}
+.unavailable-export-card-data>button{background:#24794d;border-color:#24794d;color:#fff}
+.unavailable-export-card-data>button:hover:not(:disabled){background:#195f3b;border-color:#195f3b}
+.unavailable-export-card-operational>button{background:#fff;border:1px solid #4777a8;color:#376b9d}
+.unavailable-export-card-operational>button:hover:not(:disabled){background:#edf4fb}
+@media(max-width:760px){.unavailable-export-actions{grid-template-columns:1fr}.unavailable-export-card{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:start}.unavailable-export-card>button{grid-column:1/-1}.unavailable-export-dates{grid-template-columns:1fr 1fr}.unavailable-export-dates>button{grid-column:1/-1;width:100%}}
+@media(max-width:520px){.unavailable-export-panel{padding:13px}.unavailable-export-heading{flex-direction:column;gap:4px}.unavailable-export-dates{grid-template-columns:1fr}.unavailable-export-dates>button{grid-column:auto}}
