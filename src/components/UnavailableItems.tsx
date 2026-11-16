@@ -37,6 +37,7 @@ const dateKey = (date: Date) => {
   return `${part("year")}-${part("month")}-${part("day")}`;
 };
 const todayKey = () => dateKey(new Date());
+const STOCK_INTELLIGENCE_START = "2026-10-14";
 
 function dateMinusDays(days: number) {
   const today = todayKey().split("-").map(Number);
@@ -150,7 +151,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           .from("visits")
           .select("id,branch_id,visit_date,outcome,reason,unavailable_item_requested")
           .eq("unavailable_item_requested", true)
-          .gte("visit_date", safeFrom)
+          .gte("visit_date", safeFrom < STOCK_INTELLIGENCE_START ? STOCK_INTELLIGENCE_START : safeFrom)
           .lte("visit_date", safeTo);
         if (profile.role !== "admin") visitQuery = visitQuery.eq("branch_id", activeBranchId!);
         const visitResult = await visitQuery
@@ -240,12 +241,13 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       ? branchFilter === "all" || branchId === branchFilter
       : branchId === activeBranchId;
     const visitContextById = new Map(itemVisitContexts.map((visit) => [visit.id, visit]));
+    const inOperationalPeriod = (item: UnavailableItem) => item.reported_on >= STOCK_INTELLIGENCE_START;
     const validItems = intelligenceItems.filter((item) =>
-      visitContextById.get(item.visit_id)?.unavailable_item_requested === true
+      inOperationalPeriod(item) && visitContextById.get(item.visit_id)?.unavailable_item_requested === true
     );
     const mismatchedItems = intelligenceItems.filter((item) => {
       const visit = visitContextById.get(item.visit_id);
-      return visit !== undefined && visit.unavailable_item_requested !== true;
+      return inOperationalPeriod(item) && visit !== undefined && visit.unavailable_item_requested !== true;
     });
     const visibleStockVisits = stockVisits.filter((visit) => branchAllowed(visit.branch_id));
     const reportedVisitIds = new Set(validItems.map((item) => item.visit_id));
@@ -497,7 +499,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           <div><p className="eyebrow">MANAGEMENT SNAPSHOT</p><h3>Reported stock gaps</h3></div>
           <span>{fromDate} to {toDate}</span>
         </div>
-        <p className="panel-description">A summary of customer visits where an item was reported unavailable. Repeated reports can reflect repeated visits and should be checked against branch stock records.</p>
+        <p className="panel-description">Stock intelligence starts from 14 October 2026, the operational launch date, to keep earlier testing records out. Product rankings use only reports linked to visits flagged for unavailable items. Repeated reports can reflect repeat customer visits and should be checked against branch stock records.</p>
         <div className="unavailable-intelligence-kpis">
           <div><strong>{unavailableIntelligence.stockoutVisitCount.toLocaleString()}</strong><span>Stockout visits</span></div>
           <div><strong>{unavailableIntelligence.statusCounts.total.toLocaleString()}</strong><span>Verified product reports</span></div>
