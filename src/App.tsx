@@ -81,7 +81,7 @@ export default function App() {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showUnavailablePrompt, setShowUnavailablePrompt] = useState(false);
   const [unavailableOutcome, setUnavailableOutcome] = useState<"purchased" | "not_purchased">("purchased");
-  const [unavailableItemsDraft, setUnavailableItemsDraft] = useState<Array<{ id: string; name: string; photo: File | null; preview: string }>>([{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }]);
+  const [unavailableItemsDraft, setUnavailableItemsDraft] = useState<Array<{ id: string; name: string; brandName: string; photo: File | null; preview: string }>>([{ id: crypto.randomUUID(), name: "", brandName: "", photo: null, preview: "" }]);
   const [preparingPhotoIds, setPreparingPhotoIds] = useState<string[]>([]);
   const [showBatch, setShowBatch] = useState(false);
   const [showNoPurchaseReason, setShowNoPurchaseReason] = useState(false);
@@ -403,7 +403,7 @@ export default function App() {
   function clearUnavailableDrafts() {
     setUnavailableItemsDraft((current) => {
       current.forEach((item) => { if (item.preview) URL.revokeObjectURL(item.preview); });
-      return [{ id: crypto.randomUUID(), name: "", photo: null, preview: "" }];
+      return [{ id: crypto.randomUUID(), name: "", brandName: "", photo: null, preview: "" }];
     });
   }
 
@@ -411,8 +411,12 @@ export default function App() {
     setUnavailableItemsDraft((current) => current.map((item) => item.id === id ? { ...item, name } : item));
   }
 
+  function updateUnavailableBrandName(id: string, brandName: string) {
+    setUnavailableItemsDraft((current) => current.map((item) => item.id === id ? { ...item, brandName } : item));
+  }
+
   function addUnavailableDraft() {
-    setUnavailableItemsDraft((current) => [...current, { id: crypto.randomUUID(), name: "", photo: null, preview: "" }]);
+    setUnavailableItemsDraft((current) => [...current, { id: crypto.randomUUID(), name: "", brandName: "", photo: null, preview: "" }]);
   }
 
   function removeUnavailableDraft(id: string) {
@@ -486,7 +490,7 @@ export default function App() {
   }
 
   async function saveUnavailableItem() {
-    const items = unavailableItemsDraft.map((item) => ({ ...item, name: item.name.trim() }));
+    const items = unavailableItemsDraft.map((item) => ({ ...item, name: item.name.trim(), brandName: item.brandName.trim() }));
     if (!supabase || !branch || !session || items.some((item) => !item.name)) {
       setError("Enter a product name for every item before saving.");
       return;
@@ -495,12 +499,16 @@ export default function App() {
       setError("Each product name must be 180 characters or fewer.");
       return;
     }
+    if (items.some((item) => item.brandName.length > 100)) {
+      setError("Each preferred brand must be 100 characters or fewer.");
+      return;
+    }
     setBusy(true);
     setError("");
     const uploadedPaths: string[] = [];
     try {
       const uploadResults = await Promise.allSettled(items.map(async (item) => {
-        if (!item.photo) return { item_name: item.name, image_path: null as string | null };
+        if (!item.photo) return { item_name: item.name, brand_name: item.brandName || null, image_path: null as string | null };
         const extension = item.photo.type === "image/png" ? "png" : item.photo.type === "image/webp" ? "webp" : "jpg";
         const imagePath = `${session.user.id}/${crypto.randomUUID()}.${extension}`;
         const upload = await supabase!.storage.from("unavailable-item-photos").upload(imagePath, item.photo, {
@@ -508,14 +516,14 @@ export default function App() {
           upsert: false,
         });
         if (upload.error) throw new Error("A photo could not be uploaded: " + upload.error.message);
-        return { item_name: item.name, image_path: imagePath };
+        return { item_name: item.name, brand_name: item.brandName || null, image_path: imagePath };
       }));
       for (const result of uploadResults) {
         if (result.status === "fulfilled" && result.value.image_path) uploadedPaths.push(result.value.image_path);
       }
       const failedUpload = uploadResults.find((result): result is PromiseRejectedResult => result.status === "rejected");
       if (failedUpload) throw failedUpload.reason;
-      const preparedItems = uploadResults.map((result) => (result as PromiseFulfilledResult<{ item_name: string; image_path: string | null }>).value);
+      const preparedItems = uploadResults.map((result) => (result as PromiseFulfilledResult<{ item_name: string; brand_name: string | null; image_path: string | null }>).value);
       const result = await supabase.rpc("record_unavailable_items", {
         p_branch_id: branch.id,
         p_outcome: unavailableOutcome,
@@ -815,6 +823,8 @@ export default function App() {
                   </div>
                   <label className="field-label" htmlFor={`unavailable-item-name-${item.id}`}>Product name, strength and form <span>Required</span></label>
                   <textarea className="unavailable-item-input" id={`unavailable-item-name-${item.id}`} maxLength={180} required value={item.name} onChange={(event) => updateUnavailableItemName(item.id, event.target.value)} placeholder="e.g. Amoxicillin 500 mg capsules" />
+                  <label className="field-label" htmlFor={`unavailable-item-brand-${item.id}`}>Preferred brand <span>Optional</span></label>
+                  <input className="unavailable-item-input" id={`unavailable-item-brand-${item.id}`} maxLength={100} value={item.brandName} onChange={(event) => updateUnavailableBrandName(item.id, event.target.value)} placeholder="e.g. Panadol, Augmentin, or leave blank" />
                   <label className="field-label" htmlFor={`unavailable-item-photo-${item.id}`}>Add a picture <span>Optional</span></label>
                   <input className="unavailable-photo-input" id={`unavailable-item-photo-${item.id}`} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={busy} onChange={(event) => selectUnavailablePhoto(item.id, event.target.files?.[0] ?? null)} />
                   {preparingPhotoIds.includes(item.id) && <small className="photo-preparing-note">Optimizing picture…</small>}{item.preview && <div className="unavailable-photo-preview"><img src={item.preview} alt={`Selected photo for item ${index + 1}`} /><div><strong>{item.photo?.name}</strong><small>Photo ready to attach</small><button className="text-button" type="button" disabled={busy} onClick={() => setUnavailableItemsDraft((current) => current.map((entry) => { if (entry.id !== item.id) return entry; if (entry.preview) URL.revokeObjectURL(entry.preview); return { ...entry, photo: null, preview: "" }; }))}>Remove picture</button></div></div>}
