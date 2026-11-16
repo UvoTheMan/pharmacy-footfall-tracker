@@ -336,7 +336,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
       </div>
 
       {!loading && visits.length === 0 ? (
-        <div className="corrections-empty">No visits found for this ${viewMode === "date" ? "date" : "date range"} and branch selection.</div>
+        <div className="corrections-empty">No visits found for this {viewMode === "date" ? "date" : "date range"} and branch selection.</div>
       ) : (
         <div className="history-table-wrap">
           <table className="history-table">
