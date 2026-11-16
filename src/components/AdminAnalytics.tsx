@@ -386,11 +386,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       section("Reason summary metrics"); line("No-purchase visits", noPurchase.toLocaleString());
       line("Reason categories", String(reasonStats.length)); line("Most frequent reason", String(reasonStats[0]?.count ?? 0));
     }
-    if (activeTab === "overview" && isVisible("overview-comparison")) section("Previous-period comparison");
-    if (activeTab === "overview" && isVisible("overview-comparison")) {
-      line("Previous period", previousPeriodLabel + (previousPeriodComplete ? "" : previousPeriodDays > 0 ? " · partial operational period" : ""));
-      comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " vs " + (item.baselineAvailable ? String(item.previous) + (item.percentagePoints ? "%" : "") + " previous" : item.partialBaseline ? String(item.previous) + (item.percentagePoints ? "%" : "") + " partial previous" : "no baseline") + (item.baselineAvailable ? item.percentagePoints ? " · " + (item.delta > 0 ? "+" : "") + item.delta + " pp" : " · " + (item.delta > 0 ? "+" : "") + item.delta + " change" + (item.change === null ? "" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)") : item.partialBaseline ? " · no like-for-like change" : "")));
-    }
     if (activeTab === "overview") {
       if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]); }
       if (isVisible("weekday")) { section("Average visits by weekday"); bars(weekdayStats.map(day => ({label:day.label + " · " + day.occurrences + " days",value:Number(day.average.toFixed(1))}))); }
@@ -403,7 +398,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     } else if (activeTab === "trends") {
       if (isVisible("daily-trend")) { section("Daily visits"); bars(dailyStats.filter(day => day.total > 0).map(day => ({label:day.date,value:day.total}))); }
       if (isVisible("weekday-conversion")) { section("Purchase conversion by weekday"); bars(weekdayStats.map(day => ({label:day.label + " · " + day.occurrences + " days",value:percent(day.purchases,day.purchases+day.noPurchase)}))); }
-      if (isVisible("outcome-totals")) { section("Outcome totals"); bars(outcomeStats.map(item => ({label:item.label,value:item.count,color:(item.label === "Purchased" ? [35,135,91] : item.label === "No purchase" ? [226,123,72] : [139,154,144]) as [number,number,number]}))); }
       if (isVisible("daily-averages")) { section("Daily averages and peak days"); line("Average on recorded days", averageDailyFootfall.toFixed(1) + " visits");
       line("Busiest recorded day", busiestDay ? busiestDay.date + " · " + busiestDay.total + " visits" : "No data");
       line("Quietest recorded day", quietestRecordedDay ? quietestRecordedDay.date + " · " + quietestRecordedDay.total + " visits" : "No data");
