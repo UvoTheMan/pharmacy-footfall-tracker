@@ -98,11 +98,7 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
     for (let offset = 0; ; offset += 1000) {
       let query = supabase
         .from("visits")
-        .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested,batch_id,created_by,created_at,updated_at")
-        .order("visit_date", { ascending: false })
-        .order("recorded_at", { ascending: false })
-        .order("id", { ascending: true })
-        .range(offset, offset + 999);
+        .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested,batch_id,created_by,created_at,updated_at");
 
       query = viewMode === "date"
         ? query.eq("visit_date", selectedDate)
@@ -113,6 +109,12 @@ export default function HistoricalVisits({ branch, branches, profile }: Props) {
       } else if (adminBranchFilter !== "all") {
         query = query.eq("branch_id", adminBranchFilter);
       }
+
+      query = query
+        .order("visit_date", { ascending: false })
+        .order("recorded_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(offset, offset + 999);
 
       const result = await query;
       if (result.error) {
