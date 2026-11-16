@@ -278,13 +278,16 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
     const partialPurchaseVisits = visibleStockVisits.filter((visit) => visit.outcome === "purchased").length;
     const byBranch = registerBranches.map((branch) => {
       const rows = validItems.filter((item) => item.branch_id === branch.id);
+      const branchStockVisits = visibleStockVisits.filter((visit) => visit.branch_id === branch.id);
       return {
         id: branch.id,
         name: branch.name,
         total: rows.length,
         pending: rows.filter((item) => item.status === "pending").length,
+        stockoutVisits: branchStockVisits.length,
       };
-    }).filter((branch) => branch.total > 0).sort((a, b) => b.total - a.total);
+    }).filter((branch) => branch.total > 0 || branch.stockoutVisits > 0)
+      .sort((a, b) => b.stockoutVisits - a.stockoutVisits || b.total - a.total);
     const productCounts = new Map<string, { name: string; count: number; branches: Set<string> }>();
     validItems.forEach((item) => {
       const cleanName = item.item_name.trim().replace(/\\s+/g, " ");
@@ -507,7 +510,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
       {profile.role === "admin" && <section className="unavailable-intelligence" aria-label="Unavailable-item intelligence">
         <div className="unavailable-intelligence-heading">
           <div><p className="eyebrow">MANAGEMENT SNAPSHOT</p><h3>Reported stock gaps</h3></div>
-          <span>{fromDate} to {toDate}</span>
+          <span>{fromDate < STOCK_INTELLIGENCE_START ? STOCK_INTELLIGENCE_START : fromDate} to {toDate}</span>
         </div>
         <p className="panel-description">Stock intelligence starts from 14 October 2026, the operational launch date, to keep earlier testing records out. Product rankings use only reports linked to visits flagged for unavailable items. Repeated reports can reflect repeat customer visits and should be checked against branch stock records.</p>
         <div className="unavailable-intelligence-kpis">
@@ -532,7 +535,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           <div>
             <h4>Reports by branch</h4>
             {unavailableIntelligence.byBranch.length === 0 ? <p className="corrections-empty">No reports in this date range.</p> : unavailableIntelligence.byBranch.map((branch) => <div className="unavailable-intelligence-row" key={branch.id}>
-              <span>{branch.name}</span><strong>{branch.total}</strong><small>{branch.pending} pending</small>
+              <span>{branch.name}</span><strong>{branch.stockoutVisits} stockout visits</strong><small>{branch.total} product reports, {branch.pending} pending</small>
             </div>)}
           </div>
           <div>
