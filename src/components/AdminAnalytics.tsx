@@ -360,16 +360,18 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     let y = 48;
     const green: [number, number, number] = [23, 77, 59];
     const muted: [number, number, number] = [105, 123, 111];
-    const ensure = (space: number) => { if (y + space > pageHeight - 16) { doc.addPage(); y = 18; } };
     let currentChapter = "Report introduction";
+    const pageChapters = [currentChapter];
+    const ensure = (space: number) => { if (y + space > pageHeight - 16) { doc.addPage(); pageChapters.push(currentChapter); y = 18; } };
     const section = (label: string) => {
       ensure(13); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(green[0], green[1], green[2]);
       doc.text(label, margin, y); y += 3; doc.setDrawColor(216, 230, 219); doc.line(margin, y, pageWidth - margin, y); y += 7;
     };
     const chapter = (number: string, title: string, description: string) => {
       currentChapter = title;
-      if (!fullReport) { section(title); return; }
+      if (!fullReport) { pageChapters[doc.getNumberOfPages() - 1] = title; section(title); return; }
       doc.addPage();
+      pageChapters.push(currentChapter);
       y = 22;
       const palette: Record<string, [number, number, number]> = {
         "01": [23, 77, 59], "02": [40, 91, 139], "03": [180, 104, 43], "04": [112, 76, 145],
@@ -416,14 +418,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     line("Batch-entered records excluded", String(hourlyAnalysis.batchExcluded));
     line("Before-opening records excluded", String(hourlyAnalysis.beforeOpeningExcluded));
     line("Invalid timestamps excluded", String(hourlyAnalysis.invalidTimestampExcluded));
-    if ((fullReport || activeTab === "overview") && ["kpi-visits","kpi-purchases","kpi-no-purchase","kpi-conversion","kpi-unavailable"].some(isVisible)) {
-      section("Performance at a glance");
-      if (isVisible("kpi-visits")) line("Total visits", analysisVisits.length.toLocaleString());
-      if (isVisible("kpi-purchases")) line("Purchases", purchases.toLocaleString());
-      if (isVisible("kpi-no-purchase")) line("No-purchase visits", noPurchase.toLocaleString());
-      if (isVisible("kpi-conversion")) line("Purchase conversion", conversion + "%");
-      if (isVisible("kpi-unavailable")) line("Unavailable-item requests", unavailableRequests.toLocaleString());
-    }
     if (fullReport || activeTab === "overview") {
       chapter("01", "Overview", "A high-level view of visits, purchase outcomes, weekday patterns and the main performance signals.");
       if (["kpi-visits","kpi-purchases","kpi-no-purchase","kpi-conversion","kpi-unavailable"].some(isVisible)) {
@@ -471,6 +465,14 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       line("Peak hour", peakHour ? peakHour.label + " · " + peakHour.total + " visits" : "No timestamped visits");
     }
     if (fullReport || activeTab === "reasons") {
+      chapter("04", "Reasons", "The recorded reasons behind no-purchase visits, grouped into practical areas for pharmacy management action.");
+      if (isVisible("reason-kpis")) {
+        section("Reason summary metrics"); line("No-purchase visits", noPurchase.toLocaleString());
+        line("Reason categories", String(reasonStats.length)); line("Most frequent reason", String(reasonStats[0]?.count ?? 0));
+        line("Stock-related no-purchase rate", stockRelatedNoPurchaseRate + "% (" + stockRelatedNoPurchase + " / " + analysisVisits.length + " visits)");
+        line("Price-related no-purchase rate", priceRelatedNoPurchaseRate + "% (" + priceRelatedNoPurchase + " / " + analysisVisits.length + " visits)");
+        reasonGroupStats.forEach(group => { line(group.label + " · " + group.count + " visits", group.action); });
+      }
       if (isVisible("reason-breakdown")) section("No-purchase reasons");
       const colors: [number,number,number][] = [[226,123,72],[123,131,216],[35,149,168],[200,94,145],[123,155,69],[186,138,56]];
       if (isVisible("reason-breakdown")) bars(reasonStats.map((item,index) => ({label:item.reason + " · " + percent(item.count,noPurchase) + "%",value:item.count,color:colors[index % colors.length]})));
@@ -481,7 +483,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     for (let page = 1; page <= pages; page++) {
       doc.setPage(page); doc.setDrawColor(222, 232, 224); doc.line(margin, pageHeight - 11, pageWidth - margin, pageHeight - 11);
       doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(muted[0], muted[1], muted[2]);
-      doc.text("FOOTLYTICS · " + currentChapter.toUpperCase(), margin, pageHeight - 6); doc.text("Page " + page + " of " + pages, pageWidth - margin, pageHeight - 6, { align: "right" });
+      doc.text("FOOTLYTICS · " + (pageChapters[page - 1] || "ANALYTICS").toUpperCase(), margin, pageHeight - 6); doc.text("Page " + page + " of " + pages, pageWidth - margin, pageHeight - 6, { align: "right" });
     }
     doc.save("Footlytics-" + (fullReport ? "Complete-Analytics" : activeTab) + "-" + startDate + "-to-" + analysisEndDate + ".pdf");
   };
