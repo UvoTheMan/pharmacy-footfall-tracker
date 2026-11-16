@@ -885,7 +885,7 @@ export default function UnavailableItems({ branches, profile, userId, activeBran
           </article>
         </div>
       </section>
-      <p className="history-footnote">The list shows up to 90 days of records, including today. Older reports remain stored for future analysis and aren't deleted by this filter.</p>The list shows up to 90 days of records, including today. Older reports remain stored for future analysis and aren't deleted by this filter.</p>
+      <p className="history-footnote">The list shows up to 90 days of records, including today. Older reports remain stored for future analysis and aren't deleted by this filter.</p>
       {editing && (
         <div className="modal-backdrop" role="presentation">
           <form className="modal" role="dialog" aria-modal="true" aria-labelledby="edit-unavailable-title" onSubmit={saveEdit}>
