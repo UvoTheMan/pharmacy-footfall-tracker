@@ -3,6 +3,8 @@ import { BarChart3, CalendarDays, Clock3, Download, GitCompare, RefreshCw, Searc
 import { supabase } from "../lib/supabase";
 import "./AdminAnalytics.css";
 
+const GO_LIVE_DATE = "2026-10-14";
+
 type Branch = { id: string; name: string; slug: string };
 type Visit = {
   id: string;
@@ -27,6 +29,9 @@ function shiftDate(key: string, amount: number) {
   date.setUTCDate(date.getUTCDate() + amount);
   return date.toISOString().slice(0, 10);
 }
+function laterDate(first: string, second: string) {
+  return first > second ? first : second;
+}
 function percent(numerator: number, denominator: number) {
   return denominator ? Math.round(numerator / denominator * 100) : 0;
 }
@@ -38,9 +43,9 @@ const TABS: { id: AnalysisTab; label: string; description: string }[] = [
 ];
 
 export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
-  const today = useMemo(() => dateKey(new Date()), []);
-  const earliest = shiftDate(today, -89);
-  const [startDate, setStartDate] = useState(shiftDate(today, -29));
+  const [today, setToday] = useState(() => dateKey(new Date()));
+  const earliest = laterDate(GO_LIVE_DATE, shiftDate(today, -89));
+  const [startDate, setStartDate] = useState(() => laterDate(GO_LIVE_DATE, shiftDate(today, -29)));
   const [endDate, setEndDate] = useState(today);
   const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
   const [visibleData, setVisibleData] = useState<Record<string, boolean>>({});
@@ -81,12 +86,32 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
   const [error, setError] = useState("");
   const [loadedRange, setLoadedRange] = useState("");
 
+  useEffect(() => {
+    const refreshToday = () => {
+      if (document.visibilityState !== "visible") return;
+      const nextToday = dateKey(new Date());
+      if (nextToday === today) return;
+      const nextEarliest = laterDate(GO_LIVE_DATE, shiftDate(nextToday, -89));
+      setToday(nextToday);
+      setStartDate((current) => current === laterDate(GO_LIVE_DATE, shiftDate(today, -29))
+        ? laterDate(GO_LIVE_DATE, shiftDate(nextToday, -29))
+        : current < nextEarliest ? nextEarliest : current);
+      setEndDate((current) => current === today ? nextToday : current);
+    };
+    window.addEventListener("focus", refreshToday);
+    document.addEventListener("visibilitychange", refreshToday);
+    return () => {
+      window.removeEventListener("focus", refreshToday);
+      document.removeEventListener("visibilitychange", refreshToday);
+    };
+  }, [today]);
+
   const load = useCallback(async () => {
     if (!supabase) {
       setError("Analytics is unavailable because the database connection is not configured.");
       return;
     }
-    if (!startDate || !endDate || startDate < earliest || endDate > today || startDate > endDate) {
+    if (!startDate || !endDate || startDate < earliest || startDate < GO_LIVE_DATE || endDate > today || startDate > endDate) {
       setError(`Choose a valid range from ${earliest} through ${today}, with the start date no later than the end date.`);
       return;
     }
@@ -97,7 +122,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       const result = await supabase
         .from("visits")
         .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested")
-        .gte("visit_date", shiftDate(startDate, -Math.max(1, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1)))
+        .gte("visit_date", laterDate(GO_LIVE_DATE, shiftDate(startDate, -Math.max(1, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1))))
         .lte("visit_date", endDate)
         .order("visit_date", { ascending: true })
         .order("id", { ascending: true })
@@ -121,8 +146,13 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
 
   const currentVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= startDate && visit.visit_date <= endDate), [visits, startDate, endDate]);
   const rangeDays = Math.max(1, Math.round((Date.parse(endDate + "T12:00:00Z") - Date.parse(startDate + "T12:00:00Z")) / 86400000) + 1);
-  const previousStartDate = shiftDate(startDate, -rangeDays);
+  const rawPreviousStartDate = shiftDate(startDate, -rangeDays);
+  const previousStartDate = laterDate(GO_LIVE_DATE, rawPreviousStartDate);
   const previousEndDate = shiftDate(startDate, -1);
+  const previousPeriodComplete = rawPreviousStartDate >= GO_LIVE_DATE;
+  const previousPeriodDays = previousEndDate >= previousStartDate
+    ? Math.round((Date.parse(previousEndDate + "T12:00:00Z") - Date.parse(previousStartDate + "T12:00:00Z")) / 86400000) + 1
+    : 0;
   const scopedCurrentVisits = useMemo(() => selectedBranchId === "all" ? currentVisits : currentVisits.filter((visit) => visit.branch_id === selectedBranchId), [currentVisits, selectedBranchId]);
   const previousVisits = useMemo(() => visits.filter((visit) => visit.visit_date >= previousStartDate && visit.visit_date <= previousEndDate && (selectedBranchId === "all" || visit.branch_id === selectedBranchId)), [visits, previousStartDate, previousEndDate, selectedBranchId]);
   const analysisVisits = scopedCurrentVisits;
@@ -166,7 +196,15 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     { label: "Purchases", current: purchases, previous: previousPurchases },
     { label: "No purchase", current: noPurchase, previous: previousNoPurchase },
     { label: "Conversion", current: conversion, previous: previousConversion, percentagePoints: true },
-  ].map((item) => ({ ...item, delta: item.current - item.previous, change: item.previous ? Math.round((item.current - item.previous) / item.previous * 100) : null }));
+  ].map((item) => {
+    const baselineAvailable = previousPeriodComplete && (item.percentagePoints ? previousResolved > 0 && resolved > 0 : previousVisits.length > 0);
+    const partialBaseline = !previousPeriodComplete && previousPeriodDays > 0;
+    const delta = item.current - item.previous;
+    const change = baselineAvailable && !item.percentagePoints && item.previous > 0
+      ? Math.round((item.current - item.previous) / item.previous * 100)
+      : null;
+    return { ...item, delta, change, baselineAvailable, partialBaseline };
+  });
   const busyHourStats = useMemo(() => {
     const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, label: new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "numeric", hour12: true }).format(new Date(Date.UTC(2026, 0, 1, hour - 1))), total: 0 }));
     analysisVisits.forEach((visit) => {
@@ -318,8 +356,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     }
     if (isVisible(activeTab + "-comparison")) section("Previous-period comparison");
     if (isVisible(activeTab + "-comparison")) {
-      line("Previous period", previousStartDate + " to " + previousEndDate);
-      comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " vs " + String(item.previous) + (item.percentagePoints ? "%" : "") + " previous" + (item.change === null ? " · no baseline" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)")));
+      line("Previous period", previousStartDate + " to " + previousEndDate + (previousPeriodComplete ? "" : " · partial operational period"));
+      comparisonStats.forEach(item => line(item.label, String(item.current) + (item.percentagePoints ? "%" : "") + " vs " + (item.baselineAvailable ? String(item.previous) + (item.percentagePoints ? "%" : "") + " previous" : item.partialBaseline ? String(item.previous) + (item.percentagePoints ? "%" : "") + " partial previous" : "no baseline") + (item.baselineAvailable ? item.percentagePoints ? " · " + (item.delta > 0 ? "+" : "") + item.delta + " pp" : " · " + (item.delta > 0 ? "+" : "") + item.delta + " change" + (item.change === null ? "" : " (" + (item.change > 0 ? "+" : "") + item.change + "%)") : item.partialBaseline ? " · no like-for-like change" : "")));
     }
     if (activeTab === "overview") {
       if (isVisible("outcomes")) { section("Outcome distribution"); bars([{label:"Purchased",value:purchases,color:[35,135,91]},{label:"No purchase",value:noPurchase,color:[226,123,72]}]); }
@@ -372,7 +410,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           </select>
         </label>
         <label className="history-date-field" htmlFor="analytics-start"><span><CalendarDays size={15} /> Start date</span>
-          <input id="analytics-start" type="date" min={earliest} max={endDate || today} value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+          <input id="analytics-start" type="date" min={earliest} max={endDate || today} value={startDate} onChange={(event) => setStartDate(event.target.value ? laterDate(GO_LIVE_DATE, event.target.value) : "")} />
         </label>
         <label className="history-date-field" htmlFor="analytics-end"><span><CalendarDays size={15} /> End date</span>
           <input id="analytics-end" type="date" min={startDate || earliest} max={today} value={endDate} onChange={(event) => setEndDate(event.target.value)} />
@@ -381,7 +419,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       </div>
       <div className="analytics-date-presets" aria-label="Quick reporting periods">
         <span>Quick range</span>
-        {[{ label: "7 days", days: 7 }, { label: "30 days", days: 30 }, { label: "90 days", days: 90 }].map((preset) => <button key={preset.days} type="button" className={startDate === shiftDate(endDate, -(preset.days - 1)) ? "analytics-preset active" : "analytics-preset"} onClick={() => { setEndDate(today); setStartDate(shiftDate(today, -(preset.days - 1))); }} disabled={loading}>{preset.label}</button>)}
+        {[{ label: "7 days", days: 7 }, { label: "30 days", days: 30 }, { label: "90 days", days: 90 }].map((preset) => <button key={preset.days} type="button" className={startDate === laterDate(GO_LIVE_DATE, shiftDate(endDate, -(preset.days - 1))) ? "analytics-preset active" : "analytics-preset"} onClick={() => { setEndDate(today); setStartDate(laterDate(GO_LIVE_DATE, shiftDate(today, -(preset.days - 1)))); }} disabled={loading}>{preset.label}</button>)}
       </div>
       {error && <p className="error-message" role="alert">{error}</p>}
       <div className="analytics-range-row">
@@ -405,9 +443,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
         {comparisonStats.map((item) => <article className="analytics-shared-kpi" key={item.label}>
           <span className="analytics-shared-kpi-label">{item.label === "Total visits" ? <><Users size={13} /> Total visits</> : item.label}</span>
           <strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
-          <small>Previous: {item.previous}{item.percentagePoints ? "%" : ""}</small>
-          <small className={item.delta > 0 ? "comparison-up" : item.delta < 0 ? "comparison-down" : ""}>
-            {item.delta > 0 ? "+" : ""}{item.delta}{item.percentagePoints ? " pp" : ""} change {item.change === null ? "no baseline" : "(" + (item.change > 0 ? "+" : "") + item.change + "%)"}
+          <small>{item.baselineAvailable ? `Previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : item.partialBaseline ? `Partial previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : "No previous baseline"}</small>
+          <small className={item.baselineAvailable && item.delta > 0 ? "comparison-up" : item.baselineAvailable && item.delta < 0 ? "comparison-down" : ""}>
+            {item.baselineAvailable ? item.percentagePoints
+              ? `${item.delta > 0 ? "+" : ""}${item.delta} pp change`
+              : `${item.delta > 0 ? "+" : ""}${item.delta} change${item.change === null ? "" : ` (${item.change > 0 ? "+" : ""}${item.change}%)`}`
+              : item.partialBaseline ? "Partial period, no like-for-like change" : "No previous baseline"}
           </small>
         </article>)}
       </div>
@@ -430,11 +471,12 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       </div>
       {isVisible(activeTab + "-comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
         <p className="analytics-comparison-period">Previous period: {previousStartDate} to {previousEndDate}. Current period: {startDate} to {endDate}.</p>
-        {previousVisits.length === 0 && <p className="analytics-help analytics-comparison-empty">No saved visits were found in the previous period for this branch scope. The comparison below uses zero as the previous-period count.</p>}
+        {!previousPeriodComplete && <p className="analytics-help analytics-comparison-empty">Only {previousPeriodDays} operational days are available in the previous window. Records before 14 October 2026 are excluded, so this partial period is shown for context and no like-for-like change is calculated.</p>}
+        {previousPeriodComplete && previousVisits.length === 0 && <p className="analytics-help analytics-comparison-empty">No saved visits were found in the previous period for this branch scope. There is no previous-period baseline.</p>}
         {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
           <span>{item.label}</span><strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
-          <small>Previous: {item.previous}{item.percentagePoints ? "%" : ""}</small>
-          <small className={item.delta > 0 ? "comparison-up" : item.delta < 0 ? "comparison-down" : ""}>{item.delta > 0 ? "+" : ""}{item.delta}{item.percentagePoints ? " pp" : ""} change {item.change === null ? "· no baseline" : "(" + (item.change > 0 ? "+" : "") + item.change + "%)"}</small>
+          <small>{item.baselineAvailable ? `Previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : item.partialBaseline ? `Partial previous: ${item.previous}${item.percentagePoints ? "%" : ""}` : "No previous baseline"}</small>
+          <small className={item.baselineAvailable && item.delta > 0 ? "comparison-up" : item.baselineAvailable && item.delta < 0 ? "comparison-down" : ""}>{item.baselineAvailable ? item.percentagePoints ? `${item.delta > 0 ? "+" : ""}${item.delta} pp change` : `${item.delta > 0 ? "+" : ""}${item.delta} change${item.change === null ? "" : ` (${item.change > 0 ? "+" : ""}${item.change}%)`}` : item.partialBaseline ? "Partial period, no like-for-like change" : "No previous baseline"}</small>
         </article>)}
       </section>}
 
@@ -518,7 +560,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
               {branchStats.map((item) => {
                 const previous = previousBranchStats.find((row) => row.id === item.id);
                 const maxVisits = Math.max(1, ...branchStats.map((row) => row.total), ...previousBranchStats.map((row) => row.total));
-                const conversionDelta = previous && previous.resolved > 0 && item.resolved > 0
+                const conversionDelta = previousPeriodComplete && previous && previous.resolved > 0 && item.resolved > 0
                   ? item.conversion - previous.conversion
                   : null;
                 return <article className="analytics-period-branch" key={item.id}>
