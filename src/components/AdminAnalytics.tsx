@@ -559,7 +559,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           <div className="analytics-grid">
             <section hidden={!isVisible("branch-period-chart")} className="analytics-subpanel analytics-wide-subpanel">
               <h3><GitCompare size={16} /> Branch performance: current vs previous period</h3>
-              <p className="analytics-help">Compare each branch with the same-length period immediately before the selected dates. Visit bars use counts; conversion bars use percentages.</p>
+              <p className="analytics-help">{previousPeriodComplete ? "Compare each branch with the same-length period immediately before the selected dates. Visit bars use counts; conversion bars use percentages." : `Only ${previousPeriodDays} operational days are available in the previous window. Previous-period bars are shown for context only and should not be treated as a like-for-like comparison.`}</p>
               {branchStats.map((item) => {
                 const previous = previousBranchStats.find((row) => row.id === item.id);
                 const maxVisits = Math.max(1, ...branchStats.map((row) => row.total), ...previousBranchStats.map((row) => row.total));
