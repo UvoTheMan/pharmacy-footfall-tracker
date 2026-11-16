@@ -293,7 +293,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     return [...counts.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
   }, [noPurchaseVisits]);
   const reasonGroupStats = useMemo(() => REASON_GROUPS.map((group) => {
-    const reasons = reasonStats.filter((item) => (group.reasons as readonly string[]).includes(item.reason));
+    const reasons = reasonStats.filter((item) => (group.reasons as readonly string[]).includes(item.reason) || (group.id === "unknown" && item.reason === "Not recorded"));
     const count = reasons.reduce((total, item) => total + item.count, 0);
     return { ...group, count, shareOfNoPurchase: percent(count, noPurchaseVisits.length), reasons };
   }), [reasonStats, noPurchaseVisits.length]);
@@ -789,7 +789,6 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                 <div className="analytics-row-label"><strong>{group.label}</strong><span>{group.count} · {group.shareOfNoPurchase}% of no-purchase visits</span></div>
                 <p>{group.action}</p>
                 {group.reasons.map((item) => <div className="analytics-action-reason" key={item.reason}><span>{item.reason}</span><strong>{item.count}</strong></div>)}
-                {group.id === "unknown" && reasonStats.some((item) => item.reason === "Not recorded") && <div className="analytics-action-reason"><span>Not recorded</span><strong>{reasonStats.find((item) => item.reason === "Not recorded")?.count ?? 0}</strong></div>}
               </article>)}
             </div>
           </section>
