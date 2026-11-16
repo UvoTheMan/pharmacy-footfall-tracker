@@ -12,6 +12,7 @@ type Visit = {
   branch_id: string;
   visit_date: string;
   recorded_at: string;
+  batch_id: string | null;
   outcome: "purchased" | "not_purchased" | "undecided";
   reason: string | null;
   unavailable_item_requested: boolean;
@@ -132,7 +133,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     for (let offset = 0; ; offset += 1000) {
       const result = await supabase
         .from("visits")
-        .select("id,branch_id,visit_date,recorded_at,outcome,reason,unavailable_item_requested")
+        .select("id,branch_id,visit_date,recorded_at,batch_id,outcome,reason,unavailable_item_requested")
         .gte("visit_date", previousStartDate)
         .lte("visit_date", analysisEndDate)
         .order("visit_date", { ascending: true })
@@ -227,18 +228,24 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       : null;
     return { ...item, delta, change, baselineAvailable, partialBaseline };
   });
-  const busyHourStats = useMemo(() => {
+  const hourlyAnalysis = useMemo(() => {
     const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, label: new Intl.DateTimeFormat("en-NG", { timeZone: "Africa/Lagos", hour: "numeric", hour12: true }).format(new Date(Date.UTC(2026, 0, 1, hour - 1))), total: 0 }));
+    let batchExcluded = 0;
+    let beforeOpeningExcluded = 0;
+    let invalidTimestampExcluded = 0;
     analysisVisits.forEach((visit) => {
+      if (visit.batch_id) { batchExcluded += 1; return; }
       const date = new Date(visit.recorded_at);
-      if (Number.isNaN(date.getTime())) return;
+      if (Number.isNaN(date.getTime())) { invalidTimestampExcluded += 1; return; }
       const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", hourCycle: "h23" }).format(date));
       const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Lagos", weekday: "short" }).format(date);
       const openingHour = weekday === "Sun" ? 14 : 8;
-      if (hour >= openingHour && hour < 24) hours[hour].total += 1;
+      if (hour < openingHour) { beforeOpeningExcluded += 1; return; }
+      hours[hour].total += 1;
     });
-    return hours;
+    return { hours, batchExcluded, beforeOpeningExcluded, invalidTimestampExcluded };
   }, [analysisVisits]);
+  const busyHourStats = hourlyAnalysis.hours;
   const visibleBusyHourStats = busyHourStats.filter((hour) => hour.total >= minimumHourlyVisitThreshold);
   const peakHour = [...visibleBusyHourStats].filter((hour) => hour.total > 0).sort((a, b) => b.total - a.total)[0];
   const quietHour = [...visibleBusyHourStats].filter((hour) => hour.total > 0).sort((a, b) => a.total - b.total)[0];
@@ -360,7 +367,10 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
     doc.setFontSize(8); doc.setTextColor(muted[0], muted[1], muted[2]); doc.text("Prepared from saved records. Comparisons are descriptive, not causal.", margin, y); y += 10;
     line("Current day", includeToday && endDate === today ? "Included in current totals and daily trend; excluded from comparisons and daily averages" : "Excluded from current reporting period");
     line("Opening schedule", "Mon-Sat 8:00 AM · Sunday 2:00 PM");
-    line("Hourly analysis", "Pre-opening records excluded; closing time not configured");
+    line("Hourly analysis", "Individual record-entry timestamps only. Batch entries are excluded. These are not confirmed customer arrival times.");
+    line("Batch-entered records excluded", String(hourlyAnalysis.batchExcluded));
+    line("Before-opening records excluded", String(hourlyAnalysis.beforeOpeningExcluded));
+    line("Invalid timestamps excluded", String(hourlyAnalysis.invalidTimestampExcluded));
     if (activeTab === "overview" && ["kpi-visits","kpi-purchases","kpi-no-purchase","kpi-conversion","kpi-unavailable"].some(isVisible)) {
       section("Performance at a glance");
       if (isVisible("kpi-visits")) line("Total visits", analysisVisits.length.toLocaleString());
@@ -728,14 +738,15 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </div>
             <section hidden={!isVisible("hourly")} className="analytics-subpanel analytics-pattern-panel">
               <h3><Clock3 size={16} /> Busy hours &amp; footfall patterns</h3>
-              <p className="analytics-help">Visit recording times are shown in Lagos local time. Pre-opening records are excluded: 8:00 AM Monday–Saturday and 2:00 PM Sunday. Set a minimum to focus on hours with that many visits or more; at 0, all hours and their counts are shown.</p>
+              <p className="analytics-help">This chart shows individual record-entry times in Lagos time, not confirmed customer arrival times. Batch-entered visits are excluded because they share an insert timestamp. Entries before opening are also excluded. Closing times are not configured yet, so delayed entries may still affect the pattern.</p>
+              <p className="analytics-help">Excluded from this chart: {hourlyAnalysis.batchExcluded} batch-entered records, {hourlyAnalysis.beforeOpeningExcluded} records before opening and {hourlyAnalysis.invalidTimestampExcluded} records with invalid timestamps.</p>
               <label className="analytics-hour-threshold">Show hours with at least
                 <input type="text" inputMode="numeric" pattern="[0-9]*" value={minimumHourlyVisits} onChange={(event) => setMinimumHourlyVisits(event.target.value.replace(/[^0-9]/g, ""))} aria-label="Minimum visits per hour" />
                 visits
               </label>
               <div className="analytics-hour-chart-scroll"><div className="analytics-hour-chart" role="group" aria-label="Visits by hour of day in Lagos time" style={{ gridTemplateColumns: `repeat(${Math.max(1, visibleBusyHourStats.length)}, minmax(36px, 1fr))`, minWidth: `${Math.max(1, visibleBusyHourStats.length) * 36}px` }}>
                 {visibleBusyHourStats.map((hour) => <div className="analytics-hour" key={hour.hour} title={hour.label + ": " + hour.total + " visits"}>
-                  <strong>{hour.total.toLocaleString()}</strong><span className="analytics-hour-track"><i style={{ height: (hour.total ? Math.max(5, hour.total / maxHour * 100) : 2) + "%" }} /></span><small>{hour.label.replace(" AM","a").replace(" PM","p")}</small>
+                  <strong>{hour.total.toLocaleString()}</strong><span className="analytics-hour-track"><i style={{ height: (hour.total ? Math.max(5, hour.total / maxHour * 100) : 2) + "%" }} /></span><small>{hour.label.replace(" am","a").replace(" pm","p")}</small>
                 </div>)}
                 {visibleBusyHourStats.length === 0 && <p className="corrections-empty">No hours reached this minimum in the selected period.</p>}
               </div></div>
