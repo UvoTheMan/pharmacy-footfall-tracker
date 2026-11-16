@@ -591,8 +591,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <div><strong>{branchStats.length}</strong><span>Branches included</span></div>
             <div><strong>{branchStats.filter((item) => item.total > 0).length}</strong><span>Branches with visits</span></div>
             <div><strong>{busiestBranch ? busiestBranch.name + " · " + busiestBranch.total : "No data"}</strong><span>Highest footfall branch (visits)</span></div>
-            <div><strong>{topBranch ? topBranch.name + " · " + topBranch.conversion + "% (n=" + topBranch.resolved + ")" : "Insufficient sample"}</strong><span>Highest conversion (30+ resolved visits)</span></div>
-            <div><strong>{lowestConversionBranch ? lowestConversionBranch.name + " · " + lowestConversionBranch.conversion + "% (n=" + lowestConversionBranch.resolved + ")" : "Insufficient sample"}</strong><span>Lowest conversion (30+ resolved visits)</span></div>
+            <div><strong>{topBranch ? topBranch.name + " · " + topBranch.conversion + "% (n=" + topBranch.resolved + ")" : "Insufficient sample"}</strong><span>Highest conversion ({MIN_BRANCH_SAMPLE}+ resolved visits)</span></div>
+            <div><strong>{lowestConversionBranch ? lowestConversionBranch.name + " · " + lowestConversionBranch.conversion + "% (n=" + lowestConversionBranch.resolved + ")" : "Insufficient sample"}</strong><span>Lowest conversion ({MIN_BRANCH_SAMPLE}+ resolved visits)</span></div>
             <div><strong>{mostNoPurchaseBranch ? mostNoPurchaseBranch.name + " · " + mostNoPurchaseBranch.noPurchase : "No data"}</strong><span>Most no-purchase visits</span></div>
             <div><strong>{mostUnavailableBranch ? mostUnavailableBranch.name + " · " + mostUnavailableBranch.unavailable : "No data"}</strong><span>Most unavailable-item requests</span></div>
           </div>
@@ -615,7 +615,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
                   </div>
                   <span className="analytics-period-metric-label">Resolved visits: {item.resolved} now · {previous?.resolved ?? 0} previously</span>
                   <span className="analytics-period-metric-label">
-                    Conversion: {item.resolved > 0 ? item.conversion + "% now" : "No resolved visits now"} · {previous?.resolved ? previous.conversion + "% previously" : "No previous baseline"}
+                    Conversion: {item.resolved > 0 ? item.conversion + "% now (n=" + item.resolved + ")" : "No resolved visits now"} · {previous?.resolved ? previous.conversion + "% previously (n=" + previous.resolved + ")" : "No previous baseline"}{item.resolved > 0 && item.resolved < MIN_BRANCH_SAMPLE ? " · Low sample" : ""}
                     {conversionDelta !== null && <> · {conversionDelta > 0 ? "+" : ""}{conversionDelta} percentage points</>}
                   </span>
                   <div className="analytics-paired-bars" aria-label={item.name + " conversion: " + (item.resolved > 0 ? item.conversion + " percent current" : "no current baseline") + ", " + (previous?.resolved ? previous.conversion + " percent previous" : "no previous baseline")}>
@@ -628,7 +628,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             </section>
             <section hidden={!isVisible("branch-performance")} className="analytics-subpanel analytics-wide-subpanel">
               <h3><GitCompare size={16} /> {selectedBranchId === "all" ? "Branch performance comparison" : "Selected branch performance"}</h3>
-              <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Conversion is purchases divided by resolved visits.</p>
+              <p className="analytics-help">Review visit volume, outcomes and conversion for the selected branch scope. Each conversion rate shows its resolved-visit sample size. Rates below {MIN_BRANCH_SAMPLE} resolved visits are marked low sample.</p>
               {branchStats.map((item) => (
                 <div className="analytics-branch-row" key={item.id}>
                   <div className="analytics-row-label"><strong>{item.name}</strong><span>{item.total.toLocaleString()} visits · {item.resolved} resolved · {item.resolved > 0 ? item.conversion + "% conversion" : "No resolved visits"}{item.resolved > 0 && item.resolved < MIN_BRANCH_SAMPLE ? " · Low sample" : ""}</span></div>
