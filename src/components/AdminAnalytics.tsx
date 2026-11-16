@@ -511,7 +511,8 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
       </div>
       {isVisible(activeTab + "-comparison") && <section className="analytics-comparison-grid" aria-label="Previous-period comparison">
         <p className="analytics-comparison-period">Previous period: {previousPeriodLabel}{previousPeriodComplete ? "" : previousPeriodDays > 0 ? " (partial operational period)" : ""}. Completed current period: {startDate} to {comparisonEndDate}. Today is excluded from comparisons.</p>
-        {!previousPeriodComplete && <p className="analytics-help analytics-comparison-empty">Only {previousPeriodDays} operational days are available in the previous window. Records before 14 October 2026 are excluded, so this partial period is shown for context and no like-for-like change is calculated.</p>}
+        {!previousPeriodComplete && previousPeriodDays > 0 && <p className="analytics-help analytics-comparison-empty">Only {previousPeriodDays} operational days are available in the previous window. Records before 14 October 2026 are excluded, so this partial period is shown for context and no like-for-like change is calculated.</p>}
+        {!previousPeriodComplete && previousPeriodDays === 0 && <p className="analytics-help analytics-comparison-empty">No completed days are available for a previous-period comparison in this selected range.</p>}
         {previousPeriodComplete && previousVisits.length === 0 && <p className="analytics-help analytics-comparison-empty">No saved visits were found in the previous period for this branch scope. There is no previous-period baseline.</p>}
         {comparisonStats.map((item) => <article className="analytics-comparison-card" key={item.label}>
           <span>{item.label}</span><strong>{item.current}{item.percentagePoints ? "%" : ""}</strong>
@@ -599,7 +600,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
           <div className="analytics-grid">
             <section hidden={!isVisible("branch-period-chart")} className="analytics-subpanel analytics-wide-subpanel">
               <h3><GitCompare size={16} /> Branch performance: current vs previous period</h3>
-              <p className="analytics-help">{previousPeriodComplete ? "Compare each branch with the same-length period immediately before the selected dates. Visit bars use counts; conversion bars use percentages." : `Only ${previousPeriodDays} operational days are available in the previous window. Previous-period bars are shown for context only and should not be treated as a like-for-like comparison.`}</p>
+              <p className="analytics-help">{previousPeriodComplete ? "Compare each branch with the same-length period immediately before the selected dates. Visit bars use counts; conversion bars use percentages." : previousPeriodDays > 0 ? `Only ${previousPeriodDays} operational days are available in the previous window. Previous-period bars are shown for context only and should not be treated as a like-for-like comparison.` : "No completed days are available for a previous-period branch comparison."}</p>
               {comparisonBranchStats.map((item) => {
                 const previous = previousBranchStats.find((row) => row.id === item.id);
                 const maxVisits = Math.max(1, ...comparisonBranchStats.map((row) => row.total), ...previousBranchStats.map((row) => row.total));
@@ -663,7 +664,7 @@ export default function AdminAnalytics({ branches }: { branches: Branch[] }) {
             <h3><TrendingUp size={16} /> Daily visits: current vs previous period</h3>
             <p className="analytics-help">Each pair compares the same position in two equal-length periods. Scroll horizontally on mobile for longer ranges.</p>
             {!previousPeriodComplete
-              ? <p className="analytics-help analytics-comparison-empty">A daily comparison is unavailable because the full previous period falls partly before the 14 October 2026 operational start date.</p>
+              ? <p className="analytics-help analytics-comparison-empty">{rangeDays === 0 ? "No completed days are available for a daily comparison." : "A daily comparison is unavailable because the full previous period falls partly before the 14 October 2026 operational start date."}</p>
               : <div className="analytics-period-daily-chart" role="img" aria-label="Daily visits comparison, current period versus previous period">
                 {periodDailyComparison.map((day) => <div className="analytics-period-day" key={day.index} title={`Day ${day.index}: current ${day.current} visits; previous ${day.previous} visits`}>
                   <div className="analytics-period-day-bars"><span className="analytics-period-current" style={{ height: `${day.current / maxPeriodDaily * 100}%` }} /><span className="analytics-period-previous" style={{ height: `${day.previous / maxPeriodDaily * 100}%` }} /></div>
